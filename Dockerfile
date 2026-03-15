@@ -6,13 +6,11 @@ WORKDIR /app
 # Install build dependencies
 RUN apk add --no-cache git ca-certificates
 
-# Copy go mod files first for layer caching
-COPY go.mod ./
-COPY go.sum* ./
-RUN go mod tidy && go mod download
-
-# Copy source
+# Copy all source first (go mod tidy needs source to resolve imports)
 COPY . .
+
+# Generate go.sum and download dependencies
+RUN go mod tidy && go mod download
 
 # Build the binary
 ENV CGO_ENABLED=0

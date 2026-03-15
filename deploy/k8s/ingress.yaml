@@ -1,0 +1,18 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: pulse-service
+  namespace: production
+  labels:
+    app: pulse-service
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`pulse-api.institutoitinerante.com.br`) && PathPrefix(`/api`)
+      kind: Rule
+      services:
+        - name: pulse-service
+          port: 80
+  tls:
+    certResolver: letsencrypt

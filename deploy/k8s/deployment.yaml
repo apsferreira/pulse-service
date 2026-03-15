@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pulse-service
+  namespace: production
+  labels:
+    app: pulse-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pulse-service
+  template:
+    metadata:
+      labels:
+        app: pulse-service
+    spec:
+      containers:
+        - name: pulse-service
+          image: ghcr.io/apsferreira/pulse-service:main-latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3015
+              name: http
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: pulse-service-secrets
+                  key: database-url
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: pulse-service-secrets
+                  key: redis-url
+            - name: SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: pulse-service-secrets
+                  key: service-token
+            - name: PORT
+              value: "3015"
+            - name: LOG_LEVEL
+              value: "info"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3015
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3015
+            initialDelaySeconds: 5
+            periodSeconds: 10

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { Pencil, Trash2, AlertTriangle } from 'lucide-react'
 import type { FeatureFlag, Product } from '../services/api'
 

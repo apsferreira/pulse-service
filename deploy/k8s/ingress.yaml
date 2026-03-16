@@ -14,5 +14,29 @@ spec:
       services:
         - name: pulse-service
           port: 80
+    - match: Host(`pulse-api.institutoitinerante.com.br`) && Path(`/health`)
+      kind: Rule
+      services:
+        - name: pulse-service
+          port: 80
+  tls:
+    certResolver: letsencrypt
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: pulse-service-frontend
+  namespace: production
+  labels:
+    app: pulse-service-frontend
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`pulse.institutoitinerante.com.br`)
+      kind: Rule
+      services:
+        - name: pulse-service-frontend
+          port: 80
   tls:
     certResolver: letsencrypt

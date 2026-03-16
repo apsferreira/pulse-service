@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pulse-service-frontend
+  namespace: production
+  labels:
+    app: pulse-service-frontend
+    component: frontend
+    part-of: apsferreira
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pulse-service-frontend
+  template:
+    metadata:
+      labels:
+        app: pulse-service-frontend
+        component: frontend
+        part-of: apsferreira
+    spec:
+      containers:
+      - name: frontend
+        image: ghcr.io/apsferreira/pulse-service-frontend:latest
+        ports:
+        - containerPort: 80
+        env:
+        - name: VITE_API_URL
+          value: ""
+        - name: VITE_SERVICE_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: pulse-service-secrets
+              key: service-token
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "10m"
+          limits:
+            memory: "64Mi"
+            cpu: "100m"
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 101
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: nginx-cache
+          mountPath: /var/cache/nginx
+        - name: nginx-run
+          mountPath: /var/run
+        - name: nginx-tmp
+          mountPath: /tmp
+      volumes:
+      - name: nginx-cache
+        emptyDir: {}
+      - name: nginx-run
+        emptyDir: {}
+      - name: nginx-tmp
+        emptyDir: {}
+      restartPolicy: Always
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pulse-service-frontend
+  namespace: production
+  labels:
+    app: pulse-service-frontend
+    part-of: apsferreira
+spec:
+  type: ClusterIP
+  selector:
+    app: pulse-service-frontend
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP

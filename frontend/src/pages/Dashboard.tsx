@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Plus, RefreshCw, Search } from 'lucide-react'
 import toast from 'react-hot-toast'
 import FlagTable from '../components/FlagTable'

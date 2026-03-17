@@ -61,10 +61,20 @@ func main() {
 	}
 	log.Println("connected to Redis")
 
-	// Wire up layers
+	// Wire up layers — feature flags
 	flagRepo := repository.NewFlagRepository(pool)
 	flagSvc := service.NewFlagService(flagRepo, redisClient)
 	flagHandler := handler.NewFlagHandler(flagSvc, cfg.ServiceToken)
+
+	// Wire up layers — uptime monitors
+	monitorRepo := repository.NewMonitorRepository(pool)
+	monitorSvc := service.NewMonitorService(monitorRepo)
+	monitorHandler := handler.NewMonitorHandler(monitorSvc, cfg.ServiceToken)
+
+	// Wire up layers — events ingestion
+	eventRepo := repository.NewEventRepository(pool)
+	eventSvc := service.NewEventService(eventRepo)
+	eventHandler := handler.NewEventHandler(eventSvc, cfg.ServiceToken)
 
 	// Create Fiber app
 	app := fiber.New(fiber.Config{
@@ -96,6 +106,15 @@ func main() {
 
 	// Register feature flag routes
 	flagHandler.RegisterRoutes(app)
+
+	// Register uptime monitor routes
+	monitorHandler.RegisterRoutes(app)
+
+	// Register events routes
+	eventHandler.RegisterRoutes(app)
+
+	// Start uptime monitor background checker
+	monitorSvc.StartBackgroundChecker()
 
 	// Start server in background
 	addr := fmt.Sprintf(":%s", cfg.Port)

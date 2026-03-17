@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Activity, Zap, Moon, Sun } from 'lucide-react'
+import { LayoutDashboard, Activity, Zap, Moon, Sun, HeartPulse } from 'lucide-react'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -33,6 +33,7 @@ export default function Layout({ children }: LayoutProps) {
 
   const navItems = [
     { to: '/', label: 'Feature Flags', icon: LayoutDashboard, end: true },
+    { to: '/uptime', label: 'Uptime', icon: HeartPulse },
     { to: '/events', label: 'Eventos', icon: Activity },
   ]
 

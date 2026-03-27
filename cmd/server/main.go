@@ -14,6 +14,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/institutoitinerante/pulse-service/internal/handler"
+	custommw "github.com/institutoitinerante/pulse-service/internal/middleware"
 	"github.com/institutoitinerante/pulse-service/internal/pkg/config"
 	"github.com/institutoitinerante/pulse-service/internal/repository"
 	"github.com/institutoitinerante/pulse-service/internal/service"
@@ -85,6 +86,8 @@ func main() {
 
 	// Global middleware
 	app.Use(recover.New())
+	app.Use(custommw.SecurityHeaders())
+	app.Use(custommw.RateLimit())
 	app.Use(logger.New(logger.Config{
 		Format: "[${time}] ${status} ${method} ${path} ${latency}\n",
 	}))

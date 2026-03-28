@@ -59,3 +59,54 @@ type EventListResponse struct {
 	Limit  int     `json:"limit"`
 	Offset int     `json:"offset"`
 }
+
+// ── Retention metrics ────────────────────────────────────────────
+
+// ActiveUsersItem represents DAU/WAU/MAU for a specific date.
+type ActiveUsersItem struct {
+	Date string `json:"date"`
+	DAU  int    `json:"dau"`
+	WAU  int    `json:"wau"`
+	MAU  int    `json:"mau"`
+}
+
+// RetentionResponse is the response for GET /api/v1/metrics/retention.
+type RetentionResponse struct {
+	Product string            `json:"product"`
+	Items   []ActiveUsersItem `json:"items"`
+}
+
+// CohortBucket represents retention for a cohort in a given period offset.
+type CohortBucket struct {
+	Period        int     `json:"period"`
+	ActiveUsers   int     `json:"active_users"`
+	RetentionPct  float64 `json:"retention_pct"`
+}
+
+// CohortItem represents a signup cohort and its retention over time.
+type CohortItem struct {
+	CohortLabel string         `json:"cohort_label"`
+	CohortSize  int            `json:"cohort_size"`
+	Buckets     []CohortBucket `json:"buckets"`
+}
+
+// CohortsResponse is the response for GET /api/v1/metrics/cohorts.
+type CohortsResponse struct {
+	Product    string       `json:"product"`
+	Granularity string     `json:"granularity"`
+	Cohorts    []CohortItem `json:"cohorts"`
+}
+
+// ActiveUsersCountItem represents a single period count.
+type ActiveUsersCountItem struct {
+	Period string `json:"period"`
+	Count  int    `json:"count"`
+}
+
+// ActiveUsersResponse is the response for GET /api/v1/metrics/active-users.
+type ActiveUsersResponse struct {
+	Product string                 `json:"product"`
+	DAU     []ActiveUsersCountItem `json:"dau"`
+	WAU     []ActiveUsersCountItem `json:"wau"`
+	MAU     []ActiveUsersCountItem `json:"mau"`
+}

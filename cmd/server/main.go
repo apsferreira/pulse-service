@@ -77,6 +77,11 @@ func main() {
 	eventSvc := service.NewEventService(eventRepo)
 	eventHandler := handler.NewEventHandler(eventSvc, cfg.ServiceToken)
 
+	// Wire up layers — retention metrics
+	retentionRepo := repository.NewRetentionRepository(pool)
+	retentionSvc := service.NewRetentionService(retentionRepo)
+	retentionHandler := handler.NewRetentionHandler(retentionSvc, cfg.ServiceToken)
+
 	// Create Fiber app
 	app := fiber.New(fiber.Config{
 		AppName:      "pulse-service",
@@ -115,6 +120,9 @@ func main() {
 
 	// Register events routes
 	eventHandler.RegisterRoutes(app)
+
+	// Register retention metrics routes
+	retentionHandler.RegisterRoutes(app)
 
 	// Start uptime monitor background checker
 	monitorSvc.StartBackgroundChecker()

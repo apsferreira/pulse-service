@@ -92,7 +92,7 @@ func main() {
 		Format: "[${time}] ${status} ${method} ${path} ${latency}\n",
 	}))
 
-	// CORS — allow all origins for SDK access on /evaluate
+	// CORS — allow all origins for SDK access on /flags
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "*",
 		AllowHeaders: "Origin, Content-Type, Accept, X-Service-Token",

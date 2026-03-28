@@ -14,12 +14,13 @@ type Config struct {
 }
 
 // Load reads configuration from environment variables, applying defaults where appropriate.
+// Default Redis URL uses DB 6 for feature flags cache.
 func Load() *Config {
 	return &Config{
 		DatabaseURL:  getEnv("DATABASE_URL", ""),
-		RedisURL:     getEnv("REDIS_URL", "redis://localhost:6379"),
+		RedisURL:     getEnv("REDIS_URL", "redis://localhost:6379/6"),
 		ServiceToken: getEnv("SERVICE_TOKEN", ""),
-		Port:         getEnv("PORT", "3015"),
+		Port:         getEnv("PORT", "3050"),
 		LogLevel:     getEnv("LOG_LEVEL", "info"),
 	}
 }

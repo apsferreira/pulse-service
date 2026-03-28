@@ -3,28 +3,21 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { X } from 'lucide-react'
-import type { FeatureFlag, CreateFlagPayload, UpdateFlagPayload, Product } from '../services/api'
-
-const PRODUCTS: { value: Product | ''; label: string }[] = [
-  { value: '', label: 'Global (sem produto)' },
-  { value: 'libri', label: 'Libri' },
-  { value: 'nitro', label: 'Nitro' },
-  { value: 'brio', label: 'Brio' },
-  { value: 'global', label: 'Global (explícito)' },
-]
+import type { FeatureFlag, CreateFlagPayload, UpdateFlagPayload } from '../services/api'
 
 const createSchema = z.object({
-  name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres').max(100, 'Nome muito longo'),
-  description: z.string().max(500, 'Descrição muito longa'),
-  is_enabled: z.boolean(),
-  product: z.string(),
-  rollout_pct: z.number().min(0).max(100),
+  key: z
+    .string()
+    .min(2, 'Key deve ter pelo menos 2 caracteres')
+    .max(100, 'Key muito longa')
+    .regex(/^[a-zA-Z0-9_\-\.]+$/, 'Apenas letras, numeros, underscore, hifen e ponto'),
+  description: z.string().max(500, 'Descricao muito longa'),
+  enabled: z.boolean(),
 })
 
 const editSchema = z.object({
-  description: z.string().max(500, 'Descrição muito longa'),
-  is_enabled: z.boolean(),
-  rollout_pct: z.number().min(0).max(100),
+  description: z.string().max(500, 'Descricao muito longa'),
+  enabled: z.boolean(),
 })
 
 type CreateFormValues = z.infer<typeof createSchema>
@@ -43,11 +36,9 @@ export default function FlagModal({ flag, onClose, onSubmit, loading }: FlagModa
   const createForm = useForm<CreateFormValues>({
     resolver: zodResolver(createSchema),
     defaultValues: {
-      name: '',
+      key: '',
       description: '',
-      is_enabled: false,
-      product: '',
-      rollout_pct: 100,
+      enabled: false,
     },
   })
 
@@ -55,8 +46,7 @@ export default function FlagModal({ flag, onClose, onSubmit, loading }: FlagModa
     resolver: zodResolver(editSchema),
     defaultValues: {
       description: flag?.description ?? '',
-      is_enabled: flag?.is_enabled ?? false,
-      rollout_pct: flag?.rollout_pct ?? 100,
+      enabled: flag?.enabled ?? false,
     },
   })
 
@@ -64,19 +54,16 @@ export default function FlagModal({ flag, onClose, onSubmit, loading }: FlagModa
     if (flag) {
       editForm.reset({
         description: flag.description,
-        is_enabled: flag.is_enabled,
-        rollout_pct: flag.rollout_pct,
+        enabled: flag.enabled,
       })
     }
   }, [flag, editForm])
 
   const handleCreate = createForm.handleSubmit(async (values) => {
     const payload: CreateFlagPayload = {
-      name: values.name,
+      key: values.key,
       description: values.description,
-      is_enabled: values.is_enabled,
-      product: (values.product as Product) || null,
-      rollout_pct: values.rollout_pct,
+      enabled: values.enabled,
     }
     await onSubmit(payload)
   })
@@ -84,8 +71,7 @@ export default function FlagModal({ flag, onClose, onSubmit, loading }: FlagModa
   const handleEdit = editForm.handleSubmit(async (values) => {
     const payload: UpdateFlagPayload = {
       description: values.description,
-      is_enabled: values.is_enabled,
-      rollout_pct: values.rollout_pct,
+      enabled: values.enabled,
     }
     await onSubmit(payload)
   })
@@ -106,7 +92,7 @@ export default function FlagModal({ flag, onClose, onSubmit, loading }: FlagModa
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-700">
           <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
-            {isEdit ? `Editar flag: ${flag.name}` : 'Nova feature flag'}
+            {isEdit ? `Editar flag: ${flag.key}` : 'Nova feature flag'}
           </h2>
           <button
             onClick={onClose}
@@ -120,30 +106,30 @@ export default function FlagModal({ flag, onClose, onSubmit, loading }: FlagModa
         <form onSubmit={isEdit ? handleEdit : handleCreate} className="px-5 py-4 space-y-4">
           {!isEdit && (
             <div>
-              <label className={labelClass} htmlFor="flag-name">
-                Nome <span className="text-red-500">*</span>
+              <label className={labelClass} htmlFor="flag-key">
+                Key <span className="text-red-500">*</span>
               </label>
               <input
-                id="flag-name"
+                id="flag-key"
                 type="text"
                 placeholder="ex: new-checkout-flow"
                 className={inputClass}
-                {...createForm.register('name')}
+                {...createForm.register('key')}
               />
-              {createForm.formState.errors.name && (
-                <p className={errorClass}>{createForm.formState.errors.name.message}</p>
+              {createForm.formState.errors.key && (
+                <p className={errorClass}>{createForm.formState.errors.key.message}</p>
               )}
             </div>
           )}
 
           <div>
             <label className={labelClass} htmlFor="flag-desc">
-              Descrição
+              Descricao
             </label>
             <textarea
               id="flag-desc"
               rows={2}
-              placeholder="Descreva o propósito desta flag..."
+              placeholder="Descreva o proposito desta flag..."
               className={`${inputClass} resize-none`}
               {...(isEdit ? editForm.register('description') : createForm.register('description'))}
             />
@@ -156,52 +142,13 @@ export default function FlagModal({ flag, onClose, onSubmit, loading }: FlagModa
                 )}
           </div>
 
-          {!isEdit && (
-            <div>
-              <label className={labelClass} htmlFor="flag-product">
-                Produto
-              </label>
-              <select id="flag-product" className={inputClass} {...createForm.register('product')}>
-                {PRODUCTS.map(({ value, label }) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          <div>
-            <label className={labelClass}>
-              Rollout (
-              {isEdit
-                ? editForm.watch('rollout_pct')
-                : createForm.watch('rollout_pct')}
-              %)
-            </label>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              step={5}
-              className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full appearance-none accent-violet-600 cursor-pointer"
-              {...(isEdit
-                ? editForm.register('rollout_pct', { valueAsNumber: true })
-                : createForm.register('rollout_pct', { valueAsNumber: true }))}
-            />
-            <div className="flex justify-between text-xs text-slate-400 mt-1">
-              <span>0%</span>
-              <span>100%</span>
-            </div>
-          </div>
-
           <div className="flex items-center gap-3">
             <div className="relative inline-flex items-center">
               <input
                 id="flag-enabled"
                 type="checkbox"
                 className="sr-only peer"
-                {...(isEdit ? editForm.register('is_enabled') : createForm.register('is_enabled'))}
+                {...(isEdit ? editForm.register('enabled') : createForm.register('enabled'))}
               />
               <label
                 htmlFor="flag-enabled"
@@ -230,7 +177,7 @@ export default function FlagModal({ flag, onClose, onSubmit, loading }: FlagModa
               {loading && (
                 <div className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
               )}
-              {isEdit ? 'Salvar alterações' : 'Criar flag'}
+              {isEdit ? 'Salvar alteracoes' : 'Criar flag'}
             </button>
           </div>
         </form>

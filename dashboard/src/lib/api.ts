@@ -84,6 +84,50 @@ export interface EventListResponse {
   offset: number
 }
 
+// ── Retention metrics types ──────────────────────────────────────
+
+export interface ActiveUsersItem {
+  date: string
+  dau: number
+  wau: number
+  mau: number
+}
+
+export interface RetentionResponse {
+  product: string
+  items: ActiveUsersItem[]
+}
+
+export interface CohortBucket {
+  period: number
+  active_users: number
+  retention_pct: number
+}
+
+export interface CohortItem {
+  cohort_label: string
+  cohort_size: number
+  buckets: CohortBucket[]
+}
+
+export interface CohortsResponse {
+  product: string
+  granularity: string
+  cohorts: CohortItem[]
+}
+
+export interface ActiveUsersCountItem {
+  period: string
+  count: number
+}
+
+export interface ActiveUsersResponse {
+  product: string
+  dau: ActiveUsersCountItem[]
+  wau: ActiveUsersCountItem[]
+  mau: ActiveUsersCountItem[]
+}
+
 // ── Flag API ──────────────────────────────────────────────────────
 
 export const flagsApi = {
@@ -129,5 +173,35 @@ export const eventsApi = {
     if (params?.offset) q.set('offset', String(params.offset))
     const qs = q.toString()
     return request<EventListResponse>(`/api/v1/events${qs ? `?${qs}` : ''}`)
+  },
+}
+
+// ── Retention Metrics API ────────────────────────────────────────
+
+export const retentionApi = {
+  retention: (params?: { product?: string; start_date?: string; end_date?: string }) => {
+    const q = new URLSearchParams()
+    if (params?.product) q.set('product', params.product)
+    if (params?.start_date) q.set('start_date', params.start_date)
+    if (params?.end_date) q.set('end_date', params.end_date)
+    const qs = q.toString()
+    return request<RetentionResponse>(`/api/v1/metrics/retention${qs ? `?${qs}` : ''}`)
+  },
+
+  cohorts: (params?: { product?: string; granularity?: string }) => {
+    const q = new URLSearchParams()
+    if (params?.product) q.set('product', params.product)
+    if (params?.granularity) q.set('granularity', params.granularity)
+    const qs = q.toString()
+    return request<CohortsResponse>(`/api/v1/metrics/cohorts${qs ? `?${qs}` : ''}`)
+  },
+
+  activeUsers: (params?: { product?: string; start_date?: string; end_date?: string }) => {
+    const q = new URLSearchParams()
+    if (params?.product) q.set('product', params.product)
+    if (params?.start_date) q.set('start_date', params.start_date)
+    if (params?.end_date) q.set('end_date', params.end_date)
+    const qs = q.toString()
+    return request<ActiveUsersResponse>(`/api/v1/metrics/active-users${qs ? `?${qs}` : ''}`)
   },
 }

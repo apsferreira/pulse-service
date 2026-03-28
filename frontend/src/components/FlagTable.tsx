@@ -1,53 +1,22 @@
 import { useState } from 'react'
 import { Pencil, Trash2, AlertTriangle } from 'lucide-react'
-import type { FeatureFlag, Product } from '../services/api'
-
-const PRODUCT_BADGES: Record<string, string> = {
-  libri: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
-  nitro: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',
-  brio: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
-  global: 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400',
-}
-
-function ProductBadge({ product }: { product: Product | null }) {
-  if (!product) return <span className="text-slate-400 text-xs">—</span>
-  const classes = PRODUCT_BADGES[product] ?? PRODUCT_BADGES.global
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${classes}`}>
-      {product}
-    </span>
-  )
-}
-
-function RolloutBar({ pct }: { pct: number }) {
-  return (
-    <div className="flex items-center gap-2">
-      <div className="w-16 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-        <div
-          className="h-full bg-violet-500 rounded-full transition-all"
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">{pct}%</span>
-    </div>
-  )
-}
+import type { FeatureFlag } from '../services/api'
 
 function ToggleSwitch({
-  flagId,
+  flagKey,
   enabled,
   onToggle,
 }: {
-  flagId: string
+  flagKey: string
   enabled: boolean
-  onToggle: (id: string, enabled: boolean) => Promise<void>
+  onToggle: (key: string, enabled: boolean) => Promise<void>
 }) {
   const [loading, setLoading] = useState(false)
 
   const handleClick = async () => {
     setLoading(true)
     try {
-      await onToggle(flagId, !enabled)
+      await onToggle(flagKey, !enabled)
     } finally {
       setLoading(false)
     }
@@ -97,8 +66,8 @@ function DeleteConfirm({ flag, onConfirm, onCancel, loading }: DeleteConfirmProp
               Deletar flag?
             </h3>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              A flag <strong className="text-slate-700 dark:text-slate-300">{flag.name}</strong> será
-              removida permanentemente. Esta ação não pode ser desfeita.
+              A flag <strong className="text-slate-700 dark:text-slate-300">{flag.key}</strong> sera
+              removida permanentemente. Esta acao nao pode ser desfeita.
             </p>
           </div>
         </div>
@@ -128,8 +97,8 @@ function DeleteConfirm({ flag, onConfirm, onCancel, loading }: DeleteConfirmProp
 interface FlagTableProps {
   flags: FeatureFlag[]
   onEdit: (flag: FeatureFlag) => void
-  onDelete: (id: string) => Promise<void>
-  onToggle: (id: string, enabled: boolean) => Promise<void>
+  onDelete: (key: string) => Promise<void>
+  onToggle: (key: string, enabled: boolean) => Promise<void>
   loading: boolean
 }
 
@@ -141,7 +110,7 @@ export default function FlagTable({ flags, onEdit, onDelete, onToggle, loading }
     if (!deleteTarget) return
     setDeleteLoading(true)
     try {
-      await onDelete(deleteTarget.id)
+      await onDelete(deleteTarget.key)
       setDeleteTarget(null)
     } finally {
       setDeleteLoading(false)
@@ -183,7 +152,7 @@ export default function FlagTable({ flags, onEdit, onDelete, onToggle, loading }
           />
         </svg>
         <p className="text-sm">Nenhuma feature flag encontrada</p>
-        <p className="text-xs">Crie a primeira flag usando o botão acima.</p>
+        <p className="text-xs">Crie a primeira flag usando o botao acima.</p>
       </div>
     )
   }
@@ -195,13 +164,11 @@ export default function FlagTable({ flags, onEdit, onDelete, onToggle, loading }
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-slate-50 dark:bg-slate-800/50 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-              <th className="px-4 py-3">Nome</th>
-              <th className="px-4 py-3">Descrição</th>
-              <th className="px-4 py-3">Produto</th>
-              <th className="px-4 py-3">Rollout</th>
+              <th className="px-4 py-3">Key</th>
+              <th className="px-4 py-3">Descricao</th>
               <th className="px-4 py-3 text-center">Ativo</th>
               <th className="px-4 py-3">Criado em</th>
-              <th className="px-4 py-3 text-right">Ações</th>
+              <th className="px-4 py-3 text-right">Acoes</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -211,19 +178,13 @@ export default function FlagTable({ flags, onEdit, onDelete, onToggle, loading }
                 className="bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
               >
                 <td className="px-4 py-3 font-mono text-xs font-medium text-slate-800 dark:text-slate-200">
-                  {flag.name}
+                  {flag.key}
                 </td>
                 <td className="px-4 py-3 text-slate-500 dark:text-slate-400 max-w-xs truncate">
-                  {flag.description || <span className="text-slate-300 dark:text-slate-600">—</span>}
-                </td>
-                <td className="px-4 py-3">
-                  <ProductBadge product={flag.product} />
-                </td>
-                <td className="px-4 py-3">
-                  <RolloutBar pct={flag.rollout_pct} />
+                  {flag.description || <span className="text-slate-300 dark:text-slate-600">--</span>}
                 </td>
                 <td className="px-4 py-3 text-center">
-                  <ToggleSwitch flagId={flag.id} enabled={flag.is_enabled} onToggle={onToggle} />
+                  <ToggleSwitch flagKey={flag.key} enabled={flag.enabled} onToggle={onToggle} />
                 </td>
                 <td className="px-4 py-3 text-xs text-slate-400 font-mono whitespace-nowrap">
                   {formatDate(flag.created_at)}
@@ -262,7 +223,7 @@ export default function FlagTable({ flags, onEdit, onDelete, onToggle, loading }
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="font-mono text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
-                  {flag.name}
+                  {flag.key}
                 </p>
                 {flag.description && (
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">
@@ -270,11 +231,7 @@ export default function FlagTable({ flags, onEdit, onDelete, onToggle, loading }
                   </p>
                 )}
               </div>
-              <ToggleSwitch flagId={flag.id} enabled={flag.is_enabled} onToggle={onToggle} />
-            </div>
-            <div className="flex items-center gap-3 flex-wrap">
-              <ProductBadge product={flag.product} />
-              <RolloutBar pct={flag.rollout_pct} />
+              <ToggleSwitch flagKey={flag.key} enabled={flag.enabled} onToggle={onToggle} />
             </div>
             <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
               <span className="text-xs text-slate-400 font-mono">{formatDate(flag.created_at)}</span>

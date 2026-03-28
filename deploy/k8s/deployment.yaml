@@ -20,7 +20,7 @@ spec:
           image: ghcr.io/apsferreira/pulse-service:sha-57e1ec6
           imagePullPolicy: Always
           ports:
-            - containerPort: 3015
+            - containerPort: 3050
               name: http
           env:
             - name: DATABASE_URL
@@ -39,7 +39,7 @@ spec:
                   name: pulse-service-secrets
                   key: service-token
             - name: PORT
-              value: "3015"
+              value: "3050"
             - name: LOG_LEVEL
               value: "info"
           resources:
@@ -52,12 +52,12 @@ spec:
           livenessProbe:
             httpGet:
               path: /health
-              port: 3015
+              port: 3050
             initialDelaySeconds: 10
             periodSeconds: 30
           readinessProbe:
             httpGet:
               path: /health
-              port: 3015
+              port: 3050
             initialDelaySeconds: 5
             periodSeconds: 10

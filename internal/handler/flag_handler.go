@@ -1,11 +1,16 @@
 package handler
 
 import (
+	"regexp"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/institutoitinerante/pulse-service/internal/domain"
 	"github.com/institutoitinerante/pulse-service/internal/middleware"
 	"github.com/institutoitinerante/pulse-service/internal/service"
 )
+
+// validKeyPattern allows only alphanumeric, underscores, hyphens and dots.
+var validKeyPattern = regexp.MustCompile(`^[a-zA-Z0-9_\-\.]{2,100}$`)
 
 type FlagHandler struct {
 	svc          *service.FlagService
@@ -18,36 +23,57 @@ func NewFlagHandler(svc *service.FlagService, serviceToken string) *FlagHandler 
 
 // RegisterRoutes mounts all flag routes onto the given Fiber app.
 func (h *FlagHandler) RegisterRoutes(app *fiber.App) {
-	api := app.Group("/api/v1")
+	// Public endpoint — no auth required (consumed by SDKs)
+	app.Get("/flags", h.GetFlagsMap)
 
-	// Public endpoint — no auth required (called from SDKs)
-	api.Get("/flags/evaluate", h.EvaluateFlags)
+	// Admin CRUD endpoints — require service token
+	api := app.Group("/api/v1/flags", middleware.ServiceTokenMiddleware(h.serviceToken))
+	api.Post("/", h.CreateFlag)
+	api.Get("/", h.ListFlags)
+	api.Get("/:key", h.GetFlagByKey)
+	api.Put("/:key", h.UpdateFlag)
+	api.Delete("/:key", h.DeleteFlag)
+}
 
-	// Admin endpoints — require service token
-	admin := api.Group("/flags", middleware.ServiceTokenMiddleware(h.serviceToken))
-	admin.Get("/", h.ListFlags)
-	admin.Post("/", h.CreateFlag)
-	admin.Put("/:id", h.UpdateFlag)
-	admin.Delete("/:id", h.DeleteFlag)
+// GetFlagsMap godoc
+// GET /flags — public, returns {flags: {key: enabled}} for SDK consumption.
+func (h *FlagHandler) GetFlagsMap(c *fiber.Ctx) error {
+	resp, err := h.svc.GetFlagsMap(c.Context())
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: "failed to load flags"})
+	}
+	return c.JSON(resp)
 }
 
 // ListFlags godoc
-// GET /api/v1/flags
-// Query params: product (optional)
+// GET /api/v1/flags — returns all flags with full details.
 func (h *FlagHandler) ListFlags(c *fiber.Ctx) error {
-	var product *string
-	if p := c.Query("product"); p != "" {
-		product = &p
-	}
-
-	flags, err := h.svc.List(c.Context(), product)
+	flags, err := h.svc.List(c.Context())
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: err.Error()})
+		return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: "failed to list flags"})
 	}
 	if flags == nil {
 		flags = []domain.FeatureFlag{}
 	}
 	return c.JSON(flags)
+}
+
+// GetFlagByKey godoc
+// GET /api/v1/flags/:key
+func (h *FlagHandler) GetFlagByKey(c *fiber.Ctx) error {
+	key := c.Params("key")
+	if !validKeyPattern.MatchString(key) {
+		return c.Status(fiber.StatusBadRequest).JSON(domain.ErrorResponse{Error: "invalid flag key"})
+	}
+
+	flag, err := h.svc.GetByKey(c.Context(), key)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: "failed to get flag"})
+	}
+	if flag == nil {
+		return c.Status(fiber.StatusNotFound).JSON(domain.ErrorResponse{Error: "flag not found"})
+	}
+	return c.JSON(flag)
 }
 
 // CreateFlag godoc
@@ -58,8 +84,8 @@ func (h *FlagHandler) CreateFlag(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(domain.ErrorResponse{Error: "invalid request body"})
 	}
 
-	if len(req.Name) < 2 || len(req.Name) > 100 {
-		return c.Status(fiber.StatusBadRequest).JSON(domain.ErrorResponse{Error: "name must be between 2 and 100 characters"})
+	if !validKeyPattern.MatchString(req.Key) {
+		return c.Status(fiber.StatusBadRequest).JSON(domain.ErrorResponse{Error: "key must be 2-100 chars, alphanumeric/underscore/hyphen/dot only"})
 	}
 
 	flag, err := h.svc.Create(c.Context(), req)
@@ -70,11 +96,11 @@ func (h *FlagHandler) CreateFlag(c *fiber.Ctx) error {
 }
 
 // UpdateFlag godoc
-// PUT /api/v1/flags/:id
+// PUT /api/v1/flags/:key
 func (h *FlagHandler) UpdateFlag(c *fiber.Ctx) error {
-	id := c.Params("id")
-	if id == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(domain.ErrorResponse{Error: "missing flag id"})
+	key := c.Params("key")
+	if !validKeyPattern.MatchString(key) {
+		return c.Status(fiber.StatusBadRequest).JSON(domain.ErrorResponse{Error: "invalid flag key"})
 	}
 
 	var req domain.UpdateFlagRequest
@@ -82,9 +108,9 @@ func (h *FlagHandler) UpdateFlag(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(domain.ErrorResponse{Error: "invalid request body"})
 	}
 
-	flag, err := h.svc.Update(c.Context(), id, req)
+	flag, err := h.svc.Update(c.Context(), key, req)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: err.Error()})
+		return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: "failed to update flag"})
 	}
 	if flag == nil {
 		return c.Status(fiber.StatusNotFound).JSON(domain.ErrorResponse{Error: "flag not found"})
@@ -93,30 +119,15 @@ func (h *FlagHandler) UpdateFlag(c *fiber.Ctx) error {
 }
 
 // DeleteFlag godoc
-// DELETE /api/v1/flags/:id
+// DELETE /api/v1/flags/:key
 func (h *FlagHandler) DeleteFlag(c *fiber.Ctx) error {
-	id := c.Params("id")
-	if id == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(domain.ErrorResponse{Error: "missing flag id"})
+	key := c.Params("key")
+	if !validKeyPattern.MatchString(key) {
+		return c.Status(fiber.StatusBadRequest).JSON(domain.ErrorResponse{Error: "invalid flag key"})
 	}
 
-	if err := h.svc.Delete(c.Context(), id); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: err.Error()})
+	if err := h.svc.Delete(c.Context(), key); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: "failed to delete flag"})
 	}
 	return c.SendStatus(fiber.StatusNoContent)
-}
-
-// EvaluateFlags godoc
-// GET /api/v1/flags/evaluate
-// Query params: product (required), user_id (optional), tenant_id (optional)
-func (h *FlagHandler) EvaluateFlags(c *fiber.Ctx) error {
-	product := c.Query("product")
-	userID := c.Query("user_id")
-	tenantID := c.Query("tenant_id")
-
-	resp, err := h.svc.EvaluateFlags(c.Context(), product, userID, tenantID)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: err.Error()})
-	}
-	return c.JSON(resp)
 }

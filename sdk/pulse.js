@@ -1,24 +1,18 @@
-// pulse-service JS SDK — minimal Fase 1
+// pulse-service JS SDK — Feature Flags
 // Usage: import { PulseSDK } from './pulse'
-// const pulse = new PulseSDK({ apiUrl: 'https://pulse-api.institutoitinerante.com.br', product: 'libri' })
-// const flags = await pulse.getFlags({ userId: '...' })
-// await pulse.track('book_added', { bookId: '...' })  // no-op in Fase 1
+// const pulse = new PulseSDK({ apiUrl: 'https://pulse-api.institutoitinerante.com.br' })
+// const flags = await pulse.getFlags()
+// pulse.isEnabled('my-feature')
 
 class PulseSDK {
-  constructor({ apiUrl, product, userId = null }) {
+  constructor({ apiUrl }) {
     this.apiUrl = apiUrl
-    this.product = product
-    this.userId = userId
     this._flags = null
   }
 
-  async getFlags(overrides = {}) {
-    const uid = overrides.userId ?? this.userId ?? ''
+  async getFlags() {
     try {
-      const url = new URL(`${this.apiUrl}/api/v1/flags/evaluate`)
-      url.searchParams.set('product', this.product)
-      if (uid) url.searchParams.set('user_id', uid)
-      const resp = await fetch(url.toString())
+      const resp = await fetch(`${this.apiUrl}/flags`)
       if (!resp.ok) return {}
       const data = await resp.json()
       this._flags = data.flags ?? {}
@@ -28,9 +22,9 @@ class PulseSDK {
     }
   }
 
-  isEnabled(flagName) {
+  isEnabled(flagKey) {
     if (!this._flags) return false
-    return !!this._flags[flagName]
+    return !!this._flags[flagKey]
   }
 
   // Fase 1: no-op. Fase 2 will persist events.

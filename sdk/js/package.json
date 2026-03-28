@@ -1,0 +1,33 @@
+{
+  "name": "@iit/pulse-sdk",
+  "version": "1.0.0",
+  "description": "SDK JS/TS para pulse-service — Feature Flags + Event Tracking",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "pulse",
+    "feature-flags",
+    "event-tracking",
+    "iit"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}

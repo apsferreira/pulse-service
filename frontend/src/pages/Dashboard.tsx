@@ -4,17 +4,7 @@ import toast from 'react-hot-toast'
 import FlagTable from '../components/FlagTable'
 import FlagModal from '../components/FlagModal'
 import { flagsApi } from '../services/api'
-import type { FeatureFlag, CreateFlagPayload, UpdateFlagPayload, Product } from '../services/api'
-
-type FilterProduct = Product | 'all'
-
-const PRODUCT_OPTIONS: { value: FilterProduct; label: string }[] = [
-  { value: 'all', label: 'Todos os produtos' },
-  { value: 'libri', label: 'Libri' },
-  { value: 'nitro', label: 'Nitro' },
-  { value: 'brio', label: 'Brio' },
-  { value: 'global', label: 'Global' },
-]
+import type { FeatureFlag, CreateFlagPayload, UpdateFlagPayload } from '../services/api'
 
 export default function Dashboard() {
   const [flags, setFlags] = useState<FeatureFlag[]>([])
@@ -23,7 +13,6 @@ export default function Dashboard() {
 
   // Filters
   const [search, setSearch] = useState('')
-  const [filterProduct, setFilterProduct] = useState<FilterProduct>('all')
 
   // Modal state
   const [modalOpen, setModalOpen] = useState(false)
@@ -65,7 +54,7 @@ export default function Dashboard() {
     setSubmitting(true)
     try {
       if (editTarget) {
-        const { data } = await flagsApi.update(editTarget.id, payload as UpdateFlagPayload)
+        const { data } = await flagsApi.update(editTarget.key, payload as UpdateFlagPayload)
         setFlags((prev) => prev.map((f) => (f.id === data.id ? data : f)))
         toast.success('Flag atualizada com sucesso')
       } else {
@@ -82,32 +71,27 @@ export default function Dashboard() {
     }
   }
 
-  const handleDelete = async (id: string) => {
-    await flagsApi.remove(id)
-    setFlags((prev) => prev.filter((f) => f.id !== id))
+  const handleDelete = async (key: string) => {
+    await flagsApi.remove(key)
+    setFlags((prev) => prev.filter((f) => f.key !== key))
     toast.success('Flag deletada')
   }
 
-  const handleToggle = async (id: string, enabled: boolean) => {
-    await flagsApi.update(id, { is_enabled: enabled })
-    setFlags((prev) => prev.map((f) => (f.id === id ? { ...f, is_enabled: enabled } : f)))
+  const handleToggle = async (key: string, enabled: boolean) => {
+    await flagsApi.update(key, { enabled })
+    setFlags((prev) => prev.map((f) => (f.key === key ? { ...f, enabled } : f)))
     toast.success(enabled ? 'Flag ativada' : 'Flag desativada')
   }
 
   const filtered = flags.filter((f) => {
-    const matchSearch =
+    return (
       search.trim() === '' ||
-      f.name.toLowerCase().includes(search.toLowerCase()) ||
+      f.key.toLowerCase().includes(search.toLowerCase()) ||
       (f.description ?? '').toLowerCase().includes(search.toLowerCase())
-
-    const matchProduct =
-      filterProduct === 'all' ||
-      (filterProduct === 'global' ? !f.product || f.product === 'global' : f.product === filterProduct)
-
-    return matchSearch && matchProduct
+    )
   })
 
-  const enabledCount = flags.filter((f) => f.is_enabled).length
+  const enabledCount = flags.filter((f) => f.enabled).length
 
   return (
     <div className="space-y-5">
@@ -116,7 +100,7 @@ export default function Dashboard() {
         <div>
           <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Feature Flags</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-            {flags.length} flags cadastradas · {enabledCount} ativas
+            {flags.length} flags cadastradas -- {enabledCount} ativas
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -146,52 +130,22 @@ export default function Dashboard() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por nome ou descrição..."
+            placeholder="Buscar por key ou descricao..."
             className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent placeholder:text-slate-400 dark:placeholder:text-slate-500"
           />
         </div>
-        <select
-          value={filterProduct}
-          onChange={(e) => setFilterProduct(e.target.value as FilterProduct)}
-          className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
-        >
-          {PRODUCT_OPTIONS.map(({ value, label }) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
       </div>
 
-      {/* Stats strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {(['libri', 'nitro', 'brio', 'global'] as const).map((product) => {
-          const count = flags.filter(
-            (f) => f.product === product || (!f.product && product === 'global')
-          ).length
-          const active = flags.filter(
-            (f) =>
-              f.is_enabled &&
-              (f.product === product || (!f.product && product === 'global'))
-          ).length
-          const COLORS: Record<string, string> = {
-            libri: 'from-blue-50 to-blue-100 dark:from-blue-950/40 dark:to-blue-900/20 border-blue-200 dark:border-blue-800',
-            nitro: 'from-orange-50 to-orange-100 dark:from-orange-950/40 dark:to-orange-900/20 border-orange-200 dark:border-orange-800',
-            brio: 'from-emerald-50 to-emerald-100 dark:from-emerald-950/40 dark:to-emerald-900/20 border-emerald-200 dark:border-emerald-800',
-            global: 'from-slate-50 to-slate-100 dark:from-slate-800/40 dark:to-slate-700/20 border-slate-200 dark:border-slate-700',
-          }
-          return (
-            <div
-              key={product}
-              className={`rounded-xl border bg-gradient-to-br ${COLORS[product]} p-3 cursor-pointer transition-all hover:shadow-soft`}
-              onClick={() => setFilterProduct(filterProduct === product ? 'all' : product)}
-            >
-              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 capitalize">{product}</p>
-              <p className="text-2xl font-bold text-slate-800 dark:text-slate-200 mt-0.5">{count}</p>
-              <p className="text-xs text-slate-400 mt-0.5">{active} ativas</p>
-            </div>
-          )
-        })}
+      {/* Stats */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-xl border bg-gradient-to-br from-violet-50 to-violet-100 dark:from-violet-950/40 dark:to-violet-900/20 border-violet-200 dark:border-violet-800 p-3">
+          <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Total</p>
+          <p className="text-2xl font-bold text-slate-800 dark:text-slate-200 mt-0.5">{flags.length}</p>
+        </div>
+        <div className="rounded-xl border bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950/40 dark:to-emerald-900/20 border-emerald-200 dark:border-emerald-800 p-3">
+          <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Ativas</p>
+          <p className="text-2xl font-bold text-slate-800 dark:text-slate-200 mt-0.5">{enabledCount}</p>
+        </div>
       </div>
 
       {/* Table */}

@@ -44,31 +44,24 @@ api.interceptors.response.use(
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-export type Product = 'libri' | 'nitro' | 'brio' | 'global'
-
 export interface FeatureFlag {
   id: string
-  name: string
+  key: string
   description: string
-  product: Product | null
-  is_enabled: boolean
-  rollout_pct: number
+  enabled: boolean
   created_at: string
   updated_at: string
 }
 
 export interface CreateFlagPayload {
-  name: string
+  key: string
   description: string
-  is_enabled: boolean
-  product: Product | null
-  rollout_pct: number
+  enabled: boolean
 }
 
 export interface UpdateFlagPayload {
   description?: string
-  is_enabled?: boolean
-  rollout_pct?: number
+  enabled?: boolean
 }
 
 // ── Flag API calls ───────────────────────────────────────────────────────────
@@ -76,17 +69,14 @@ export interface UpdateFlagPayload {
 export const flagsApi = {
   list: () => api.get<FeatureFlag[]>('/flags'),
 
+  getByKey: (key: string) => api.get<FeatureFlag>(`/flags/${key}`),
+
   create: (payload: CreateFlagPayload) => api.post<FeatureFlag>('/flags', payload),
 
-  update: (id: string, payload: UpdateFlagPayload) =>
-    api.put<FeatureFlag>(`/flags/${id}`, payload),
+  update: (key: string, payload: UpdateFlagPayload) =>
+    api.put<FeatureFlag>(`/flags/${key}`, payload),
 
-  remove: (id: string) => api.delete(`/flags/${id}`),
-
-  evaluate: (product: Product, userId: string) =>
-    api.get<Record<string, boolean>>('/flags/evaluate', {
-      params: { product, user_id: userId },
-    }),
+  remove: (key: string) => api.delete(`/flags/${key}`),
 }
 
 export default api

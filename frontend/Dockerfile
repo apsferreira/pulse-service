@@ -11,7 +11,7 @@ ENV BUILD_SHA=$BUILD_SHA
 ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_SERVICE_TOKEN=$VITE_SERVICE_TOKEN
 
-COPY package*.json ./
+COPY package*.json .npmrc ./
 RUN npm ci
 
 COPY . .

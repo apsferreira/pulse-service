@@ -42,9 +42,11 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.24"
+          go-version: "1.25"
 
       - name: Download dependencies
+        env:
+          GOTOOLCHAIN: auto
         run: go mod tidy && go mod download
 
       - name: Apply migrations

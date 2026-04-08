@@ -1,8 +1,15 @@
+import { getToken, clearToken } from './auth'
+
 const BASE_URL = (import.meta.env?.VITE_PULSE_API_URL as string) || ''
 const SERVICE_TOKEN = (import.meta.env?.VITE_SERVICE_TOKEN as string) || ''
 
 function headers(): Record<string, string> {
   const h: Record<string, string> = { 'Content-Type': 'application/json' }
+  // Prioridade: JWT > Service Token
+  const jwt = getToken()
+  if (jwt) {
+    h['Authorization'] = `Bearer ${jwt}`
+  }
   if (SERVICE_TOKEN) {
     h['X-Service-Token'] = SERVICE_TOKEN
   }
@@ -15,6 +22,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     headers: { ...headers(), ...init?.headers },
   })
   if (!res.ok) {
+    if (res.status === 401) {
+      clearToken()
+      window.location.href = '/login'
+      throw new Error('Sessao expirada')
+    }
     const body = await res.json().catch(() => ({}))
     throw new Error((body as { error?: string }).error || `HTTP ${res.status}`)
   }

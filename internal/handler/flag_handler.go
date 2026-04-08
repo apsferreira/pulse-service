@@ -37,7 +37,21 @@ func (h *FlagHandler) RegisterRoutes(app *fiber.App) {
 
 // GetFlagsMap godoc
 // GET /flags — public, returns {flags: {key: enabled}} for SDK consumption.
+// Query params opcionais: user_id, tenant_id — quando fornecidos, avalia rollout e targeting.
 func (h *FlagHandler) GetFlagsMap(c *fiber.Ctx) error {
+	userID := c.Query("user_id")
+	tenantID := c.Query("tenant_id")
+
+	// Se tem contexto, avalia com rollout + targeting
+	if userID != "" || tenantID != "" {
+		resp, err := h.svc.EvaluateFlags(c.Context(), userID, tenantID)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: "failed to evaluate flags"})
+		}
+		return c.JSON(resp)
+	}
+
+	// Sem contexto — retorna mapa simples (cache Redis)
 	resp, err := h.svc.GetFlagsMap(c.Context())
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: "failed to load flags"})

@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -55,9 +57,11 @@ func (s *FlagService) Create(ctx context.Context, req domain.CreateFlagRequest) 
 	}
 
 	flag := &domain.FeatureFlag{
-		Key:         req.Key,
-		Description: req.Description,
-		Enabled:     req.Enabled,
+		Key:               req.Key,
+		Description:       req.Description,
+		Enabled:           req.Enabled,
+		RolloutPercentage: req.RolloutPercentage,
+		Targeting:         req.Targeting,
 	}
 
 	if err := s.repo.Create(ctx, flag); err != nil {
@@ -92,6 +96,7 @@ func (s *FlagService) Delete(ctx context.Context, key string) error {
 }
 
 // GetFlagsMap returns a map of key:enabled for all flags.
+// Quando sem contexto (user_id/tenant_id vazio), retorna o campo enabled diretamente.
 // Results are cached in Redis (DB 6) with TTL 5min.
 func (s *FlagService) GetFlagsMap(ctx context.Context) (domain.FlagsMapResponse, error) {
 	// Try cache first
@@ -124,6 +129,82 @@ func (s *FlagService) GetFlagsMap(ctx context.Context) (domain.FlagsMapResponse,
 	}
 
 	return resp, nil
+}
+
+// EvaluateFlags avalia flags com contexto de user_id e tenant_id.
+// Lógica de avaliação (em ordem de prioridade):
+// 1. Se flag.Enabled = false → false (kill switch)
+// 2. Se targeting tem user_ids e user_id está na lista → true
+// 3. Se targeting tem tenant_ids e tenant_id está na lista → true
+// 4. Se rollout_percentage > 0 → hash(user_id + flag_key) % 100 < rollout_percentage
+// 5. Se rollout_percentage = 0 e targeting vazio → enabled (comportamento legado)
+func (s *FlagService) EvaluateFlags(ctx context.Context, userID, tenantID string) (domain.FlagsMapResponse, error) {
+	flags, err := s.repo.GetAll(ctx)
+	if err != nil {
+		return domain.FlagsMapResponse{}, fmt.Errorf("service: EvaluateFlags: %w", err)
+	}
+
+	result := make(map[string]bool, len(flags))
+	for _, f := range flags {
+		result[f.Key] = evaluateFlag(f, userID, tenantID)
+	}
+
+	return domain.FlagsMapResponse{Flags: result}, nil
+}
+
+// evaluateFlag determina se uma flag está ativa para um dado contexto.
+func evaluateFlag(f domain.FeatureFlag, userID, tenantID string) bool {
+	// Kill switch: se desabilitada, sempre false
+	if !f.Enabled {
+		return false
+	}
+
+	hasTargeting := len(f.Targeting.UserIDs) > 0 || len(f.Targeting.TenantIDs) > 0
+	hasRollout := f.RolloutPercentage > 0
+
+	// Sem rollout e sem targeting → comportamento legado (enabled = true)
+	if !hasTargeting && !hasRollout {
+		return true
+	}
+
+	// Targeting por user_id
+	if userID != "" && len(f.Targeting.UserIDs) > 0 {
+		for _, id := range f.Targeting.UserIDs {
+			if id == userID {
+				return true
+			}
+		}
+	}
+
+	// Targeting por tenant_id
+	if tenantID != "" && len(f.Targeting.TenantIDs) > 0 {
+		for _, id := range f.Targeting.TenantIDs {
+			if id == tenantID {
+				return true
+			}
+		}
+	}
+
+	// Rollout percentual hash-based (determinístico por user)
+	if hasRollout && userID != "" {
+		bucket := hashBucket(userID, f.Key)
+		return bucket < f.RolloutPercentage
+	}
+
+	// Se tem targeting mas o contexto não bateu → false
+	if hasTargeting {
+		return false
+	}
+
+	return f.Enabled
+}
+
+// hashBucket retorna um número 0-99 deterministico para um dado user+flag.
+// Mesmo user+flag sempre retorna o mesmo bucket → experiência consistente.
+func hashBucket(userID, flagKey string) int {
+	h := sha256.Sum256([]byte(userID + ":" + flagKey))
+	num := binary.BigEndian.Uint32(h[:4])
+	return int(num % 100)
 }
 
 // invalidateCache deletes the flags map cache key.

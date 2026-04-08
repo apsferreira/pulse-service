@@ -1,25 +1,75 @@
 package middleware
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
+	"os"
+	"strings"
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/institutoitinerante/pulse-service/internal/domain"
 )
 
-// ServiceTokenMiddleware validates the X-Service-Token header against the configured token.
-// Returns 401 Unauthorized if the header is missing or does not match.
+// ServiceTokenMiddleware validates X-Service-Token OR Authorization Bearer JWT.
+// Aceita ambos para retrocompatibilidade (inter-service usa token, dashboard usa JWT).
 func ServiceTokenMiddleware(serviceToken string) fiber.Handler {
+	jwtSecret := os.Getenv("JWT_SECRET")
+
 	return func(c *fiber.Ctx) error {
-		token := c.Get("X-Service-Token")
-		if token == "" {
-			return c.Status(fiber.StatusUnauthorized).JSON(domain.ErrorResponse{
-				Error: "missing X-Service-Token header",
-			})
+		// 1. Tenta Service Token primeiro
+		svcToken := c.Get("X-Service-Token")
+		if svcToken != "" && svcToken == serviceToken {
+			return c.Next()
 		}
-		if token != serviceToken {
-			return c.Status(fiber.StatusUnauthorized).JSON(domain.ErrorResponse{
-				Error: "invalid service token",
-			})
+
+		// 2. Tenta JWT Bearer (HMAC-SHA256)
+		authHeader := c.Get("Authorization")
+		if strings.HasPrefix(authHeader, "Bearer ") && jwtSecret != "" {
+			tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+			if validateJWT(tokenStr, jwtSecret) {
+				return c.Next()
+			}
 		}
-		return c.Next()
+
+		return c.Status(fiber.StatusUnauthorized).JSON(domain.ErrorResponse{
+			Error: "autenticacao necessaria — envie X-Service-Token ou Authorization Bearer JWT",
+		})
 	}
+}
+
+// validateJWT verifica um JWT HS256 sem dependencias externas.
+func validateJWT(tokenStr, secret string) bool {
+	parts := strings.Split(tokenStr, ".")
+	if len(parts) != 3 {
+		return false
+	}
+
+	// Verificar assinatura HMAC-SHA256
+	signingInput := parts[0] + "." + parts[1]
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(signingInput))
+	expectedSig := base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+	if !hmac.Equal([]byte(expectedSig), []byte(parts[2])) {
+		return false
+	}
+
+	// Verificar expiração
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return false
+	}
+	var claims struct {
+		Exp int64 `json:"exp"`
+	}
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		return false
+	}
+	if claims.Exp > 0 && time.Now().Unix() > claims.Exp {
+		return false
+	}
+
+	return true
 }

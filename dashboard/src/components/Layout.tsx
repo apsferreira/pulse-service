@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Flag, Activity, TrendingUp, Moon, Sun, Zap } from 'lucide-react'
+import { LayoutDashboard, Flag, Activity, TrendingUp, Moon, Sun, Zap, LogOut } from 'lucide-react'
+import { logout } from '../lib/auth'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -79,6 +80,14 @@ export default function Layout({ children }: LayoutProps) {
                 aria-label="Alternar tema"
               >
                 {dark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              </button>
+              <button
+                onClick={logout}
+                className="p-2 rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-900/30 dark:hover:text-red-400 transition-colors"
+                aria-label="Sair"
+                title="Sair"
+              >
+                <LogOut className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setMobileOpen((v) => !v)}

@@ -26,6 +26,7 @@ func (h *FlagHandler) RegisterRoutes(app *fiber.App) {
 	// Public endpoints — no auth required (consumed by SDKs)
 	app.Get("/flags", h.GetFlagsMap)
 	app.Post("/flags/evaluate-batch", h.EvaluateBatch) // BKL-093: batch evaluation
+	app.Get("/flags/variants", h.GetVariants)           // BKL-094: A/B variant selection
 
 	// Admin CRUD endpoints — require service token
 	api := app.Group("/api/v1/flags", middleware.ServiceTokenMiddleware(h.serviceToken))
@@ -184,4 +185,21 @@ func (h *FlagHandler) EvaluateBatch(c *fiber.Ctx) error {
 		result[k] = allFlags.Flags[k]
 	}
 	return c.JSON(domain.FlagsMapResponse{Flags: result})
+}
+
+// GetVariants godoc
+// GET /flags/variants — public, returns A/B variant for each flag with variants configured.
+// Query params: user_id (required for deterministic selection), tenant_id (optional)
+// Response: {"variants": {"flag-key": "variant-name"}}
+// BKL-094
+func (h *FlagHandler) GetVariants(c *fiber.Ctx) error {
+	userID := c.Query("user_id")
+	tenantID := c.Query("tenant_id")
+
+	resp, err := h.svc.GetVariants(c.Context(), userID, tenantID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: "failed to get variants"})
+	}
+
+	return c.JSON(resp)
 }

@@ -62,6 +62,7 @@ func (s *FlagService) Create(ctx context.Context, req domain.CreateFlagRequest) 
 		Enabled:           req.Enabled,
 		RolloutPercentage: req.RolloutPercentage,
 		Targeting:         req.Targeting,
+		Variants:          req.Variants, // BKL-094
 	}
 
 	if err := s.repo.Create(ctx, flag); err != nil {
@@ -205,6 +206,64 @@ func hashBucket(userID, flagKey string) int {
 	h := sha256.Sum256([]byte(userID + ":" + flagKey))
 	num := binary.BigEndian.Uint32(h[:4])
 	return int(num % 100)
+}
+
+// GetVariants retorna a variante A/B selecionada para cada flag com variantes configuradas. BKL-094.
+// A seleção é determinística: mesmo userID+flagKey sempre retorna a mesma variante.
+// Flags sem variantes ou desabilitadas não aparecem na resposta.
+func (s *FlagService) GetVariants(ctx context.Context, userID, tenantID string) (domain.VariantResponse, error) {
+	flags, err := s.repo.GetAll(ctx)
+	if err != nil {
+		return domain.VariantResponse{}, fmt.Errorf("service: GetVariants: %w", err)
+	}
+
+	variants := make(map[string]string)
+	for _, f := range flags {
+		if !f.Enabled || len(f.Variants) == 0 {
+			continue
+		}
+		// Só inclui se o usuário está no rollout (ou sem rollout configurado)
+		if !evaluateFlag(f, userID, tenantID) {
+			continue
+		}
+		variant := selectVariant(f.Variants, userID, f.Key)
+		if variant != "" {
+			variants[f.Key] = variant
+		}
+	}
+
+	return domain.VariantResponse{Variants: variants}, nil
+}
+
+// selectVariant escolhe deterministicamente uma variante com base em pesos cumulativos.
+// Usa hashBucket para consistência: mesmo userID+flagKey → mesma variante.
+func selectVariant(variants []domain.FlagVariant, userID, flagKey string) string {
+	if len(variants) == 0 {
+		return ""
+	}
+
+	// Calcula total de pesos
+	total := 0
+	for _, v := range variants {
+		total += v.Weight
+	}
+	if total == 0 {
+		return variants[0].Key
+	}
+
+	// Bucket 0-99 → mapeia para peso cumulativo
+	bucket := hashBucket(userID, flagKey+":variant")
+	// Normaliza para escala 0-total
+	scaled := (bucket * total) / 100
+
+	cumulative := 0
+	for _, v := range variants {
+		cumulative += v.Weight
+		if scaled < cumulative {
+			return v.Key
+		}
+	}
+	return variants[len(variants)-1].Key
 }
 
 // invalidateCache deletes the flags map cache key.

@@ -83,8 +83,13 @@ func (s *EventService) Track(ctx context.Context, req domain.TrackEventRequest, 
 		props = make(map[string]interface{})
 	}
 
+	product := req.Product
+	if product == "" {
+		product = "default"
+	}
+
 	event := &domain.Event{
-		Product:    "default",
+		Product:    product,
 		EventType:  req.EventName,
 		UserID:     req.UserID,
 		Properties: props,

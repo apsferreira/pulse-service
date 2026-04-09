@@ -36,6 +36,7 @@ type EventsSummaryResponse struct {
 // TrackEventRequest is the payload for POST /api/v1/events/track.
 type TrackEventRequest struct {
 	EventName  string                 `json:"event_name"`
+	Product    string                 `json:"product,omitempty"`
 	UserID     *string                `json:"user_id,omitempty"`
 	Properties map[string]interface{} `json:"properties,omitempty"`
 }

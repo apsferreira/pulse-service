@@ -3,6 +3,7 @@ package middleware
 import (
 	"crypto/hmac"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"os"
@@ -19,9 +20,9 @@ func ServiceTokenMiddleware(serviceToken string) fiber.Handler {
 	jwtSecret := os.Getenv("JWT_SECRET")
 
 	return func(c *fiber.Ctx) error {
-		// 1. Tenta Service Token primeiro
+		// 1. Tenta Service Token primeiro — BKL-334: comparação em tempo constante
 		svcToken := c.Get("X-Service-Token")
-		if svcToken != "" && svcToken == serviceToken {
+		if svcToken != "" && subtle.ConstantTimeCompare([]byte(svcToken), []byte(serviceToken)) == 1 {
 			return c.Next()
 		}
 

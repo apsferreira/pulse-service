@@ -11,11 +11,11 @@ import (
 )
 
 type EventHandler struct {
-	svc          *service.EventService
+	svc          service.EventServicer
 	serviceToken string
 }
 
-func NewEventHandler(svc *service.EventService, serviceToken string) *EventHandler {
+func NewEventHandler(svc service.EventServicer, serviceToken string) *EventHandler {
 	return &EventHandler{svc: svc, serviceToken: serviceToken}
 }
 

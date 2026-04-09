@@ -36,11 +36,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 // ── Types ──────────────────────────────────────────────────────────
 
+export interface FlagTargeting {
+  user_ids?: string[]
+  tenant_ids?: string[]
+}
+
 export interface FeatureFlag {
   id: string
   key: string
   description: string
   enabled: boolean
+  rollout_percentage: number
+  targeting: FlagTargeting
   created_at: string
   updated_at: string
 }
@@ -49,11 +56,15 @@ export interface CreateFlagPayload {
   key: string
   description: string
   enabled: boolean
+  rollout_percentage?: number
+  targeting?: FlagTargeting
 }
 
 export interface UpdateFlagPayload {
   description?: string
   enabled?: boolean
+  rollout_percentage?: number
+  targeting?: FlagTargeting
 }
 
 export interface EventSummaryItem {

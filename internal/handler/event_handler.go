@@ -1,22 +1,46 @@
 package handler
 
 import (
+	"encoding/json"
 	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/institutoitinerante/pulse-service/internal/domain"
 	"github.com/institutoitinerante/pulse-service/internal/middleware"
+	"github.com/institutoitinerante/pulse-service/internal/pkg/wshub"
 	"github.com/institutoitinerante/pulse-service/internal/service"
 )
 
 type EventHandler struct {
 	svc          service.EventServicer
 	serviceToken string
+	hub          *wshub.Hub
 }
 
 func NewEventHandler(svc service.EventServicer, serviceToken string) *EventHandler {
 	return &EventHandler{svc: svc, serviceToken: serviceToken}
+}
+
+// WithHub adiciona o hub WebSocket ao EventHandler para broadcast de eventos em tempo real
+func (h *EventHandler) WithHub(hub *wshub.Hub) *EventHandler {
+	h.hub = hub
+	return h
+}
+
+// broadcastEvent serializa e envia o evento para todos os clientes WS do projeto
+func (h *EventHandler) broadcastEvent(event *domain.Event) {
+	if h.hub == nil || event == nil {
+		return
+	}
+	data, err := json.Marshal(map[string]interface{}{
+		"type":  "event",
+		"event": event,
+	})
+	if err != nil {
+		return
+	}
+	h.hub.Broadcast(event.Product, data)
 }
 
 // RegisterRoutes mounts all event routes onto the given Fiber app.
@@ -53,6 +77,10 @@ func (h *EventHandler) IngestEvent(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(domain.ErrorResponse{Error: err.Error()})
 	}
+
+	// BKL-150: broadcast para clientes WS do mesmo produto/projeto
+	go h.broadcastEvent(event)
+
 	return c.Status(fiber.StatusCreated).JSON(event)
 }
 
@@ -85,6 +113,10 @@ func (h *EventHandler) TrackEvent(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(domain.ErrorResponse{Error: err.Error()})
 	}
+
+	// BKL-150: broadcast para clientes WS do mesmo produto/projeto
+	go h.broadcastEvent(event)
+
 	return c.Status(fiber.StatusCreated).JSON(event)
 }
 

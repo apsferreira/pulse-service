@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Activity, RefreshCw } from 'lucide-react'
+import { Activity, RefreshCw, Wifi } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { eventsApi, type EventSummaryItem, type EventsSummaryResponse } from '../services/pulseApi'
+import { useRealtimeEvents, type RealtimeEvent } from '../hooks/useRealtimeEvents'
 
 const PRODUCT_COLORS: Record<string, string> = {
   libri:  'from-blue-50 to-blue-100 dark:from-blue-950/40 dark:to-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300',
@@ -27,6 +28,7 @@ function groupByProduct(items: EventSummaryItem[]): Record<string, EventSummaryI
 export default function Events() {
   const [summary, setSummary] = useState<EventsSummaryResponse | null>(null)
   const [loading, setLoading] = useState(true)
+  const [realtimeCount, setRealtimeCount] = useState(0)
 
   const fetchSummary = useCallback(async () => {
     setLoading(true)
@@ -40,6 +42,28 @@ export default function Events() {
       setLoading(false)
     }
   }, [])
+
+  // BKL-150: receber eventos em tempo real via WebSocket
+  const handleRealtimeEvent = useCallback((msg: RealtimeEvent) => {
+    if (msg.type !== 'event') return
+    setRealtimeCount((prev) => prev + 1)
+    // Atualiza o resumo incrementalmente sem refetch completo
+    setSummary((prev) => {
+      if (!prev) return prev
+      const items = [...prev.items]
+      const idx = items.findIndex(
+        (i) => i.product === msg.event.product && i.event_type === msg.event.event_type,
+      )
+      if (idx >= 0) {
+        items[idx] = { ...items[idx], count: items[idx].count + 1 }
+      } else {
+        items.push({ product: msg.event.product, event_type: msg.event.event_type, count: 1 })
+      }
+      return { ...prev, items, total_last_24h: prev.total_last_24h + 1 }
+    })
+  }, [])
+
+  useRealtimeEvents({ onEvent: handleRealtimeEvent })
 
   useEffect(() => {
     void fetchSummary()
@@ -60,14 +84,27 @@ export default function Events() {
             Rastreamento de eventos — últimas 24h
           </p>
         </div>
-        <button
-          onClick={fetchSummary}
-          disabled={loading}
-          className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors disabled:opacity-50 self-start sm:self-auto"
-          aria-label="Recarregar"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          {/* Indicador de conexão real-time */}
+          <span
+            title={`${realtimeCount} eventos recebidos em tempo real`}
+            className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 px-2 py-1 rounded-full"
+          >
+            <Wifi className="w-3 h-3" />
+            <span>real-time</span>
+            {realtimeCount > 0 && (
+              <span className="font-mono font-bold">+{realtimeCount}</span>
+            )}
+          </span>
+          <button
+            onClick={fetchSummary}
+            disabled={loading}
+            className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
+            aria-label="Recarregar"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
       </div>
 
       {/* Summary strip */}

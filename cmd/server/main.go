@@ -16,6 +16,7 @@ import (
 	"github.com/institutoitinerante/pulse-service/internal/handler"
 	custommw "github.com/institutoitinerante/pulse-service/internal/middleware"
 	"github.com/institutoitinerante/pulse-service/internal/pkg/config"
+	"github.com/institutoitinerante/pulse-service/internal/pkg/wshub"
 	"github.com/institutoitinerante/pulse-service/internal/repository"
 	"github.com/institutoitinerante/pulse-service/internal/service"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -72,10 +73,14 @@ func main() {
 	monitorSvc := service.NewMonitorService(monitorRepo)
 	monitorHandler := handler.NewMonitorHandler(monitorSvc, cfg.ServiceToken)
 
+	// BKL-150: inicializar hub WebSocket e iniciar loop em background
+	wsHub := wshub.New()
+	go wsHub.Run()
+
 	// Wire up layers — events ingestion
 	eventRepo := repository.NewEventRepository(pool)
 	eventSvc := service.NewEventService(eventRepo)
-	eventHandler := handler.NewEventHandler(eventSvc, cfg.ServiceToken)
+	eventHandler := handler.NewEventHandler(eventSvc, cfg.ServiceToken).WithHub(wsHub)
 
 	// Wire up layers — retention metrics
 	retentionRepo := repository.NewRetentionRepository(pool)
@@ -93,6 +98,9 @@ func main() {
 	// Wire up layers — CSAT / NPS
 	csatRepo := repository.NewCSATRepository(pool)
 	csatHandler := handler.NewCSATHandler(csatRepo, cfg.ServiceToken)
+
+	// BKL-150: WebSocket handler
+	wsHandler := handler.NewWSHandler(wsHub, cfg.ServiceToken)
 
 	// Create Fiber app
 	app := fiber.New(fiber.Config{
@@ -144,6 +152,9 @@ func main() {
 
 	// Register CSAT / NPS routes
 	csatHandler.RegisterRoutes(app)
+
+	// BKL-150: Register WebSocket routes
+	wsHandler.RegisterRoutes(app)
 
 	// BKL-344: Servir arquivos estáticos do widget CSAT embeddable.
 	// Qualquer site pode embedar com: <script src=".../static/csat/widget.js" data-survey-id="..."></script>

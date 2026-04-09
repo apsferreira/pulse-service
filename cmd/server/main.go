@@ -145,6 +145,10 @@ func main() {
 	// Register CSAT / NPS routes
 	csatHandler.RegisterRoutes(app)
 
+	// BKL-344: Servir arquivos estáticos do widget CSAT embeddable.
+	// Qualquer site pode embedar com: <script src=".../static/csat/widget.js" data-survey-id="..."></script>
+	app.Static("/static", "./frontend/public")
+
 	// Start uptime monitor background checker
 	monitorSvc.StartBackgroundChecker()
 

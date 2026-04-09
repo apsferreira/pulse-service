@@ -1,8 +1,10 @@
-import { useEffect } from 'react'
+// BKL-123: Formulário de feature flag com rollout % e targeting por user_id/tenant_id
+
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { X } from 'lucide-react'
+import { X, Plus, Trash2 } from 'lucide-react'
 import type { FeatureFlag, CreateFlagPayload, UpdateFlagPayload } from '../services/api'
 
 const createSchema = z.object({
@@ -13,11 +15,13 @@ const createSchema = z.object({
     .regex(/^[a-zA-Z0-9_\-\.]+$/, 'Apenas letras, numeros, underscore, hifen e ponto'),
   description: z.string().max(500, 'Descricao muito longa'),
   enabled: z.boolean(),
+  rollout_percentage: z.number().min(0).max(100),
 })
 
 const editSchema = z.object({
   description: z.string().max(500, 'Descricao muito longa'),
   enabled: z.boolean(),
+  rollout_percentage: z.number().min(0).max(100),
 })
 
 type CreateFormValues = z.infer<typeof createSchema>
@@ -33,12 +37,19 @@ interface FlagModalProps {
 export default function FlagModal({ flag, onClose, onSubmit, loading }: FlagModalProps) {
   const isEdit = !!flag
 
+  // Targeting state — listas de IDs gerenciadas separadamente por ser multi-valor
+  const [userIDs, setUserIDs] = useState<string[]>(flag?.targeting?.user_ids ?? [])
+  const [tenantIDs, setTenantIDs] = useState<string[]>(flag?.targeting?.tenant_ids ?? [])
+  const [userIDInput, setUserIDInput] = useState('')
+  const [tenantIDInput, setTenantIDInput] = useState('')
+
   const createForm = useForm<CreateFormValues>({
     resolver: zodResolver(createSchema),
     defaultValues: {
       key: '',
       description: '',
       enabled: false,
+      rollout_percentage: 100,
     },
   })
 
@@ -47,6 +58,7 @@ export default function FlagModal({ flag, onClose, onSubmit, loading }: FlagModa
     defaultValues: {
       description: flag?.description ?? '',
       enabled: flag?.enabled ?? false,
+      rollout_percentage: flag?.rollout_percentage ?? 100,
     },
   })
 
@@ -55,15 +67,39 @@ export default function FlagModal({ flag, onClose, onSubmit, loading }: FlagModa
       editForm.reset({
         description: flag.description,
         enabled: flag.enabled,
+        rollout_percentage: flag.rollout_percentage ?? 100,
       })
+      setUserIDs(flag.targeting?.user_ids ?? [])
+      setTenantIDs(flag.targeting?.tenant_ids ?? [])
     }
   }, [flag, editForm])
+
+  const addID = (list: string[], setList: (v: string[]) => void, input: string, setInput: (v: string) => void) => {
+    const val = input.trim()
+    if (val && !list.includes(val)) {
+      setList([...list, val])
+    }
+    setInput('')
+  }
+
+  const removeID = (list: string[], setList: (v: string[]) => void, id: string) => {
+    setList(list.filter(v => v !== id))
+  }
+
+  const buildTargeting = () => {
+    const t: { user_ids?: string[]; tenant_ids?: string[] } = {}
+    if (userIDs.length > 0) t.user_ids = userIDs
+    if (tenantIDs.length > 0) t.tenant_ids = tenantIDs
+    return Object.keys(t).length > 0 ? t : undefined
+  }
 
   const handleCreate = createForm.handleSubmit(async (values) => {
     const payload: CreateFlagPayload = {
       key: values.key,
       description: values.description,
       enabled: values.enabled,
+      rollout_percentage: values.rollout_percentage,
+      targeting: buildTargeting(),
     }
     await onSubmit(payload)
   })
@@ -72,6 +108,8 @@ export default function FlagModal({ flag, onClose, onSubmit, loading }: FlagModa
     const payload: UpdateFlagPayload = {
       description: values.description,
       enabled: values.enabled,
+      rollout_percentage: values.rollout_percentage,
+      targeting: buildTargeting(),
     }
     await onSubmit(payload)
   })
@@ -80,17 +118,20 @@ export default function FlagModal({ flag, onClose, onSubmit, loading }: FlagModa
     'w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent placeholder:text-slate-400 dark:placeholder:text-slate-500'
 
   const labelClass = 'block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1'
-
   const errorClass = 'mt-1 text-xs text-red-500'
+
+  const rolloutValue = isEdit
+    ? editForm.watch('rollout_percentage')
+    : createForm.watch('rollout_percentage')
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-soft-lg w-full max-w-md border border-slate-200 dark:border-slate-700 animate-scale-in">
+      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-soft-lg w-full max-w-lg border border-slate-200 dark:border-slate-700 animate-scale-in max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-700 sticky top-0 bg-white dark:bg-slate-900 z-10">
           <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
             {isEdit ? `Editar flag: ${flag.key}` : 'Nova feature flag'}
           </h2>
@@ -103,7 +144,7 @@ export default function FlagModal({ flag, onClose, onSubmit, loading }: FlagModa
         </div>
 
         {/* Form */}
-        <form onSubmit={isEdit ? handleEdit : handleCreate} className="px-5 py-4 space-y-4">
+        <form onSubmit={isEdit ? handleEdit : handleCreate} className="px-5 py-4 space-y-5">
           {!isEdit && (
             <div>
               <label className={labelClass} htmlFor="flag-key">
@@ -142,6 +183,7 @@ export default function FlagModal({ flag, onClose, onSubmit, loading }: FlagModa
                 )}
           </div>
 
+          {/* Toggle ativo */}
           <div className="flex items-center gap-3">
             <div className="relative inline-flex items-center">
               <input
@@ -156,8 +198,108 @@ export default function FlagModal({ flag, onClose, onSubmit, loading }: FlagModa
               />
             </div>
             <label htmlFor="flag-enabled" className="text-sm text-slate-700 dark:text-slate-300 cursor-pointer select-none">
-              Ativa ao criar
+              Flag ativa
             </label>
+          </div>
+
+          {/* BKL-123: Rollout % */}
+          <div>
+            <label className={labelClass} htmlFor="flag-rollout">
+              Rollout gradual
+              <span className="ml-2 font-semibold text-violet-600 dark:text-violet-400">{rolloutValue ?? 100}%</span>
+            </label>
+            <input
+              id="flag-rollout"
+              type="range"
+              min={0}
+              max={100}
+              step={5}
+              className="w-full accent-violet-600 cursor-pointer"
+              {...(isEdit
+                ? editForm.register('rollout_percentage', { valueAsNumber: true })
+                : createForm.register('rollout_percentage', { valueAsNumber: true }))}
+            />
+            <div className="flex justify-between text-xs text-slate-400 mt-0.5">
+              <span>0%</span>
+              <span className="text-slate-500 dark:text-slate-400 text-center text-[11px]">
+                {rolloutValue === 100 ? 'Todos os usuarios' : rolloutValue === 0 ? 'Nenhum usuario' : `${rolloutValue}% do trafego`}
+              </span>
+              <span>100%</span>
+            </div>
+          </div>
+
+          {/* BKL-123: Targeting por user_ids */}
+          <div>
+            <label className={labelClass}>
+              Targeting por User ID
+              <span className="ml-1 text-xs text-slate-400 font-normal">(acesso direto, ignora rollout)</span>
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={userIDInput}
+                onChange={e => setUserIDInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addID(userIDs, setUserIDs, userIDInput, setUserIDInput))}
+                placeholder="UUID do usuario..."
+                className={inputClass}
+              />
+              <button
+                type="button"
+                onClick={() => addID(userIDs, setUserIDs, userIDInput, setUserIDInput)}
+                className="p-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+            {userIDs.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {userIDs.map(id => (
+                  <span key={id} className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 text-xs font-mono">
+                    {id.slice(0, 8)}…
+                    <button type="button" onClick={() => removeID(userIDs, setUserIDs, id)} className="hover:text-red-500">
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* BKL-123: Targeting por tenant_ids */}
+          <div>
+            <label className={labelClass}>
+              Targeting por Tenant ID
+              <span className="ml-1 text-xs text-slate-400 font-normal">(acesso direto, ignora rollout)</span>
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={tenantIDInput}
+                onChange={e => setTenantIDInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addID(tenantIDs, setTenantIDs, tenantIDInput, setTenantIDInput))}
+                placeholder="UUID do tenant..."
+                className={inputClass}
+              />
+              <button
+                type="button"
+                onClick={() => addID(tenantIDs, setTenantIDs, tenantIDInput, setTenantIDInput)}
+                className="p-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+            {tenantIDs.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {tenantIDs.map(id => (
+                  <span key={id} className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-mono">
+                    {id.slice(0, 8)}…
+                    <button type="button" onClick={() => removeID(tenantIDs, setTenantIDs, id)} className="hover:text-red-500">
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Actions */}

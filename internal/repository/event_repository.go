@@ -41,6 +41,18 @@ func (r *EventRepository) Insert(ctx context.Context, e *domain.Event) error {
 	return nil
 }
 
+// MergeAnonymousUser atualiza todos os eventos de um anonymous_id para um user_id real.
+func (r *EventRepository) MergeAnonymousUser(ctx context.Context, anonymousID, userID string) (int, error) {
+	result, err := r.db.Exec(ctx,
+		`UPDATE events SET user_id = $1 WHERE user_id = $2`,
+		userID, anonymousID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("event_repository: MergeAnonymousUser: %w", err)
+	}
+	return int(result.RowsAffected()), nil
+}
+
 // GetSummaryLast24h returns counts grouped by product and event_type for the last 24 hours.
 func (r *EventRepository) GetSummaryLast24h(ctx context.Context) ([]domain.EventSummaryItem, error) {
 	since := time.Now().UTC().Add(-24 * time.Hour)

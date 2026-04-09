@@ -88,10 +88,17 @@ func (s *EventService) Track(ctx context.Context, req domain.TrackEventRequest, 
 		product = "default"
 	}
 
+	// Usa user_id se disponivel, senao anonymous_id como user_id temporario
+	userID := req.UserID
+	if (userID == nil || *userID == "") && req.AnonymousID != nil && *req.AnonymousID != "" {
+		anonPrefixed := "anon:" + *req.AnonymousID
+		userID = &anonPrefixed
+	}
+
 	event := &domain.Event{
 		Product:    product,
 		EventType:  req.EventName,
-		UserID:     req.UserID,
+		UserID:     userID,
 		Properties: props,
 	}
 	if ipAddress != "" {
@@ -105,6 +112,20 @@ func (s *EventService) Track(ctx context.Context, req domain.TrackEventRequest, 
 		return nil, fmt.Errorf("event_service: Track: %w", err)
 	}
 	return event, nil
+}
+
+// Identify vincula um anonymous_id a um user_id real.
+// Atualiza todos os eventos do anonymous_id para o user_id.
+func (s *EventService) Identify(ctx context.Context, req domain.IdentifyRequest) (int, error) {
+	if req.AnonymousID == "" || req.UserID == "" {
+		return 0, fmt.Errorf("anonymous_id e user_id sao obrigatorios")
+	}
+	anonKey := "anon:" + req.AnonymousID
+	count, err := s.repo.MergeAnonymousUser(ctx, anonKey, req.UserID)
+	if err != nil {
+		return 0, fmt.Errorf("event_service: Identify: %w", err)
+	}
+	return count, nil
 }
 
 // Count returns event counts grouped by event_name for a given period.

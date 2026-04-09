@@ -1,6 +1,10 @@
 package domain
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 // FlagTargeting define regras de targeting por lista de IDs.
 type FlagTargeting struct {
@@ -23,6 +27,7 @@ type FeatureFlag struct {
 	RolloutPercentage int           `json:"rollout_percentage"` // 0-100: % do tráfego que vê a flag ativa
 	Targeting         FlagTargeting `json:"targeting"`          // lista de user_ids/tenant_ids com acesso direto
 	Variants          []FlagVariant `json:"variants,omitempty"` // BKL-094: variantes A/B (vazio = on/off normal)
+	ProjectID         *uuid.UUID    `json:"project_id,omitempty"` // BKL-323: scope por projeto (nullable)
 	CreatedAt         time.Time     `json:"created_at"`
 	UpdatedAt         time.Time     `json:"updated_at"`
 }
@@ -41,6 +46,7 @@ type CreateFlagRequest struct {
 	RolloutPercentage int           `json:"rollout_percentage,omitempty"`
 	Targeting         FlagTargeting `json:"targeting,omitempty"`
 	Variants          []FlagVariant `json:"variants,omitempty"` // BKL-094
+	ProjectID         *uuid.UUID    `json:"project_id,omitempty"` // BKL-323
 }
 
 // UpdateFlagRequest is the payload for PUT /api/v1/flags/:key.

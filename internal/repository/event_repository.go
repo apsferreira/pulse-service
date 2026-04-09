@@ -151,7 +151,7 @@ func (r *EventRepository) ListEvents(ctx context.Context, eventName, userID stri
 
 	// Fetch page
 	dataQuery := fmt.Sprintf(
-		"SELECT id, product, event_type, user_id, session_id, properties, ip_address, user_agent, created_at FROM events%s ORDER BY created_at DESC LIMIT $%d OFFSET $%d",
+		"SELECT id, product, event_type, user_id, session_id, properties, ip_address::text, user_agent, created_at FROM events%s ORDER BY created_at DESC LIMIT $%d OFFSET $%d",
 		whereClause, argIdx, argIdx+1,
 	)
 	dataArgs := append(args, limit, offset)

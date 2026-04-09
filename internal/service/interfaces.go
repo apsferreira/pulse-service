@@ -13,6 +13,7 @@ import (
 // Permite substituição por mocks nos testes de handler.
 type FlagServicer interface {
 	List(ctx context.Context) ([]domain.FeatureFlag, error)
+	ListByProject(ctx context.Context, projectID string) ([]domain.FeatureFlag, error) // BKL-323
 	GetByKey(ctx context.Context, key string) (*domain.FeatureFlag, error)
 	Create(ctx context.Context, req domain.CreateFlagRequest) (*domain.FeatureFlag, error)
 	Update(ctx context.Context, key string, req domain.UpdateFlagRequest) (*domain.FeatureFlag, error)

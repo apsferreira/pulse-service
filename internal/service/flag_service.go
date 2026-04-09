@@ -28,11 +28,20 @@ func NewFlagService(repo *repository.FlagRepository, redis *redis.Client) *FlagS
 	return &FlagService{repo: repo, redis: redis}
 }
 
-// List returns all feature flags.
+// List returns all feature flags (sem filtro de projeto).
 func (s *FlagService) List(ctx context.Context) ([]domain.FeatureFlag, error) {
-	flags, err := s.repo.GetAll(ctx)
+	flags, err := s.repo.GetAll(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("service: List: %w", err)
+	}
+	return flags, nil
+}
+
+// ListByProject retorna flags filtradas por project_id. BKL-323.
+func (s *FlagService) ListByProject(ctx context.Context, projectID string) ([]domain.FeatureFlag, error) {
+	flags, err := s.repo.GetAll(ctx, &projectID)
+	if err != nil {
+		return nil, fmt.Errorf("service: ListByProject: %w", err)
 	}
 	return flags, nil
 }
@@ -63,6 +72,7 @@ func (s *FlagService) Create(ctx context.Context, req domain.CreateFlagRequest) 
 		RolloutPercentage: req.RolloutPercentage,
 		Targeting:         req.Targeting,
 		Variants:          req.Variants, // BKL-094
+		ProjectID:         req.ProjectID, // BKL-323
 	}
 
 	if err := s.repo.Create(ctx, flag); err != nil {
@@ -110,7 +120,7 @@ func (s *FlagService) GetFlagsMap(ctx context.Context) (domain.FlagsMapResponse,
 	}
 
 	// Cache miss — load from DB
-	flags, err := s.repo.GetAll(ctx)
+	flags, err := s.repo.GetAll(ctx, nil)
 	if err != nil {
 		return domain.FlagsMapResponse{}, fmt.Errorf("service: GetFlagsMap: %w", err)
 	}
@@ -140,7 +150,7 @@ func (s *FlagService) GetFlagsMap(ctx context.Context) (domain.FlagsMapResponse,
 // 4. Se rollout_percentage > 0 → hash(user_id + flag_key) % 100 < rollout_percentage
 // 5. Se rollout_percentage = 0 e targeting vazio → enabled (comportamento legado)
 func (s *FlagService) EvaluateFlags(ctx context.Context, userID, tenantID string) (domain.FlagsMapResponse, error) {
-	flags, err := s.repo.GetAll(ctx)
+	flags, err := s.repo.GetAll(ctx, nil)
 	if err != nil {
 		return domain.FlagsMapResponse{}, fmt.Errorf("service: EvaluateFlags: %w", err)
 	}
@@ -212,7 +222,7 @@ func hashBucket(userID, flagKey string) int {
 // A seleção é determinística: mesmo userID+flagKey sempre retorna a mesma variante.
 // Flags sem variantes ou desabilitadas não aparecem na resposta.
 func (s *FlagService) GetVariants(ctx context.Context, userID, tenantID string) (domain.VariantResponse, error) {
-	flags, err := s.repo.GetAll(ctx)
+	flags, err := s.repo.GetAll(ctx, nil)
 	if err != nil {
 		return domain.VariantResponse{}, fmt.Errorf("service: GetVariants: %w", err)
 	}

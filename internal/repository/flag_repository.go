@@ -22,12 +22,25 @@ func NewFlagRepository(db *pgxpool.Pool) *FlagRepository {
 }
 
 // GetAll returns all feature flags ordered by key.
-func (r *FlagRepository) GetAll(ctx context.Context) ([]domain.FeatureFlag, error) {
-	rows, err := r.db.Query(ctx,
-		`SELECT id, key, COALESCE(description, ''), enabled, rollout_percentage, targeting, COALESCE(variants, '[]'::jsonb), created_at, updated_at
-		 FROM feature_flags
-		 ORDER BY key ASC`,
-	)
+// Se projectID for não-nil, filtra por project_id. BKL-323.
+func (r *FlagRepository) GetAll(ctx context.Context, projectID *string) ([]domain.FeatureFlag, error) {
+	var rows pgx.Rows
+	var err error
+	if projectID != nil {
+		rows, err = r.db.Query(ctx,
+			`SELECT id, key, COALESCE(description, ''), enabled, rollout_percentage, targeting, COALESCE(variants, '[]'::jsonb), project_id, created_at, updated_at
+			 FROM feature_flags
+			 WHERE project_id = $1::uuid
+			 ORDER BY key ASC`,
+			*projectID,
+		)
+	} else {
+		rows, err = r.db.Query(ctx,
+			`SELECT id, key, COALESCE(description, ''), enabled, rollout_percentage, targeting, COALESCE(variants, '[]'::jsonb), project_id, created_at, updated_at
+			 FROM feature_flags
+			 ORDER BY key ASC`,
+		)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("repository: GetAll: %w", err)
 	}
@@ -50,14 +63,14 @@ func (r *FlagRepository) GetAll(ctx context.Context) ([]domain.FeatureFlag, erro
 // GetByKey returns a single feature flag by its unique key.
 func (r *FlagRepository) GetByKey(ctx context.Context, key string) (*domain.FeatureFlag, error) {
 	row := r.db.QueryRow(ctx,
-		`SELECT id, key, COALESCE(description, ''), enabled, rollout_percentage, targeting, COALESCE(variants, '[]'::jsonb), created_at, updated_at
+		`SELECT id, key, COALESCE(description, ''), enabled, rollout_percentage, targeting, COALESCE(variants, '[]'::jsonb), project_id, created_at, updated_at
 		 FROM feature_flags WHERE key = $1`,
 		key,
 	)
 	var f domain.FeatureFlag
 	var targetingBytes []byte
 	var variantsBytes []byte
-	err := row.Scan(&f.ID, &f.Key, &f.Description, &f.Enabled, &f.RolloutPercentage, &targetingBytes, &variantsBytes, &f.CreatedAt, &f.UpdatedAt)
+	err := row.Scan(&f.ID, &f.Key, &f.Description, &f.Enabled, &f.RolloutPercentage, &targetingBytes, &variantsBytes, &f.ProjectID, &f.CreatedAt, &f.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
@@ -76,7 +89,7 @@ func (r *FlagRepository) GetByKey(ctx context.Context, key string) (*domain.Feat
 // GetByKeys returns multiple feature flags by their keys (used by evaluate-batch and variants). BKL-094.
 func (r *FlagRepository) GetByKeys(ctx context.Context, keys []string) ([]domain.FeatureFlag, error) {
 	rows, err := r.db.Query(ctx,
-		`SELECT id, key, COALESCE(description, ''), enabled, rollout_percentage, targeting, COALESCE(variants, '[]'::jsonb), created_at, updated_at
+		`SELECT id, key, COALESCE(description, ''), enabled, rollout_percentage, targeting, COALESCE(variants, '[]'::jsonb), project_id, created_at, updated_at
 		 FROM feature_flags
 		 WHERE key = ANY($1)`,
 		keys,
@@ -108,9 +121,9 @@ func (r *FlagRepository) Create(ctx context.Context, flag *domain.FeatureFlag) e
 	variantsJSON, _ := json.Marshal(flag.Variants)
 
 	_, err := r.db.Exec(ctx,
-		`INSERT INTO feature_flags (id, key, description, enabled, rollout_percentage, targeting, variants, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-		flag.ID, flag.Key, flag.Description, flag.Enabled, flag.RolloutPercentage, targetingJSON, variantsJSON, flag.CreatedAt, flag.UpdatedAt,
+		`INSERT INTO feature_flags (id, key, description, enabled, rollout_percentage, targeting, variants, project_id, created_at, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+		flag.ID, flag.Key, flag.Description, flag.Enabled, flag.RolloutPercentage, targetingJSON, variantsJSON, flag.ProjectID, flag.CreatedAt, flag.UpdatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("repository: Create: %w", err)
@@ -172,12 +185,12 @@ func (r *FlagRepository) Delete(ctx context.Context, key string) error {
 	return nil
 }
 
-// scanFlag escaneia uma row de feature_flags incluindo variants. BKL-094.
+// scanFlag escaneia uma row de feature_flags incluindo variants e project_id. BKL-094, BKL-323.
 func scanFlag(rows pgx.Rows) (*domain.FeatureFlag, error) {
 	var f domain.FeatureFlag
 	var targetingBytes []byte
 	var variantsBytes []byte
-	if err := rows.Scan(&f.ID, &f.Key, &f.Description, &f.Enabled, &f.RolloutPercentage, &targetingBytes, &variantsBytes, &f.CreatedAt, &f.UpdatedAt); err != nil {
+	if err := rows.Scan(&f.ID, &f.Key, &f.Description, &f.Enabled, &f.RolloutPercentage, &targetingBytes, &variantsBytes, &f.ProjectID, &f.CreatedAt, &f.UpdatedAt); err != nil {
 		return nil, err
 	}
 	if len(targetingBytes) > 0 {

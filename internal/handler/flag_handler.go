@@ -13,11 +13,11 @@ import (
 var validKeyPattern = regexp.MustCompile(`^[a-zA-Z0-9_\-\.]{2,100}$`)
 
 type FlagHandler struct {
-	svc          *service.FlagService
+	svc          service.FlagServicer
 	serviceToken string
 }
 
-func NewFlagHandler(svc *service.FlagService, serviceToken string) *FlagHandler {
+func NewFlagHandler(svc service.FlagServicer, serviceToken string) *FlagHandler {
 	return &FlagHandler{svc: svc, serviceToken: serviceToken}
 }
 
@@ -40,11 +40,26 @@ func (h *FlagHandler) RegisterRoutes(app *fiber.App) {
 // GetFlagsMap godoc
 // GET /flags — public, returns {flags: {key: enabled}} for SDK consumption.
 // Query params opcionais: user_id, tenant_id — quando fornecidos, avalia rollout e targeting.
+// Query param opcional: project_id (UUID) — filtra flags pelo projeto. BKL-323.
 func (h *FlagHandler) GetFlagsMap(c *fiber.Ctx) error {
 	userID := c.Query("user_id")
 	tenantID := c.Query("tenant_id")
+	projectID := c.Query("project_id")
 
-	// Se tem contexto, avalia com rollout + targeting
+	// Se tem project_id, retorna mapa filtrado por projeto (sem cache Redis — escopo menor)
+	if projectID != "" {
+		flags, err := h.svc.ListByProject(c.Context(), projectID)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: "failed to load flags"})
+		}
+		result := make(map[string]bool, len(flags))
+		for _, f := range flags {
+			result[f.Key] = f.Enabled
+		}
+		return c.JSON(domain.FlagsMapResponse{Flags: result})
+	}
+
+	// Se tem contexto de usuario, avalia com rollout + targeting
 	if userID != "" || tenantID != "" {
 		resp, err := h.svc.EvaluateFlags(c.Context(), userID, tenantID)
 		if err != nil {
@@ -63,8 +78,19 @@ func (h *FlagHandler) GetFlagsMap(c *fiber.Ctx) error {
 
 // ListFlags godoc
 // GET /api/v1/flags — returns all flags with full details.
+// Query param opcional: project_id (UUID) — filtra flags pelo projeto. BKL-323.
 func (h *FlagHandler) ListFlags(c *fiber.Ctx) error {
-	flags, err := h.svc.List(c.Context())
+	projectID := c.Query("project_id")
+
+	var (
+		flags []domain.FeatureFlag
+		err   error
+	)
+	if projectID != "" {
+		flags, err = h.svc.ListByProject(c.Context(), projectID)
+	} else {
+		flags, err = h.svc.List(c.Context())
+	}
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: "failed to list flags"})
 	}

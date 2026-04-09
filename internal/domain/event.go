@@ -35,10 +35,19 @@ type EventsSummaryResponse struct {
 
 // TrackEventRequest is the payload for POST /api/v1/events/track.
 type TrackEventRequest struct {
-	EventName  string                 `json:"event_name"`
-	Product    string                 `json:"product,omitempty"`
-	UserID     *string                `json:"user_id,omitempty"`
-	Properties map[string]interface{} `json:"properties,omitempty"`
+	EventName   string                 `json:"event_name"`
+	Product     string                 `json:"product,omitempty"`
+	UserID      *string                `json:"user_id,omitempty"`
+	AnonymousID *string                `json:"anonymous_id,omitempty"`
+	Properties  map[string]interface{} `json:"properties,omitempty"`
+}
+
+// IdentifyRequest vincula um anonymous_id a um user_id real.
+// Usado apos login/signup para unificar a jornada do usuario.
+type IdentifyRequest struct {
+	AnonymousID string `json:"anonymous_id"`
+	UserID      string `json:"user_id"`
+	Product     string `json:"product,omitempty"`
 }
 
 // EventCountItem represents a count grouped by event_name.

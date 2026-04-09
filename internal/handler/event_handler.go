@@ -29,6 +29,9 @@ func (h *EventHandler) RegisterRoutes(app *fiber.App) {
 	// Public endpoint — simplified event tracking
 	api.Post("/events/track", h.TrackEvent)
 
+	// Public endpoint — merge anonymous_id com user_id apos login
+	api.Post("/events/identify", h.IdentifyUser)
+
 	// Admin endpoints — require service token
 	api.Get("/events/summary", middleware.ServiceTokenMiddleware(h.serviceToken), h.GetSummary)
 	api.Get("/events/count", middleware.ServiceTokenMiddleware(h.serviceToken), h.CountEvents)
@@ -83,6 +86,25 @@ func (h *EventHandler) TrackEvent(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(domain.ErrorResponse{Error: err.Error()})
 	}
 	return c.Status(fiber.StatusCreated).JSON(event)
+}
+
+// IdentifyUser godoc
+// POST /api/v1/events/identify — merge anonymous_id com user_id real.
+func (h *EventHandler) IdentifyUser(c *fiber.Ctx) error {
+	var req domain.IdentifyRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(domain.ErrorResponse{Error: "invalid request body"})
+	}
+	if req.AnonymousID == "" || req.UserID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(domain.ErrorResponse{Error: "anonymous_id e user_id sao obrigatorios"})
+	}
+
+	count, err := h.svc.Identify(c.Context(), req)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: err.Error()})
+	}
+
+	return c.JSON(fiber.Map{"merged_events": count, "anonymous_id": req.AnonymousID, "user_id": req.UserID})
 }
 
 // CountEvents godoc

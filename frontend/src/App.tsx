@@ -6,6 +6,7 @@ import Uptime from './pages/Uptime'
 import Retention from './pages/Retention'
 import ABTesting from './pages/ABTesting'
 import Costs from './pages/Costs'
+import CSAT from './pages/CSAT'
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
           <Route path="/retention" element={<Retention />} />
           <Route path="/ab-testing" element={<ABTesting />} />
           <Route path="/costs" element={<Costs />} />
+          <Route path="/csat" element={<CSAT />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>

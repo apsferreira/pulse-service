@@ -86,6 +86,10 @@ func main() {
 	projectRepo := repository.NewProjectRepository(pool)
 	projectHandler := handler.NewProjectHandler(projectRepo, cfg.ServiceToken)
 
+	// Wire up layers — cost tracking
+	costRepo := repository.NewCostRepository(pool)
+	costHandler := handler.NewCostHandler(costRepo, cfg.ServiceToken)
+
 	// Create Fiber app
 	app := fiber.New(fiber.Config{
 		AppName:      "pulse-service",
@@ -130,6 +134,9 @@ func main() {
 
 	// Register project routes (BKL-099)
 	projectHandler.RegisterRoutes(app)
+
+	// Register cost tracking routes
+	costHandler.RegisterRoutes(app)
 
 	// Start uptime monitor background checker
 	monitorSvc.StartBackgroundChecker()

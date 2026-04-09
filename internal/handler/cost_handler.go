@@ -8,15 +8,14 @@ import (
 	"github.com/google/uuid"
 	"github.com/institutoitinerante/pulse-service/internal/domain"
 	"github.com/institutoitinerante/pulse-service/internal/middleware"
-	"github.com/institutoitinerante/pulse-service/internal/repository"
 )
 
 type CostHandler struct {
-	repo         *repository.CostRepository
+	repo         domain.CostRepository
 	serviceToken string
 }
 
-func NewCostHandler(repo *repository.CostRepository, serviceToken string) *CostHandler {
+func NewCostHandler(repo domain.CostRepository, serviceToken string) *CostHandler {
 	return &CostHandler{repo: repo, serviceToken: serviceToken}
 }
 

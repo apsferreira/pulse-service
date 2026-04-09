@@ -8,17 +8,16 @@ import (
 	"github.com/google/uuid"
 	"github.com/institutoitinerante/pulse-service/internal/domain"
 	"github.com/institutoitinerante/pulse-service/internal/middleware"
-	"github.com/institutoitinerante/pulse-service/internal/repository"
 )
 
 // CSATHandler gerencia as rotas do modulo CSAT/NPS.
 type CSATHandler struct {
-	repo         *repository.CSATRepository
+	repo         domain.CSATRepository
 	serviceToken string
 }
 
 // NewCSATHandler cria um novo CSATHandler.
-func NewCSATHandler(repo *repository.CSATRepository, serviceToken string) *CSATHandler {
+func NewCSATHandler(repo domain.CSATRepository, serviceToken string) *CSATHandler {
 	return &CSATHandler{repo: repo, serviceToken: serviceToken}
 }
 

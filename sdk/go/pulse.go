@@ -155,9 +155,10 @@ func (c *Client) IsEnabled(ctx context.Context, key string) (bool, error) {
 
 // TrackEventRequest is the payload for POST /api/v1/events/track.
 type TrackEventRequest struct {
-	EventName  string                 `json:"event_name"`
-	UserID     *string                `json:"user_id,omitempty"`
-	Properties map[string]interface{} `json:"properties,omitempty"`
+	EventName   string                 `json:"event_name"`
+	UserID      *string                `json:"user_id,omitempty"`
+	Environment string                 `json:"environment,omitempty"`
+	Properties  map[string]interface{} `json:"properties,omitempty"`
 }
 
 // TrackEventResponse is the response from POST /api/v1/events/track.

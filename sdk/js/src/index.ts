@@ -34,6 +34,7 @@ export interface FeatureFlag {
 export interface TrackEventRequest {
   event_name: string;
   user_id?: string;
+  environment?: string;
   properties?: Record<string, unknown>;
 }
 

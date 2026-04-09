@@ -5,6 +5,7 @@ import Events from './pages/Events'
 import Uptime from './pages/Uptime'
 import Retention from './pages/Retention'
 import ABTesting from './pages/ABTesting'
+import Costs from './pages/Costs'
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
           <Route path="/events" element={<Events />} />
           <Route path="/retention" element={<Retention />} />
           <Route path="/ab-testing" element={<ABTesting />} />
+          <Route path="/costs" element={<Costs />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>

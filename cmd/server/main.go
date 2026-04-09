@@ -90,6 +90,10 @@ func main() {
 	costRepo := repository.NewCostRepository(pool)
 	costHandler := handler.NewCostHandler(costRepo, cfg.ServiceToken)
 
+	// Wire up layers — CSAT / NPS
+	csatRepo := repository.NewCSATRepository(pool)
+	csatHandler := handler.NewCSATHandler(csatRepo, cfg.ServiceToken)
+
 	// Create Fiber app
 	app := fiber.New(fiber.Config{
 		AppName:      "pulse-service",
@@ -137,6 +141,9 @@ func main() {
 
 	// Register cost tracking routes
 	costHandler.RegisterRoutes(app)
+
+	// Register CSAT / NPS routes
+	csatHandler.RegisterRoutes(app)
 
 	// Start uptime monitor background checker
 	monitorSvc.StartBackgroundChecker()

@@ -150,4 +150,39 @@ export const metricsApi = {
   },
 }
 
+// ── Cost Tracking types ──────────────────────────────────────────────────────
+
+export interface CostSummary {
+  product: string
+  operation: string
+  count: number
+  total_usd: number
+  total_brl: number
+}
+
+export interface CostOverview {
+  from: string
+  to: string
+  total_usd: number
+  total_brl: number
+  breakdown: CostSummary[]
+}
+
+export interface CostTotal {
+  from: string
+  to: string
+  total_usd: number
+  total_brl: number
+}
+
+// ── Cost API calls ───────────────────────────────────────────────────────────
+
+export const costsApi = {
+  overview: (product?: string, days = 30) =>
+    api.get<CostOverview>('/costs/overview', { params: { product, days } }).then((r) => r.data),
+
+  total: (days = 30) =>
+    api.get<CostTotal>('/costs/total', { params: { days } }).then((r) => r.data),
+}
+
 export default api

@@ -23,8 +23,9 @@ func NewFlagHandler(svc *service.FlagService, serviceToken string) *FlagHandler 
 
 // RegisterRoutes mounts all flag routes onto the given Fiber app.
 func (h *FlagHandler) RegisterRoutes(app *fiber.App) {
-	// Public endpoint — no auth required (consumed by SDKs)
+	// Public endpoints — no auth required (consumed by SDKs)
 	app.Get("/flags", h.GetFlagsMap)
+	app.Post("/flags/evaluate-batch", h.EvaluateBatch) // BKL-093: batch evaluation
 
 	// Admin CRUD endpoints — require service token
 	api := app.Group("/api/v1/flags", middleware.ServiceTokenMiddleware(h.serviceToken))
@@ -144,4 +145,43 @@ func (h *FlagHandler) DeleteFlag(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: "failed to delete flag"})
 	}
 	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// EvaluateBatch godoc
+// POST /flags/evaluate-batch — BKL-093: avalia N flags de uma vez para SDKs.
+// Body: {"keys": ["flag-a", "flag-b"], "user_id": "...", "tenant_id": "..."}
+// Response: {"flags": {"flag-a": true, "flag-b": false}}
+func (h *FlagHandler) EvaluateBatch(c *fiber.Ctx) error {
+	var req struct {
+		Keys     []string `json:"keys"`
+		UserID   string   `json:"user_id"`
+		TenantID string   `json:"tenant_id"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(domain.ErrorResponse{Error: "invalid request body"})
+	}
+	if len(req.Keys) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(domain.ErrorResponse{Error: "keys must not be empty"})
+	}
+	if len(req.Keys) > 50 {
+		return c.Status(fiber.StatusBadRequest).JSON(domain.ErrorResponse{Error: "max 50 keys per batch"})
+	}
+
+	// Evaluate all flags with context
+	allFlags, err := h.svc.EvaluateFlags(c.Context(), req.UserID, req.TenantID)
+	if err != nil {
+		// Fail-open: return all false defaults
+		result := make(map[string]bool, len(req.Keys))
+		for _, k := range req.Keys {
+			result[k] = false
+		}
+		return c.JSON(domain.FlagsMapResponse{Flags: result})
+	}
+
+	// Filter to only requested keys
+	result := make(map[string]bool, len(req.Keys))
+	for _, k := range req.Keys {
+		result[k] = allFlags.Flags[k]
+	}
+	return c.JSON(domain.FlagsMapResponse{Flags: result})
 }

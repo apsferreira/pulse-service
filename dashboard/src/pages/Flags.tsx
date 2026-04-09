@@ -125,11 +125,18 @@ function FlagModal({
   const [key, setKey] = useState(flag?.key ?? '')
   const [description, setDescription] = useState(flag?.description ?? '')
   const [enabled, setEnabled] = useState(flag?.enabled ?? false)
+  const [rollout, setRollout] = useState(flag?.rollout_percentage ?? 0)
+  const [userIds, setUserIds] = useState((flag?.targeting?.user_ids ?? []).join(', '))
+  const [tenantIds, setTenantIds] = useState((flag?.targeting?.tenant_ids ?? []).join(', '))
   const [keyError, setKeyError] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const sanitizedDesc = sanitize(description)
+    const targeting = {
+      user_ids: userIds.split(',').map(s => s.trim()).filter(Boolean),
+      tenant_ids: tenantIds.split(',').map(s => s.trim()).filter(Boolean),
+    }
 
     if (!isEdit) {
       const sanitizedKey = sanitize(key)
@@ -137,9 +144,9 @@ function FlagModal({
         setKeyError('Key: 2-100 caracteres, apenas letras, numeros, _, - e .')
         return
       }
-      await onSubmit({ key: sanitizedKey, description: sanitizedDesc, enabled })
+      await onSubmit({ key: sanitizedKey, description: sanitizedDesc, enabled, rollout_percentage: rollout, targeting })
     } else {
-      await onSubmit({ description: sanitizedDesc, enabled })
+      await onSubmit({ description: sanitizedDesc, enabled, rollout_percentage: rollout, targeting })
     }
   }
 
@@ -215,6 +222,49 @@ function FlagModal({
             <span className="text-sm text-slate-700 dark:text-slate-300">
               {enabled ? 'Ativa' : 'Inativa'}
             </span>
+          </div>
+
+          {/* PULSE-03: Rollout percentual */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+              Rollout {rollout}%
+            </label>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={rollout}
+              onChange={(e) => setRollout(Number(e.target.value))}
+              className="w-full accent-violet-600"
+            />
+            <p className="text-xs text-slate-400 mt-1">0% = flag global (enabled/disabled). 1-99% = rollout gradual por usuario.</p>
+          </div>
+
+          {/* PULSE-03: Targeting */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+              Targeting: User IDs
+            </label>
+            <input
+              type="text"
+              value={userIds}
+              onChange={(e) => setUserIds(e.target.value)}
+              placeholder="uuid1, uuid2, ..."
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+              Targeting: Tenant IDs
+            </label>
+            <input
+              type="text"
+              value={tenantIds}
+              onChange={(e) => setTenantIds(e.target.value)}
+              placeholder="tenant-slug-1, tenant-slug-2, ..."
+              className={inputClass}
+            />
+            <p className="text-xs text-slate-400 mt-1">Usuarios/tenants na lista veem a flag ativa independente do rollout %.</p>
           </div>
 
           <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">

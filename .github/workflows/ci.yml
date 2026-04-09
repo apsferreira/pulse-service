@@ -60,7 +60,15 @@ jobs:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/pulse_test?sslmode=disable
           REDIS_URL: redis://localhost:6379
           SERVICE_TOKEN: test-token
-        run: go test ./...
+        run: go test ./... -coverprofile=coverage.out -covermode=atomic
+
+      - name: Coverage gate
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | tr -d '%')
+          echo "Cobertura total: ${COVERAGE}%"
+          if [ $(echo "$COVERAGE < 20" | bc -l) -eq 1 ]; then
+            echo "WARN: cobertura abaixo de 20% (${COVERAGE}%)"
+          fi
 
   build-and-push:
     name: Build & Push

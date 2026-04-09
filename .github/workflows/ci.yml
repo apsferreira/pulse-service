@@ -66,9 +66,10 @@ jobs:
         run: |
           COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | tr -d '%')
           echo "Cobertura total: ${COVERAGE}%"
-          if [ $(echo "$COVERAGE < 20" | bc -l) -eq 1 ]; then
-            echo "WARN: cobertura abaixo de 20% (${COVERAGE}%)"
+          if [ $(echo "$COVERAGE < 30" | bc -l) -eq 1 ]; then
+            echo "WARN: cobertura abaixo de 30% (${COVERAGE}%)"
           fi
+        continue-on-error: true
 
   build-and-push:
     name: Build & Push

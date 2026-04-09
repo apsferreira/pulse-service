@@ -90,4 +90,55 @@ export const flagsApi = {
   remove: (key: string) => api.delete(`/flags/${key}`),
 }
 
+// ── Retention / Cohort types (BKL-095) ──────────────────────────────────────
+
+export interface ActiveUsersCountItem {
+  date: string
+  count: number
+}
+
+export interface ActiveUsersResponse {
+  product: string
+  dau: ActiveUsersCountItem[]
+  wau: ActiveUsersCountItem[]
+  mau: ActiveUsersCountItem[]
+}
+
+export interface CohortBucket {
+  offset: number
+  active_users: number
+  retention_pct: number
+}
+
+export interface CohortItem {
+  cohort_label: string
+  cohort_size: number
+  buckets: CohortBucket[]
+}
+
+export interface CohortsResponse {
+  product: string
+  granularity: string
+  cohorts: CohortItem[]
+}
+
+// ── Metrics API calls (BKL-095) ─────────────────────────────────────────────
+
+export const metricsApi = {
+  activeUsers: (product?: string, startDate?: string, endDate?: string) => {
+    const params = new URLSearchParams()
+    if (product) params.set('product', product)
+    if (startDate) params.set('start_date', startDate)
+    if (endDate) params.set('end_date', endDate)
+    return api.get<ActiveUsersResponse>(`/metrics/active-users?${params}`)
+  },
+
+  cohorts: (product?: string, granularity: 'week' | 'month' = 'week') => {
+    const params = new URLSearchParams()
+    if (product) params.set('product', product)
+    params.set('granularity', granularity)
+    return api.get<CohortsResponse>(`/metrics/cohorts?${params}`)
+  },
+}
+
 export default api

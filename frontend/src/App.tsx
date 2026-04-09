@@ -3,6 +3,7 @@ import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import Events from './pages/Events'
 import Uptime from './pages/Uptime'
+import Retention from './pages/Retention'
 
 function App() {
   return (
@@ -12,6 +13,7 @@ function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/uptime" element={<Uptime />} />
           <Route path="/events" element={<Events />} />
+          <Route path="/retention" element={<Retention />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>

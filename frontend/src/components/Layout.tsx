@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Activity, Zap, Moon, Sun, HeartPulse, Users } from 'lucide-react'
+import { LayoutDashboard, Activity, Zap, Moon, Sun, HeartPulse, Users, FlaskConical } from 'lucide-react'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -36,6 +36,7 @@ export default function Layout({ children }: LayoutProps) {
     { to: '/uptime', label: 'Uptime', icon: HeartPulse },
     { to: '/events', label: 'Eventos', icon: Activity },
     { to: '/retention', label: 'Retencao', icon: Users }, // BKL-095
+    { to: '/ab-testing', label: 'A/B Testing', icon: FlaskConical }, // BKL-124
   ]
 
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>

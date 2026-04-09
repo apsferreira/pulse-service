@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard'
 import Events from './pages/Events'
 import Uptime from './pages/Uptime'
 import Retention from './pages/Retention'
+import ABTesting from './pages/ABTesting'
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
           <Route path="/uptime" element={<Uptime />} />
           <Route path="/events" element={<Events />} />
           <Route path="/retention" element={<Retention />} />
+          <Route path="/ab-testing" element={<ABTesting />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>

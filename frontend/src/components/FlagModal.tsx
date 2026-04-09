@@ -1,11 +1,12 @@
 // BKL-123: Formulário de feature flag com rollout % e targeting por user_id/tenant_id
+// BKL-124: Suporte a variantes A/B testing
 
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { X, Plus, Trash2 } from 'lucide-react'
-import type { FeatureFlag, CreateFlagPayload, UpdateFlagPayload } from '../services/api'
+import { X, Plus, Trash2, FlaskConical } from 'lucide-react'
+import type { FeatureFlag, CreateFlagPayload, UpdateFlagPayload, FlagVariant } from '../services/api'
 
 const createSchema = z.object({
   key: z
@@ -43,6 +44,12 @@ export default function FlagModal({ flag, onClose, onSubmit, loading }: FlagModa
   const [userIDInput, setUserIDInput] = useState('')
   const [tenantIDInput, setTenantIDInput] = useState('')
 
+  // BKL-124: Variantes A/B
+  const [variants, setVariants] = useState<FlagVariant[]>(flag?.variants ?? [])
+  const [variantKeyInput, setVariantKeyInput] = useState('')
+  const [variantWeightInput, setVariantWeightInput] = useState(50)
+  const variantWeightSum = variants.reduce((acc, v) => acc + v.weight, 0)
+
   const createForm = useForm<CreateFormValues>({
     resolver: zodResolver(createSchema),
     defaultValues: {
@@ -71,6 +78,7 @@ export default function FlagModal({ flag, onClose, onSubmit, loading }: FlagModa
       })
       setUserIDs(flag.targeting?.user_ids ?? [])
       setTenantIDs(flag.targeting?.tenant_ids ?? [])
+      setVariants(flag.variants ?? [])
     }
   }, [flag, editForm])
 
@@ -93,6 +101,20 @@ export default function FlagModal({ flag, onClose, onSubmit, loading }: FlagModa
     return Object.keys(t).length > 0 ? t : undefined
   }
 
+  const addVariant = () => {
+    const key = variantKeyInput.trim()
+    if (!key || variants.some(v => v.key === key)) return
+    setVariants([...variants, { key, weight: variantWeightInput }])
+    setVariantKeyInput('')
+    setVariantWeightInput(50)
+  }
+
+  const removeVariant = (key: string) => setVariants(variants.filter(v => v.key !== key))
+
+  const updateVariantWeight = (key: string, weight: number) => {
+    setVariants(variants.map(v => v.key === key ? { ...v, weight } : v))
+  }
+
   const handleCreate = createForm.handleSubmit(async (values) => {
     const payload: CreateFlagPayload = {
       key: values.key,
@@ -100,6 +122,7 @@ export default function FlagModal({ flag, onClose, onSubmit, loading }: FlagModa
       enabled: values.enabled,
       rollout_percentage: values.rollout_percentage,
       targeting: buildTargeting(),
+      variants: variants.length > 0 ? variants : undefined,
     }
     await onSubmit(payload)
   })
@@ -110,6 +133,7 @@ export default function FlagModal({ flag, onClose, onSubmit, loading }: FlagModa
       enabled: values.enabled,
       rollout_percentage: values.rollout_percentage,
       targeting: buildTargeting(),
+      variants: variants.length > 0 ? variants : [],
     }
     await onSubmit(payload)
   })
@@ -300,6 +324,71 @@ export default function FlagModal({ flag, onClose, onSubmit, loading }: FlagModa
                 ))}
               </div>
             )}
+          </div>
+
+          {/* BKL-124: Variantes A/B Testing */}
+          <div>
+            <label className={labelClass}>
+              <span className="flex items-center gap-1.5">
+                <FlaskConical className="w-3.5 h-3.5 text-violet-500" />
+                Variantes A/B Testing
+              </span>
+              <span className="ml-1 text-xs text-slate-400 font-normal">(opcional — vazio = on/off normal)</span>
+            </label>
+
+            {variants.length > 0 && (
+              <div className="mb-3 space-y-2">
+                {variants.map(v => (
+                  <div key={v.key} className="flex items-center gap-2">
+                    <span className="flex-1 text-sm font-mono text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
+                      {v.key}
+                    </span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={v.weight}
+                      onChange={e => updateVariantWeight(v.key, Number(e.target.value))}
+                      className="w-20 px-2 py-1 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-center"
+                    />
+                    <span className="text-xs text-slate-400">%</span>
+                    <button type="button" onClick={() => removeVariant(v.key)} className="text-slate-400 hover:text-red-500 transition-colors">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                <div className={`text-xs font-medium mt-1 ${variantWeightSum === 100 ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>
+                  Total: {variantWeightSum}% {variantWeightSum !== 100 && '(deve somar 100%)'}
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={variantKeyInput}
+                onChange={e => setVariantKeyInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addVariant())}
+                placeholder="ex: control, challenger..."
+                className={inputClass}
+              />
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={variantWeightInput}
+                onChange={e => setVariantWeightInput(Number(e.target.value))}
+                className="w-24 px-2 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-center"
+                placeholder="%"
+              />
+              <button
+                type="button"
+                onClick={addVariant}
+                className="p-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           {/* Actions */}

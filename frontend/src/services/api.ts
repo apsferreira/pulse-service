@@ -49,6 +49,12 @@ export interface FlagTargeting {
   tenant_ids?: string[]
 }
 
+// BKL-124: Variante para A/B testing — key único + peso percentual (soma deve ser 100)
+export interface FlagVariant {
+  key: string    // ex: "control", "challenger", "variant-b"
+  weight: number // 0-100, soma de todas as variantes deve ser 100
+}
+
 export interface FeatureFlag {
   id: string
   key: string
@@ -56,6 +62,7 @@ export interface FeatureFlag {
   enabled: boolean
   rollout_percentage: number // BKL-123: 0-100
   targeting: FlagTargeting   // BKL-123: user_ids / tenant_ids
+  variants: FlagVariant[]    // BKL-124: [] = on/off normal; [{key,weight}] = A/B
   created_at: string
   updated_at: string
 }
@@ -66,6 +73,7 @@ export interface CreateFlagPayload {
   enabled: boolean
   rollout_percentage?: number
   targeting?: FlagTargeting
+  variants?: FlagVariant[]   // BKL-124
 }
 
 export interface UpdateFlagPayload {
@@ -73,6 +81,7 @@ export interface UpdateFlagPayload {
   enabled?: boolean
   rollout_percentage?: number
   targeting?: FlagTargeting
+  variants?: FlagVariant[]   // BKL-124
 }
 
 // ── Flag API calls ───────────────────────────────────────────────────────────

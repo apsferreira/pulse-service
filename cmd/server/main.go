@@ -112,7 +112,7 @@ func main() {
 	// Global middleware
 	app.Use(recover.New())
 	app.Use(custommw.SecurityHeaders())
-	app.Use(custommw.RateLimit())
+	app.Use(custommw.RateLimit(redisClient)) // BKL-463: Redis sliding window (multi-réplica safe)
 	app.Use(logger.New(logger.Config{
 		Format: "[${time}] ${status} ${method} ${path} ${latency}\n",
 	}))

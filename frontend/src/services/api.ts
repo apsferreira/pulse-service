@@ -44,11 +44,18 @@ api.interceptors.response.use(
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
+export interface FlagTargeting {
+  user_ids?: string[]
+  tenant_ids?: string[]
+}
+
 export interface FeatureFlag {
   id: string
   key: string
   description: string
   enabled: boolean
+  rollout_percentage: number // BKL-123: 0-100
+  targeting: FlagTargeting   // BKL-123: user_ids / tenant_ids
   created_at: string
   updated_at: string
 }
@@ -57,11 +64,15 @@ export interface CreateFlagPayload {
   key: string
   description: string
   enabled: boolean
+  rollout_percentage?: number
+  targeting?: FlagTargeting
 }
 
 export interface UpdateFlagPayload {
   description?: string
   enabled?: boolean
+  rollout_percentage?: number
+  targeting?: FlagTargeting
 }
 
 // ── Flag API calls ───────────────────────────────────────────────────────────

@@ -167,91 +167,140 @@ export default function FlagTable({ flags, onEdit, onDelete, onToggle, loading }
               <th className="px-4 py-3">Key</th>
               <th className="px-4 py-3">Descricao</th>
               <th className="px-4 py-3 text-center">Ativo</th>
+              <th className="px-4 py-3 text-center">Rollout</th>
+              <th className="px-4 py-3">Targeting</th>
               <th className="px-4 py-3">Criado em</th>
               <th className="px-4 py-3 text-right">Acoes</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-            {flags.map((flag) => (
-              <tr
-                key={flag.id}
-                className="bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
-              >
-                <td className="px-4 py-3 font-mono text-xs font-medium text-slate-800 dark:text-slate-200">
-                  {flag.key}
-                </td>
-                <td className="px-4 py-3 text-slate-500 dark:text-slate-400 max-w-xs truncate">
-                  {flag.description || <span className="text-slate-300 dark:text-slate-600">--</span>}
-                </td>
-                <td className="px-4 py-3 text-center">
-                  <ToggleSwitch flagKey={flag.key} enabled={flag.enabled} onToggle={onToggle} />
-                </td>
-                <td className="px-4 py-3 text-xs text-slate-400 font-mono whitespace-nowrap">
-                  {formatDate(flag.created_at)}
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center justify-end gap-1">
-                    <button
-                      onClick={() => onEdit(flag)}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/30 transition-colors"
-                      aria-label="Editar"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => setDeleteTarget(flag)}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
-                      aria-label="Deletar"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {flags.map((flag) => {
+              const rollout = flag.rollout_percentage ?? 100
+              const hasTargeting = (flag.targeting?.user_ids?.length ?? 0) + (flag.targeting?.tenant_ids?.length ?? 0) > 0
+              const targetingCount = (flag.targeting?.user_ids?.length ?? 0) + (flag.targeting?.tenant_ids?.length ?? 0)
+              return (
+                <tr
+                  key={flag.id}
+                  className="bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                >
+                  <td className="px-4 py-3 font-mono text-xs font-medium text-slate-800 dark:text-slate-200">
+                    {flag.key}
+                  </td>
+                  <td className="px-4 py-3 text-slate-500 dark:text-slate-400 max-w-xs truncate">
+                    {flag.description || <span className="text-slate-300 dark:text-slate-600">--</span>}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <ToggleSwitch flagKey={flag.key} enabled={flag.enabled} onToggle={onToggle} />
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <span className={[
+                      'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold',
+                      rollout === 100
+                        ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300'
+                        : rollout === 0
+                        ? 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                        : 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300',
+                    ].join(' ')}>
+                      {rollout}%
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    {hasTargeting ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 text-xs font-semibold">
+                        {targetingCount} ID{targetingCount !== 1 ? 's' : ''}
+                      </span>
+                    ) : (
+                      <span className="text-slate-300 dark:text-slate-600 text-xs">--</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-xs text-slate-400 font-mono whitespace-nowrap">
+                    {formatDate(flag.created_at)}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => onEdit(flag)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/30 transition-colors"
+                        aria-label="Editar"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => setDeleteTarget(flag)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+                        aria-label="Deletar"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
 
       {/* Mobile cards */}
       <div className="md:hidden space-y-3">
-        {flags.map((flag) => (
-          <div
-            key={flag.id}
-            className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 space-y-3"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="font-mono text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
-                  {flag.key}
-                </p>
-                {flag.description && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">
-                    {flag.description}
+        {flags.map((flag) => {
+          const rollout = flag.rollout_percentage ?? 100
+          const targetingCount = (flag.targeting?.user_ids?.length ?? 0) + (flag.targeting?.tenant_ids?.length ?? 0)
+          return (
+            <div
+              key={flag.id}
+              className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 space-y-3"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-mono text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
+                    {flag.key}
                   </p>
+                  {flag.description && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">
+                      {flag.description}
+                    </p>
+                  )}
+                </div>
+                <ToggleSwitch flagKey={flag.key} enabled={flag.enabled} onToggle={onToggle} />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={[
+                  'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold',
+                  rollout === 100
+                    ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300'
+                    : rollout === 0
+                    ? 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                    : 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300',
+                ].join(' ')}>
+                  {rollout}%
+                </span>
+                {targetingCount > 0 && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 text-xs font-semibold">
+                    {targetingCount} ID{targetingCount !== 1 ? 's' : ''}
+                  </span>
                 )}
               </div>
-              <ToggleSwitch flagKey={flag.key} enabled={flag.enabled} onToggle={onToggle} />
-            </div>
-            <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
-              <span className="text-xs text-slate-400 font-mono">{formatDate(flag.created_at)}</span>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => onEdit(flag)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/30 transition-colors"
-                >
-                  <Pencil className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => setDeleteTarget(flag)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
+              <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
+                <span className="text-xs text-slate-400 font-mono">{formatDate(flag.created_at)}</span>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => onEdit(flag)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/30 transition-colors"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => setDeleteTarget(flag)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {/* Delete confirm dialog */}

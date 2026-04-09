@@ -82,6 +82,10 @@ func main() {
 	retentionSvc := service.NewRetentionService(retentionRepo)
 	retentionHandler := handler.NewRetentionHandler(retentionSvc, cfg.ServiceToken)
 
+	// Wire up layers — projects (BKL-099)
+	projectRepo := repository.NewProjectRepository(pool)
+	projectHandler := handler.NewProjectHandler(projectRepo, cfg.ServiceToken)
+
 	// Create Fiber app
 	app := fiber.New(fiber.Config{
 		AppName:      "pulse-service",
@@ -123,6 +127,9 @@ func main() {
 
 	// Register retention metrics routes
 	retentionHandler.RegisterRoutes(app)
+
+	// Register project routes (BKL-099)
+	projectHandler.RegisterRoutes(app)
 
 	// Start uptime monitor background checker
 	monitorSvc.StartBackgroundChecker()

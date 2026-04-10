@@ -1,0 +1,101 @@
+version: "3.9"
+
+# Pulse — Self-Hosted
+# Uso: docker compose -f docker-compose.selfhosted.yml up -d
+# Docs: docs/DEPLOYMENT-MODES.md
+
+services:
+  pulse-backend:
+    image: ghcr.io/institutoitinerante/pulse-service:latest
+    container_name: pulse-backend
+    restart: unless-stopped
+    ports:
+      - "3015:3015"
+    environment:
+      DATABASE_URL: postgres://pulse:${POSTGRES_PASSWORD:-pulse_secret}@pulse-postgres:5432/pulse_db?sslmode=disable
+      REDIS_URL: redis://pulse-redis:6379
+      PORT: "3015"
+      SERVICE_TOKEN: ${SERVICE_TOKEN:?SERVICE_TOKEN is required}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM: ${RESEND_FROM:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      SELF_HOSTED: "true"
+    depends_on:
+      pulse-postgres:
+        condition: service_healthy
+      pulse-redis:
+        condition: service_healthy
+    networks:
+      - pulse-net
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3015/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  pulse-frontend:
+    image: ghcr.io/institutoitinerante/pulse-frontend:latest
+    container_name: pulse-frontend
+    restart: unless-stopped
+    ports:
+      - "3016:80"
+    environment:
+      VITE_API_URL: ${PULSE_API_URL:-http://localhost:3015}
+    depends_on:
+      - pulse-backend
+    networks:
+      - pulse-net
+
+  pulse-postgres:
+    image: postgres:15-alpine
+    container_name: pulse-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: pulse_db
+      POSTGRES_USER: pulse
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pulse_secret}
+    volumes:
+      - pulse-postgres-data:/var/lib/postgresql/data
+    networks:
+      - pulse-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pulse -d pulse_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    # Não expor porta externamente em produção.
+    # Para acesso local de debug: descomente a linha abaixo.
+    # ports:
+    #   - "5432:5432"
+
+  pulse-redis:
+    image: redis:7-alpine
+    container_name: pulse-redis
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - pulse-redis-data:/data
+    networks:
+      - pulse-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    # Não expor porta externamente em produção.
+    # ports:
+    #   - "6379:6379"
+
+volumes:
+  pulse-postgres-data:
+    driver: local
+  pulse-redis-data:
+    driver: local
+
+networks:
+  pulse-net:
+    driver: bridge

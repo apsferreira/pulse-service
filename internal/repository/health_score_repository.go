@@ -149,6 +149,46 @@ func (r *HealthScoreRepository) LastEventAt(ctx context.Context, tenantID string
 	return ts, nil
 }
 
+// ListAtRisk retorna health scores com score <= threshold, ordenados por score ASC.
+// Usado pelo ChurnAlertScheduler (BKL-814) para alertar o admin IIT.
+func (r *HealthScoreRepository) ListAtRisk(ctx context.Context, threshold int) ([]*domain.TenantHealthScore, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT id, tenant_id, score, login_score, content_score, adoption_score, subscription_score,
+		       last_login_at, last_content_at, calculated_at, created_at, updated_at
+		FROM tenant_health_scores
+		WHERE score <= $1
+		ORDER BY score ASC
+	`, threshold)
+	if err != nil {
+		return nil, fmt.Errorf("health_score_repository: ListAtRisk: %w", err)
+	}
+	defer rows.Close()
+
+	var results []*domain.TenantHealthScore
+	for rows.Next() {
+		hs, err := scanHealthScoreRows(rows)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, hs)
+	}
+	return results, rows.Err()
+}
+
+func scanHealthScoreRows(rows pgx.Rows) (*domain.TenantHealthScore, error) {
+	hs := &domain.TenantHealthScore{}
+	err := rows.Scan(
+		&hs.ID, &hs.TenantID, &hs.Score,
+		&hs.LoginScore, &hs.ContentScore, &hs.AdoptionScore, &hs.SubscriptionScore,
+		&hs.LastLoginAt, &hs.LastContentAt,
+		&hs.CalculatedAt, &hs.CreatedAt, &hs.UpdatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("health_score_repository: scan rows: %w", err)
+	}
+	return hs, nil
+}
+
 func scanHealthScore(row pgx.Row) (*domain.TenantHealthScore, error) {
 	hs := &domain.TenantHealthScore{}
 	err := row.Scan(

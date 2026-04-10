@@ -176,6 +176,10 @@ func main() {
 	defer jobCancel()
 	service.StartHealthScoreJob(jobCtx, healthScoreSvc)
 
+	// BKL-814: Churn alert — email diário para admin com tenants score < 40
+	churnAlertScheduler := service.NewChurnAlertScheduler(healthScoreRepo, 24*time.Hour)
+	churnAlertScheduler.Start(jobCtx)
+
 	// Start server in background
 	addr := fmt.Sprintf(":%s", cfg.Port)
 	go func() {

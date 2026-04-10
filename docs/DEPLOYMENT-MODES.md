@@ -172,46 +172,60 @@ docker compose -f docker-compose.selfhosted.yml exec pulse-backend \
 
 ---
 
-## 4. Roadmap de Paridade — PostHog/Mixpanel Core
+## 4. Roadmap de Paridade — LaunchDarkly / VWO / PostHog Core
 
-Lista priorizada do que construir para atingir paridade nas funcionalidades core dos concorrentes mais relevantes. Ordenado por impacto/esforço.
+> **Posicionamento revisado (v2.0):** O Pulse é concorrente direto do LaunchDarkly (feature flags), VWO (A/B testing) e PostHog (product analytics). Ver `COMPETITIVE-ANALYSIS.md` para análise completa.
 
-### Tier 1 — Bloqueadores de adoção (build em 90 dias)
+Lista priorizada do que construir para atingir paridade com os concorrentes diretos. Ordenado por impacto/esforço.
 
-| Item | Esforço | Impacto | Justificativa |
-|------|---------|---------|---------------|
-| **Funis** — SQL com window functions + UI | Alto | Muito alto | Funcionalidade #1 pedida em product analytics. Sem funis, não é analytics sério. |
-| **SDK React Native** — wrapper do JS SDK + AsyncStorage | Médio | Muito alto | Libri e Nitro são mobile. Hoje o Pulse não captura dados desses apps. |
-| **project_id em events** — adicionar migration + filtros | Baixo | Alto | Gap crítico para multi-tenancy: eventos não estão scoped por projeto ainda. |
-| **Audit log de flags** — tabela flag_changes + UI | Médio | Alto | Quem mudou qual flag, quando. Requisito mínimo para usar flags em produção com segurança. |
-| **Middleware API key** — resolver project_id no SDK | Baixo | Alto | Pré-requisito para multi-tenant real. X-Pulse-Key já existe na migration 009, falta enforcement. |
+### Tier 1 — MVP competitivo (build em 60 dias)
 
-### Tier 2 — Paridade funcional (build em 180 dias)
+Mínimo para ser alternativa real ao LaunchDarkly starter para SaaS brasileiros.
 
 | Item | Esforço | Impacto | Justificativa |
 |------|---------|---------|---------------|
-| **Flag stale detection** — cron que detecta flags não avaliadas em 30d | Baixo | Médio | Boa prática — LaunchDarkly tem, evita acúmulo de flags mortas. |
-| **Webhooks de eventos** — POST para URL configurada pelo cliente | Médio | Médio | Permite que clientes conectem o Pulse a seus sistemas (Slack, n8n, etc.). |
-| **Environments por projeto** — staging/prod com flags independentes | Médio | Alto | Migration 013 adiciona `environment` em events, mas falta em flags. LaunchDarkly core feature. |
-| **SDK Go maduro** — publish em `pkg.go.dev`, readme, exemplos | Baixo | Médio | SDK Go existe em `sdk/go/` mas precisa de documentação e versionamento. |
-| **Rate limiting por projeto** — Redis token bucket | Baixo | Alto | Sem rate limiting, um cliente pode afetar todos os outros no modo SaaS. |
-| **Quota enforcement** — bloquear eventos acima do limite do plano | Médio | Alto | Pré-requisito para lançar plano Free público sem risco de abuso. |
-| **Dashboard de projeto** — seletor + overview por projeto | Médio | Alto | Hoje o dashboard é hardcoded para o IIT. Para SaaS, cada cliente precisa ver só seus dados. |
+| **`pulse.js` IIFE via CDN** — reescrever como script tag (não ES module), `track()` real | 3-5 dias | Muito alto | SDK atual usa `export` e tem `track()` no-op. Não funciona como `<script src>`. Bloqueia todo tracking de frontend. |
+| **`project_id` em events** — migration + filtros nos handlers | 1 dia | Alto | Gap estrutural: eventos não scoped por projeto. Dados misturados entre projetos. |
+| **Ambientes por projeto em flags** — migration + campo `environment` em `feature_flags` | 1 dia | Alto | LaunchDarkly core feature. Migration 013 já fez em events; replicar em flags. |
+| **Audit log de flags** — tabela `flag_changes` + UI | 3 dias | Alto | Rastreabilidade de quem ativou qual flag. Requisito para usar flags em produção com segurança. |
+| **Análise estatística de experimentos** — p-value + confidence interval (chi-squared em Go) | 5 dias | Alto | Variantes existem mas sem significância calculada = divisão de tráfego, não experimentação. |
+| **Middleware de autenticação por API key** — resolver `project_id` via `X-Pulse-Key` | 2 dias | Alto | Migration 009 tem a estrutura; falta enforcement no middleware. Pré-requisito para clientes externos. |
+
+### Tier 2 — Paridade funcional (build em 6 meses)
+
+Paridade com LaunchDarkly core + VWO básico + PostHog analytics essencial.
+
+| Item | Esforço | Impacto | Justificativa |
+|------|---------|---------|---------------|
+| **`@pulse/react`** — pacote NPM com hooks: `useFlag`, `useTrack`, `useExperiment` | 1 semana | Muito alto | React é o stack padrão do IIT e de 90% dos SaaS BR. DX ruim = baixa adoção. |
+| **`@pulse/react-native`** — wrapper com AsyncStorage para Expo/RN | 1 semana | Muito alto | Libri e Nitro são mobile. O Pulse não captura nenhum dado desses apps hoje. |
+| **Funis de conversão** — SQL com window functions + UI | 2 semanas | Alto | Funcionalidade #1 em product analytics. Sem funis, não há análise séria de onboarding. |
+| **Metric assignment** — vincular experimento a evento de conversão | 1 semana | Alto | Transformar A/B testing em experimentação real de negócio (flag → taxa de conversão). |
+| **Rate limiting por projeto** — Redis token bucket | 2 dias | Alto | Sem rate limiting, um cliente abusivo afeta todos no modo SaaS. |
+| **Quota enforcement** — bloquear eventos acima do limite do plano | 3 dias | Alto | Pré-requisito para plano Free público sem risco de abuso. |
+| **Dashboard por projeto** — seletor + overview isolado | 1 semana | Alto | Hoje hardcoded para o IIT. Para SaaS, cada cliente vê só seus dados. |
+| **Webhooks de eventos** — POST para URL configurada pelo cliente | 3 dias | Médio | Integrações com Slack, n8n, sistemas internos do cliente. |
+| **Flag stale detection** — cron que marca flags não avaliadas em 30d | 1 dia | Médio | Boa prática, fácil. Evita acúmulo de flags mortas. |
+| **SDK Go maduro** — publish em `pkg.go.dev` + exemplos | 2 dias | Médio | SDK existe em `sdk/go/`, falta documentação e versionamento semântico. |
 
 ### Tier 3 — Diferenciação (build em 12 meses)
 
+O que o Pulse pode ter que LaunchDarkly e VWO não têm.
+
 | Item | Esforço | Impacto | Justificativa |
 |------|---------|---------|---------------|
-| **Health score configurável** — pesos e thresholds via UI | Médio | Alto | Hoje hardcoded no Go. Clientes SaaS precisam de health score customizável para seu produto. |
-| **Funis de feature flags** — correlação entre flag ativa e conversão | Alto | Alto | Funcionalidade única — ver se ativar uma flag aumentou conversão no funil. Nenhum concorrente tem nativo. |
-| **NPS triggered** — disparar survey após evento customizável | Médio | Médio | Hoje trigger é `after_30_days` hardcoded. Clientes precisam triggerar por evento (após primeira compra, etc.). |
-| **Approval flow para flags** — request de review antes de ativar em prod | Médio | Médio | LaunchDarkly killer feature para times maiores. Relevante para plano Pro. |
-| **API key rotation** — gerar nova key sem downtime | Baixo | Médio | Requisito de segurança para self-hosted e SaaS. |
-| **Export de dados** — CSV ou JSON dos eventos brutos | Baixo | Médio | Clientes querem levar dados para fora (migração, BI próprio). |
+| **Funis de feature flags** — correlação flag ativa → conversão no funil | 2 semanas | Muito alto | Único no mercado. LD e VWO não têm nativo. Ver se ativar uma flag aumentou conversão. |
+| **Health score configurável via UI** — pesos e thresholds por projeto | 1 semana | Alto | Hoje hardcoded em Go. Clientes SaaS precisam customizar para o perfil do seu produto. |
+| **Churn prediction por ML leve** — regressão logística sobre health score + eventos | 3 semanas | Alto | Evoluir de threshold fixo para probabilidade calculada. Diferencial B2B. |
+| **Schema registry leve** — validação opcional de schema no `POST /ingest` | 1 semana | Médio | Tracking plan governance leve (sem complexidade do Avo). Evita eventos inconsistentes em escala. |
+| **Approval flow para flags** — review antes de ativar em prod | 2 semanas | Médio | Para times acima de 15 engenheiros. LaunchDarkly Pro feature. |
+| **NPS triggered por evento** — disparar survey após evento customizável | 3 dias | Médio | Hoje trigger é `after_30_days` hardcoded. Clientes precisam triggerar por evento (primeira compra, etc.). |
+| **Export de dados** — CSV/JSON de eventos brutos | 3 dias | Médio | Requisito de confiança: clientes querem sair com seus dados se precisar. |
+| **Streaming SSE para flag updates** — eliminar polling no SDK | 1 semana | Médio | Reduz latência de propagação de ~30s para <1s. Útil para kill switches emergenciais. |
 
 ### Não priorizar
 
-- Session recording / heatmaps — infra pesada, ROI baixo para o estágio atual
-- Data warehouse connectors (BigQuery, Snowflake) — segmento enterprise, fora do foco BR
-- Tracking plan governance (Avo-style) — útil apenas com 10+ clientes com times de data separados
+- Session recording / heatmaps — infra pesada (object storage DOM snapshots), ROI baixo
+- Data warehouse connectors (BigQuery, Snowflake) — segmento enterprise, fora do foco BR early-stage
+- Tracking plan governance completo (Avo-style com branch/PR) — útil apenas com 10+ clientes com times de data separados
 - Edge SDK (Cloudflare Workers) — não é demanda do mercado BR early-stage

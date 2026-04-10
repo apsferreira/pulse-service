@@ -99,6 +99,11 @@ func main() {
 	csatRepo := repository.NewCSATRepository(pool)
 	csatHandler := handler.NewCSATHandler(csatRepo, cfg.ServiceToken)
 
+	// Wire up layers — health scores (BKL-801)
+	healthScoreRepo := repository.NewHealthScoreRepository(pool)
+	healthScoreSvc := service.NewHealthScoreService(healthScoreRepo)
+	healthScoreHandler := handler.NewHealthScoreHandler(healthScoreSvc, cfg.ServiceToken)
+
 	// BKL-150: WebSocket handler
 	wsHandler := handler.NewWSHandler(wsHub, cfg.ServiceToken)
 
@@ -153,6 +158,9 @@ func main() {
 	// Register CSAT / NPS routes
 	csatHandler.RegisterRoutes(app)
 
+	// Register health score routes (BKL-801)
+	healthScoreHandler.RegisterRoutes(app)
+
 	// BKL-150: Register WebSocket routes
 	wsHandler.RegisterRoutes(app)
 
@@ -162,6 +170,11 @@ func main() {
 
 	// Start uptime monitor background checker
 	monitorSvc.StartBackgroundChecker()
+
+	// BKL-801: Start daily health score calculation job
+	jobCtx, jobCancel := context.WithCancel(context.Background())
+	defer jobCancel()
+	service.StartHealthScoreJob(jobCtx, healthScoreSvc)
 
 	// Start server in background
 	addr := fmt.Sprintf(":%s", cfg.Port)

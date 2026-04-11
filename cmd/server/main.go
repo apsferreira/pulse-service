@@ -80,7 +80,7 @@ func main() {
 	// Wire up layers — events ingestion
 	eventRepo := repository.NewEventRepository(pool)
 	eventSvc := service.NewEventService(eventRepo)
-	eventHandler := handler.NewEventHandler(eventSvc, cfg.ServiceToken).WithHub(wsHub)
+	eventHandler := handler.NewEventHandler(eventSvc, cfg.ServiceToken).WithHub(wsHub).WithRedis(redisClient) // BKL-1077: quota enforcement
 
 	// Wire up layers — retention metrics
 	retentionRepo := repository.NewRetentionRepository(pool)

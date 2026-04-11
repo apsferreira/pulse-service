@@ -1,0 +1,76 @@
+# BKL-559: Publicar @iit/pulse-sdk no GitHub Packages (npm registry)
+# Dispara automaticamente quando há push de tag v* (ex: sdk-v1.0.1)
+# ou manualmente via workflow_dispatch.
+#
+# Uso manual:
+#   gh workflow run publish-sdk.yml --field version=1.0.1
+#
+# Instalar o SDK publicado:
+#   npm install @iit/pulse-sdk --registry=https://npm.pkg.github.com
+#   # ou com .npmrc: @iit:registry=https://npm.pkg.github.com
+
+name: Publish SDK to GitHub Packages
+
+on:
+  push:
+    tags:
+      - 'sdk-v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Versão do SDK (ex: 1.0.1)'
+        required: false
+        default: ''
+
+jobs:
+  publish:
+    name: Build e Publish @iit/pulse-sdk
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@iit'
+
+      - name: Instalar dependências
+        working-directory: sdk/js
+        run: npm ci
+
+      - name: Build TypeScript
+        working-directory: sdk/js
+        run: npm run build
+
+      - name: Bump version (se fornecida via dispatch)
+        if: github.event.inputs.version != ''
+        working-directory: sdk/js
+        run: npm version ${{ github.event.inputs.version }} --no-git-tag-version
+
+      - name: Extrair versão da tag (se via push de tag)
+        if: startsWith(github.ref, 'refs/tags/sdk-v')
+        working-directory: sdk/js
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/sdk-v}
+          npm version $VERSION --no-git-tag-version
+
+      - name: Publicar no GitHub Packages
+        working-directory: sdk/js
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resumo
+        run: |
+          VERSION=$(node -p "require('./sdk/js/package.json').version")
+          echo "### ✅ SDK publicado" >> $GITHUB_STEP_SUMMARY
+          echo "- **Pacote:** @iit/pulse-sdk@${VERSION}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Registry:** GitHub Packages" >> $GITHUB_STEP_SUMMARY
+          echo "- **Instalar:** \`npm install @iit/pulse-sdk --registry=https://npm.pkg.github.com\`" >> $GITHUB_STEP_SUMMARY

@@ -220,6 +220,10 @@ func main() {
 	aiConfigHandler := handler.NewAIConfigHandler(pool, cfg.ServiceToken)
 	aiConfigHandler.RegisterRoutes(app)
 
+	// BKL-1063: LLM Observability — métricas por modelo, latência P50/P99, error rate
+	llmObsHandler := handler.NewLLMObservabilityHandler(pool, cfg.ServiceToken)
+	llmObsHandler.RegisterRoutes(app)
+
 	// BKL-150: Register WebSocket routes
 	wsHandler.RegisterRoutes(app)
 

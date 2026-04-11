@@ -76,8 +76,10 @@ func (s *FlagService) Create(ctx context.Context, req domain.CreateFlagRequest) 
 		Enabled:           req.Enabled,
 		RolloutPercentage: req.RolloutPercentage,
 		Targeting:         req.Targeting,
-		Variants:          req.Variants, // BKL-094
+		Variants:          req.Variants,  // BKL-094
 		ProjectID:         req.ProjectID, // BKL-323
+		StartsAt:          req.StartsAt,  // BKL-1040
+		EndsAt:            req.EndsAt,    // BKL-1040
 	}
 
 	if err := s.repo.Create(ctx, flag); err != nil {

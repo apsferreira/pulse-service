@@ -16,6 +16,7 @@ import (
 	"github.com/institutoitinerante/pulse-service/internal/handler"
 	custommw "github.com/institutoitinerante/pulse-service/internal/middleware"
 	"github.com/institutoitinerante/pulse-service/internal/pkg/config"
+	"github.com/institutoitinerante/pulse-service/internal/pkg/flagscheduler"
 	"github.com/institutoitinerante/pulse-service/internal/pkg/wshub"
 	"github.com/institutoitinerante/pulse-service/internal/repository"
 	"github.com/institutoitinerante/pulse-service/internal/service"
@@ -206,6 +207,9 @@ func main() {
 	// BKL-814: Churn alert — email diário para admin com tenants score < 40
 	churnAlertScheduler := service.NewChurnAlertScheduler(healthScoreRepo, 24*time.Hour)
 	churnAlertScheduler.Start(jobCtx)
+
+	// BKL-1040: Flag scheduler — ativa/desativa flags agendadas (starts_at/ends_at) a cada 60s
+	go flagscheduler.Start(jobCtx, flagRepo, 60*time.Second)
 
 	// BKL-1082: Email sequence de onboarding — processa 1x/dia
 	emailSeqSvc := service.NewEmailSequenceService(pool)

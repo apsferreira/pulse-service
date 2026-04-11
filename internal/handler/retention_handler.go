@@ -54,7 +54,7 @@ func (h *RetentionHandler) GetRetention(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(domain.ErrorResponse{Error: err.Error()})
 	}
 
-	startDate, endDate, err := parseDateRange(c)
+	startDate, endDate, err := parseDateRangeFromCtx(c)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(domain.ErrorResponse{Error: err.Error()})
 	}
@@ -94,7 +94,7 @@ func (h *RetentionHandler) GetActiveUsers(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(domain.ErrorResponse{Error: err.Error()})
 	}
 
-	startDate, endDate, err := parseDateRange(c)
+	startDate, endDate, err := parseDateRangeFromCtx(c)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(domain.ErrorResponse{Error: err.Error()})
 	}
@@ -106,7 +106,7 @@ func (h *RetentionHandler) GetActiveUsers(c *fiber.Ctx) error {
 	return c.JSON(result)
 }
 
-func parseDateRange(c *fiber.Ctx) (time.Time, time.Time, error) {
+func parseDateRangeFromCtx(c *fiber.Ctx) (time.Time, time.Time, error) {
 	sdRaw := c.Query("start_date")
 	edRaw := c.Query("end_date")
 

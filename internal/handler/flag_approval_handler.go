@@ -30,7 +30,7 @@ func NewFlagApprovalHandler(repo *repository.FlagApprovalRepository, serviceToke
 
 // RegisterRoutes monta as rotas de approval workflow.
 func (h *FlagApprovalHandler) RegisterRoutes(app *fiber.App) {
-	v1 := app.Group("/api/v1", middleware.ServiceTokenAuth(h.serviceToken))
+	v1 := app.Group("/api/v1", middleware.ServiceTokenMiddleware(h.serviceToken))
 
 	v1.Get("/flags/:key/approvals", h.ListByFlag)
 	v1.Post("/flags/:key/approvals", h.Create)

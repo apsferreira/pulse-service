@@ -10,16 +10,24 @@ import (
 	"github.com/institutoitinerante/pulse-service/internal/middleware"
 	"github.com/institutoitinerante/pulse-service/internal/pkg/wshub"
 	"github.com/institutoitinerante/pulse-service/internal/service"
+	"github.com/redis/go-redis/v9"
 )
 
 type EventHandler struct {
 	svc          service.EventServicer
 	serviceToken string
 	hub          *wshub.Hub
+	rdb          *redis.Client
 }
 
 func NewEventHandler(svc service.EventServicer, serviceToken string) *EventHandler {
 	return &EventHandler{svc: svc, serviceToken: serviceToken}
+}
+
+// WithRedis adiciona o cliente Redis ao EventHandler para quota enforcement (BKL-1077).
+func (h *EventHandler) WithRedis(rdb *redis.Client) *EventHandler {
+	h.rdb = rdb
+	return h
 }
 
 // WithHub adiciona o hub WebSocket ao EventHandler para broadcast de eventos em tempo real
@@ -48,10 +56,12 @@ func (h *EventHandler) RegisterRoutes(app *fiber.App) {
 	api := app.Group("/api/v1")
 
 	// Public endpoint — called from frontends, no auth
-	api.Post("/events", h.IngestEvent)
+	// BKL-1077: quota enforcement (fail-open se Redis nil)
+	quotaMW := middleware.QuotaEnforcement(h.rdb)
+	api.Post("/events", quotaMW, h.IngestEvent)
 
 	// Public endpoint — simplified event tracking
-	api.Post("/events/track", h.TrackEvent)
+	api.Post("/events/track", quotaMW, h.TrackEvent)
 
 	// Public endpoint — merge anonymous_id com user_id apos login
 	api.Post("/events/identify", h.IdentifyUser)

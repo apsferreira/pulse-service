@@ -36,9 +36,16 @@ func (h *EventHandler) WithHub(hub *wshub.Hub) *EventHandler {
 	return h
 }
 
-// broadcastEvent serializa e envia o evento para todos os clientes WS do projeto
+// broadcastEvent serializa e envia o evento para os clientes WS do projeto.
+// BKL-1038: usa ProjectID (UUID do tenant) como chave do canal — nunca event.Product
+// (string livre do request). Eventos sem project_id não são broadcastados para
+// evitar que um cliente adivinhe o nome de produto de outro tenant.
 func (h *EventHandler) broadcastEvent(event *domain.Event) {
 	if h.hub == nil || event == nil {
+		return
+	}
+	// Sem project_id não há como isolar o canal — não broadcast.
+	if event.ProjectID == nil || *event.ProjectID == "" {
 		return
 	}
 	data, err := json.Marshal(map[string]interface{}{
@@ -48,7 +55,7 @@ func (h *EventHandler) broadcastEvent(event *domain.Event) {
 	if err != nil {
 		return
 	}
-	h.hub.Broadcast(event.Product, data)
+	h.hub.Broadcast(*event.ProjectID, data)
 }
 
 // RegisterRoutes mounts all event routes onto the given Fiber app.

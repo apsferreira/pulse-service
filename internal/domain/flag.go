@@ -110,6 +110,44 @@ type FlagMetricLift struct {
 	LiftPct        float64 `json:"lift_pct"`         // lift relativo em %
 }
 
+// FlagApprovalStatus define os estados possíveis de aprovação de uma flag. BKL-1079.
+type FlagApprovalStatus string
+
+const (
+	ApprovalStatusDraft          FlagApprovalStatus = "draft"
+	ApprovalStatusPendingApproval FlagApprovalStatus = "pending_approval"
+	ApprovalStatusApproved       FlagApprovalStatus = "approved"
+	ApprovalStatusRejected       FlagApprovalStatus = "rejected"
+)
+
+// FlagApproval representa uma solicitação de aprovação para ativar/alterar uma flag. BKL-1079.
+type FlagApproval struct {
+	ID          string             `json:"id"`
+	FlagKey     string             `json:"flag_key"`
+	ProjectID   string             `json:"project_id"`
+	RequestedBy string             `json:"requested_by"`
+	ReviewedBy  *string            `json:"reviewed_by,omitempty"`
+	Status      FlagApprovalStatus `json:"status"`
+	Notes       string             `json:"notes"`
+	Payload     map[string]any     `json:"payload"` // snapshot do UpdateFlagRequest
+	CreatedAt   time.Time          `json:"created_at"`
+	ReviewedAt  *time.Time         `json:"reviewed_at,omitempty"`
+}
+
+// CreateApprovalRequest é o payload para POST /api/v1/flags/:key/approvals.
+type CreateApprovalRequest struct {
+	RequestedBy string         `json:"requested_by"`  // email ou user_id do solicitante
+	Notes       string         `json:"notes"`
+	Payload     map[string]any `json:"payload"` // UpdateFlagRequest a ser aprovado
+}
+
+// ReviewApprovalRequest é o payload para POST /api/v1/flags/:key/approvals/:id/review.
+type ReviewApprovalRequest struct {
+	ReviewedBy string             `json:"reviewed_by"`
+	Status     FlagApprovalStatus `json:"status"` // approved | rejected
+	Notes      string             `json:"notes"`
+}
+
 // ErrorResponse is used for JSON error responses.
 type ErrorResponse struct {
 	Error string `json:"error"`

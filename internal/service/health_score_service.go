@@ -37,6 +37,11 @@ func (s *HealthScoreService) GetByTenantID(ctx context.Context, tenantID string)
 	return hs, nil
 }
 
+// ListAll retorna todos os health scores (BKL-1083: visão admin interna).
+func (s *HealthScoreService) ListAll(ctx context.Context) ([]*domain.TenantHealthScore, error) {
+	return s.repo.ListAll(ctx)
+}
+
 // CalculateAll recalcula o health score de todos os tenants ativos.
 // Deve ser chamado pelo cron diário.
 func (s *HealthScoreService) CalculateAll(ctx context.Context) {

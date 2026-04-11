@@ -21,7 +21,27 @@ func NewHealthScoreHandler(svc *service.HealthScoreService, serviceToken string)
 // RegisterRoutes registra as rotas de health score.
 func (h *HealthScoreHandler) RegisterRoutes(app *fiber.App) {
 	api := app.Group("/api/v1/health-scores", middleware.ServiceTokenMiddleware(h.serviceToken))
+	api.Get("/", h.ListAll)       // BKL-1083: visão admin de todos os tenants
 	api.Get("/:tenant_id", h.GetHealthScore)
+}
+
+// ListAll GET /api/v1/health-scores
+// Retorna health scores de todos os tenants, ordenados por score ASC (BKL-1083).
+func (h *HealthScoreHandler) ListAll(c *fiber.Ctx) error {
+	scores, err := h.svc.ListAll(c.Context())
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: "erro ao listar health scores"})
+	}
+
+	type item struct {
+		*domain.TenantHealthScore
+		Status string `json:"status"`
+	}
+	result := make([]item, len(scores))
+	for i, hs := range scores {
+		result[i] = item{TenantHealthScore: hs, Status: hs.Status()}
+	}
+	return c.JSON(fiber.Map{"scores": result, "total": len(result)})
 }
 
 // GetHealthScore GET /api/v1/health-scores/:tenant_id

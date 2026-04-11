@@ -10,6 +10,7 @@ import CSAT from './pages/CSAT'
 import LandingPage from './pages/LandingPage'
 import FlagAudit from './pages/FlagAudit'
 import Pricing from './pages/Pricing'
+import StatusPage from './pages/StatusPage'
 
 function App() {
   return (
@@ -18,6 +19,8 @@ function App() {
         {/* Rotas públicas — sem layout do dashboard */}
         <Route path="/landing" element={<LandingPage />} />
         <Route path="/pricing" element={<Pricing />} />
+        {/* BKL-1068: status page pública dos serviços IIT */}
+        <Route path="/status" element={<StatusPage />} />
 
         {/* Rotas autenticadas — com layout */}
         <Route

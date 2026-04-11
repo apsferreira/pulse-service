@@ -216,6 +216,10 @@ func main() {
 	funnelHandler := handler.NewFunnelHandler(pool, cfg.ServiceToken)
 	funnelHandler.RegisterRoutes(app)
 
+	// BKL-1064: AI Configs — feature flags para prompts e parâmetros de LLM
+	aiConfigHandler := handler.NewAIConfigHandler(pool, cfg.ServiceToken)
+	aiConfigHandler.RegisterRoutes(app)
+
 	// BKL-150: Register WebSocket routes
 	wsHandler.RegisterRoutes(app)
 

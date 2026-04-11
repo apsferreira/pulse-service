@@ -190,6 +190,16 @@ func main() {
 	flagMetricHandler := handler.NewFlagMetricHandler(flagMetricRepo, cfg.ServiceToken)
 	flagMetricHandler.RegisterRoutes(app)
 
+	// BKL-1079: Approval workflow para feature flags
+	flagApprovalRepo := repository.NewFlagApprovalRepository(pool)
+	flagApprovalHandler := handler.NewFlagApprovalHandler(flagApprovalRepo, cfg.ServiceToken)
+	flagApprovalHandler.RegisterRoutes(app)
+
+	// BKL-1080: Schema registry de eventos
+	eventSchemaRepo := repository.NewEventSchemaRepository(pool)
+	eventSchemaHandler := handler.NewEventSchemaHandler(eventSchemaRepo, cfg.ServiceToken)
+	eventSchemaHandler.RegisterRoutes(app)
+
 	// BKL-1043 + BKL-1073: Análise estatística de experimentos A/B (chi-squared, p-value, CI)
 	experimentHandler := handler.NewExperimentHandler()
 	experimentHandler.RegisterRoutes(app)

@@ -40,36 +40,23 @@ func (h *FlagHandler) RegisterRoutes(app *fiber.App) {
 // GetFlagsMap godoc
 // GET /flags — public, returns {flags: {key: enabled}} for SDK consumption.
 // Query params opcionais: user_id, tenant_id — quando fornecidos, avalia rollout e targeting.
-// Query param opcional: project_id (UUID) — filtra flags pelo projeto. BKL-323.
+// Query param opcional: project_id (UUID) — isola flags por tenant. BKL-323, BKL-1027, BKL-1028.
 func (h *FlagHandler) GetFlagsMap(c *fiber.Ctx) error {
 	userID := c.Query("user_id")
 	tenantID := c.Query("tenant_id")
 	projectID := c.Query("project_id")
 
-	// Se tem project_id, retorna mapa filtrado por projeto (sem cache Redis — escopo menor)
-	if projectID != "" {
-		flags, err := h.svc.ListByProject(c.Context(), projectID)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: "failed to load flags"})
-		}
-		result := make(map[string]bool, len(flags))
-		for _, f := range flags {
-			result[f.Key] = f.Enabled
-		}
-		return c.JSON(domain.FlagsMapResponse{Flags: result})
-	}
-
-	// Se tem contexto de usuario, avalia com rollout + targeting
+	// Se tem contexto de usuário, avalia com rollout + targeting (filtrado por project)
 	if userID != "" || tenantID != "" {
-		resp, err := h.svc.EvaluateFlags(c.Context(), userID, tenantID)
+		resp, err := h.svc.EvaluateFlags(c.Context(), userID, tenantID, projectID)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: "failed to evaluate flags"})
 		}
 		return c.JSON(resp)
 	}
 
-	// Sem contexto — retorna mapa simples (cache Redis)
-	resp, err := h.svc.GetFlagsMap(c.Context())
+	// Sem contexto — retorna mapa simples (cache Redis por project_id)
+	resp, err := h.svc.GetFlagsMap(c.Context(), projectID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: "failed to load flags"})
 	}
@@ -176,13 +163,15 @@ func (h *FlagHandler) DeleteFlag(c *fiber.Ctx) error {
 
 // EvaluateBatch godoc
 // POST /flags/evaluate-batch — BKL-093: avalia N flags de uma vez para SDKs.
-// Body: {"keys": ["flag-a", "flag-b"], "user_id": "...", "tenant_id": "..."}
+// Body: {"keys": ["flag-a", "flag-b"], "user_id": "...", "tenant_id": "...", "project_id": "..."}
+// BKL-1027: project_id obrigatório para isolamento multi-tenant.
 // Response: {"flags": {"flag-a": true, "flag-b": false}}
 func (h *FlagHandler) EvaluateBatch(c *fiber.Ctx) error {
 	var req struct {
-		Keys     []string `json:"keys"`
-		UserID   string   `json:"user_id"`
-		TenantID string   `json:"tenant_id"`
+		Keys      []string `json:"keys"`
+		UserID    string   `json:"user_id"`
+		TenantID  string   `json:"tenant_id"`
+		ProjectID string   `json:"project_id"`
 	}
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(domain.ErrorResponse{Error: "invalid request body"})
@@ -194,8 +183,8 @@ func (h *FlagHandler) EvaluateBatch(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(domain.ErrorResponse{Error: "max 50 keys per batch"})
 	}
 
-	// Evaluate all flags with context
-	allFlags, err := h.svc.EvaluateFlags(c.Context(), req.UserID, req.TenantID)
+	// Evaluate all flags with context (filtrado por project_id)
+	allFlags, err := h.svc.EvaluateFlags(c.Context(), req.UserID, req.TenantID, req.ProjectID)
 	if err != nil {
 		// Fail-open: return all false defaults
 		result := make(map[string]bool, len(req.Keys))
@@ -215,14 +204,15 @@ func (h *FlagHandler) EvaluateBatch(c *fiber.Ctx) error {
 
 // GetVariants godoc
 // GET /flags/variants — public, returns A/B variant for each flag with variants configured.
-// Query params: user_id (required for deterministic selection), tenant_id (optional)
+// Query params: user_id (required for deterministic selection), tenant_id (optional), project_id (required for isolation)
+// BKL-094, BKL-1027
 // Response: {"variants": {"flag-key": "variant-name"}}
-// BKL-094
 func (h *FlagHandler) GetVariants(c *fiber.Ctx) error {
 	userID := c.Query("user_id")
 	tenantID := c.Query("tenant_id")
+	projectID := c.Query("project_id")
 
-	resp, err := h.svc.GetVariants(c.Context(), userID, tenantID)
+	resp, err := h.svc.GetVariants(c.Context(), userID, tenantID, projectID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: "failed to get variants"})
 	}

@@ -88,7 +88,20 @@ export class PulseClient {
     }
     this.baseURL = options.baseURL.replace(/\/+$/, "");
     this.timeout = options.timeout ?? 10000;
-    this.fetchFn = options.fetch ?? globalThis.fetch.bind(globalThis);
+    // BKL-1046: guard SSR — globalThis.fetch é undefined em Node < 18 e Deno sem --allow-net
+    // Usar options.fetch injetado pelo caller (ex: node-fetch) para compatibilidade SSR.
+    if (options.fetch) {
+      this.fetchFn = options.fetch;
+    } else if (typeof globalThis !== "undefined" && typeof globalThis.fetch === "function") {
+      this.fetchFn = globalThis.fetch.bind(globalThis);
+    } else {
+      // SSR sem fetch disponível — lança erro descritivo ao invés de crash silencioso
+      this.fetchFn = () => {
+        throw new PulseError(
+          "fetch não disponível neste ambiente. Passe uma implementação via options.fetch (ex: import fetch from 'node-fetch')"
+        );
+      };
+    }
   }
 
   /**

@@ -31,11 +31,11 @@ type mockFlagService struct {
 	variantsErr error
 }
 
-func (m *mockFlagService) GetFlagsMap(ctx context.Context) (domain.FlagsMapResponse, error) {
+func (m *mockFlagService) GetFlagsMap(ctx context.Context, projectID string) (domain.FlagsMapResponse, error) {
 	return m.flagsMap, m.flagsMapErr
 }
 
-func (m *mockFlagService) EvaluateFlags(ctx context.Context, userID, tenantID string) (domain.FlagsMapResponse, error) {
+func (m *mockFlagService) EvaluateFlags(ctx context.Context, userID, tenantID, projectID string) (domain.FlagsMapResponse, error) {
 	return m.evalResp, m.evalErr
 }
 
@@ -63,7 +63,7 @@ func (m *mockFlagService) Delete(ctx context.Context, key string) error {
 	return m.deleteErr
 }
 
-func (m *mockFlagService) GetVariants(ctx context.Context, userID, tenantID string) (domain.VariantResponse, error) {
+func (m *mockFlagService) GetVariants(ctx context.Context, userID, tenantID, projectID string) (domain.VariantResponse, error) {
 	return m.variants, m.variantsErr
 }
 

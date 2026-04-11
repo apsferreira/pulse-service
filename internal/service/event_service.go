@@ -31,12 +31,19 @@ func (s *EventService) Ingest(ctx context.Context, req domain.IngestEventRequest
 		props = make(map[string]interface{})
 	}
 
+	env := req.Environment
+	if env == "" {
+		env = "production"
+	}
+
 	event := &domain.Event{
-		Product:    req.Product,
-		EventType:  req.EventType,
-		UserID:     req.UserID,
-		SessionID:  req.SessionID,
-		Properties: props,
+		Product:     req.Product,
+		EventType:   req.EventType,
+		UserID:      req.UserID,
+		SessionID:   req.SessionID,
+		Properties:  props,
+		Environment: env,      // BKL-750
+		ProjectID:   req.ProjectID, // BKL-1038
 	}
 	if ipAddress != "" {
 		event.IPAddress = &ipAddress

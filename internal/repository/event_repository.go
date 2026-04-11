@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/institutoitinerante/pulse-service/internal/domain"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -21,9 +21,14 @@ func NewEventRepository(db *pgxpool.Pool) *EventRepository {
 }
 
 // Insert persists a new event.
+// BKL-750: persiste environment (production|staging|development).
+// BKL-1038: persiste project_id para isolamento multi-tenant.
 func (r *EventRepository) Insert(ctx context.Context, e *domain.Event) error {
 	e.ID = uuid.New().String()
 	e.CreatedAt = time.Now().UTC()
+	if e.Environment == "" {
+		e.Environment = "production"
+	}
 
 	props, err := json.Marshal(e.Properties)
 	if err != nil {
@@ -31,9 +36,9 @@ func (r *EventRepository) Insert(ctx context.Context, e *domain.Event) error {
 	}
 
 	_, err = r.db.Exec(ctx,
-		`INSERT INTO events (id, product, event_type, user_id, session_id, properties, ip_address, user_agent, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-		e.ID, e.Product, e.EventType, e.UserID, e.SessionID, props, e.IPAddress, e.UserAgent, e.CreatedAt,
+		`INSERT INTO events (id, product, event_type, user_id, session_id, properties, ip_address, user_agent, environment, project_id, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+		e.ID, e.Product, e.EventType, e.UserID, e.SessionID, props, e.IPAddress, e.UserAgent, e.Environment, e.ProjectID, e.CreatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("event_repository: Insert: %w", err)
@@ -85,34 +90,32 @@ func (r *EventRepository) GetSummaryLast24h(ctx context.Context) ([]domain.Event
 }
 
 // CountByEventName returns event counts grouped by event_type, optionally filtered by event_name and date range.
+// BKL-1026: queries estáticas por combinação de filtros — sem fmt.Sprintf em SQL.
 func (r *EventRepository) CountByEventName(ctx context.Context, eventName string, startDate, endDate *time.Time) ([]domain.EventCountItem, error) {
-	var conditions []string
-	var args []interface{}
-	argIdx := 1
+	var rows pgx.Rows
+	var err error
 
-	if eventName != "" {
-		conditions = append(conditions, fmt.Sprintf("event_type = $%d", argIdx))
-		args = append(args, eventName)
-		argIdx++
-	}
-	if startDate != nil {
-		conditions = append(conditions, fmt.Sprintf("created_at >= $%d", argIdx))
-		args = append(args, *startDate)
-		argIdx++
-	}
-	if endDate != nil {
-		conditions = append(conditions, fmt.Sprintf("created_at <= $%d", argIdx))
-		args = append(args, *endDate)
-		argIdx++
-	}
+	const base = `SELECT event_type, COUNT(*) AS cnt FROM events`
+	const tail = ` GROUP BY event_type ORDER BY cnt DESC`
 
-	query := `SELECT event_type, COUNT(*) AS cnt FROM events`
-	if len(conditions) > 0 {
-		query += " WHERE " + strings.Join(conditions, " AND ")
+	switch {
+	case eventName != "" && startDate != nil && endDate != nil:
+		rows, err = r.db.Query(ctx, base+` WHERE event_type = $1 AND created_at >= $2 AND created_at <= $3`+tail, eventName, *startDate, *endDate)
+	case eventName != "" && startDate != nil:
+		rows, err = r.db.Query(ctx, base+` WHERE event_type = $1 AND created_at >= $2`+tail, eventName, *startDate)
+	case eventName != "" && endDate != nil:
+		rows, err = r.db.Query(ctx, base+` WHERE event_type = $1 AND created_at <= $2`+tail, eventName, *endDate)
+	case eventName != "":
+		rows, err = r.db.Query(ctx, base+` WHERE event_type = $1`+tail, eventName)
+	case startDate != nil && endDate != nil:
+		rows, err = r.db.Query(ctx, base+` WHERE created_at >= $1 AND created_at <= $2`+tail, *startDate, *endDate)
+	case startDate != nil:
+		rows, err = r.db.Query(ctx, base+` WHERE created_at >= $1`+tail, *startDate)
+	case endDate != nil:
+		rows, err = r.db.Query(ctx, base+` WHERE created_at <= $1`+tail, *endDate)
+	default:
+		rows, err = r.db.Query(ctx, base+tail)
 	}
-	query += " GROUP BY event_type ORDER BY cnt DESC"
-
-	rows, err := r.db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("event_repository: CountByEventName: %w", err)
 	}
@@ -133,44 +136,11 @@ func (r *EventRepository) CountByEventName(ctx context.Context, eventName string
 }
 
 // ListEvents returns events with optional filters and pagination.
+// BKL-1026: queries com filtros estáticos para evitar gosec G201 (dynamic SQL injection risk).
 func (r *EventRepository) ListEvents(ctx context.Context, eventName, userID string, limit, offset int) ([]domain.Event, int, error) {
-	var conditions []string
-	var args []interface{}
-	argIdx := 1
-
-	if eventName != "" {
-		conditions = append(conditions, fmt.Sprintf("event_type = $%d", argIdx))
-		args = append(args, eventName)
-		argIdx++
-	}
-	if userID != "" {
-		conditions = append(conditions, fmt.Sprintf("user_id::text = $%d", argIdx))
-		args = append(args, userID)
-		argIdx++
-	}
-
-	whereClause := ""
-	if len(conditions) > 0 {
-		whereClause = " WHERE " + strings.Join(conditions, " AND ")
-	}
-
-	// Count total
-	countQuery := "SELECT COUNT(*) FROM events" + whereClause
-	var total int
-	if err := r.db.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
-		return nil, 0, fmt.Errorf("event_repository: ListEvents count: %w", err)
-	}
-
-	// Fetch page
-	dataQuery := fmt.Sprintf(
-		"SELECT id, product, event_type, user_id, session_id, properties, ip_address::text, user_agent, created_at FROM events%s ORDER BY created_at DESC LIMIT $%d OFFSET $%d",
-		whereClause, argIdx, argIdx+1,
-	)
-	dataArgs := append(args, limit, offset)
-
-	rows, err := r.db.Query(ctx, dataQuery, dataArgs...)
+	total, rows, err := r.listEventsQuery(ctx, eventName, userID, limit, offset)
 	if err != nil {
-		return nil, 0, fmt.Errorf("event_repository: ListEvents query: %w", err)
+		return nil, 0, err
 	}
 	defer rows.Close()
 
@@ -192,4 +162,43 @@ func (r *EventRepository) ListEvents(ctx context.Context, eventName, userID stri
 		return nil, 0, fmt.Errorf("event_repository: ListEvents rows: %w", err)
 	}
 	return events, total, nil
+}
+
+// listEventsQuery selects count + data rows using static parameterized queries (no dynamic SQL).
+func (r *EventRepository) listEventsQuery(ctx context.Context, eventName, userID string, limit, offset int) (int, pgx.Rows, error) {
+	const selectCols = `SELECT id, product, event_type, user_id, session_id, properties, ip_address::text, user_agent, created_at FROM events`
+	var total int
+	var rows pgx.Rows
+	var err error
+
+	switch {
+	case eventName != "" && userID != "":
+		if err = r.db.QueryRow(ctx, `SELECT COUNT(*) FROM events WHERE event_type = $1 AND user_id::text = $2`, eventName, userID).Scan(&total); err != nil {
+			return 0, nil, fmt.Errorf("event_repository: ListEvents count: %w", err)
+		}
+		rows, err = r.db.Query(ctx, selectCols+` WHERE event_type = $1 AND user_id::text = $2 ORDER BY created_at DESC LIMIT $3 OFFSET $4`, eventName, userID, limit, offset)
+
+	case eventName != "":
+		if err = r.db.QueryRow(ctx, `SELECT COUNT(*) FROM events WHERE event_type = $1`, eventName).Scan(&total); err != nil {
+			return 0, nil, fmt.Errorf("event_repository: ListEvents count: %w", err)
+		}
+		rows, err = r.db.Query(ctx, selectCols+` WHERE event_type = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`, eventName, limit, offset)
+
+	case userID != "":
+		if err = r.db.QueryRow(ctx, `SELECT COUNT(*) FROM events WHERE user_id::text = $1`, userID).Scan(&total); err != nil {
+			return 0, nil, fmt.Errorf("event_repository: ListEvents count: %w", err)
+		}
+		rows, err = r.db.Query(ctx, selectCols+` WHERE user_id::text = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`, userID, limit, offset)
+
+	default:
+		if err = r.db.QueryRow(ctx, `SELECT COUNT(*) FROM events`).Scan(&total); err != nil {
+			return 0, nil, fmt.Errorf("event_repository: ListEvents count: %w", err)
+		}
+		rows, err = r.db.Query(ctx, selectCols+` ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
+	}
+
+	if err != nil {
+		return 0, nil, fmt.Errorf("event_repository: ListEvents query: %w", err)
+	}
+	return total, rows, nil
 }

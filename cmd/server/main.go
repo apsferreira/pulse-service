@@ -181,6 +181,11 @@ func main() {
 	// Register health score routes (BKL-801)
 	healthScoreHandler.RegisterRoutes(app)
 
+	// BKL-1044: Métricas de negócio vinculadas a flags (lift = treatment vs. control)
+	flagMetricRepo := repository.NewFlagMetricRepository(pool)
+	flagMetricHandler := handler.NewFlagMetricHandler(flagMetricRepo, cfg.ServiceToken)
+	flagMetricHandler.RegisterRoutes(app)
+
 	// BKL-1043 + BKL-1073: Análise estatística de experimentos A/B (chi-squared, p-value, CI)
 	experimentHandler := handler.NewExperimentHandler()
 	experimentHandler.RegisterRoutes(app)

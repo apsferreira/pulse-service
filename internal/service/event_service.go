@@ -121,6 +121,63 @@ func (s *EventService) Track(ctx context.Context, req domain.TrackEventRequest, 
 	return event, nil
 }
 
+// BatchIngest valida e persiste até 500 eventos em lote.
+// BKL-1041: usa InsertBatch (pgx CopyFrom) para alta performance.
+func (s *EventService) BatchIngest(ctx context.Context, req domain.BatchIngestRequest, ipAddress, userAgent string) (domain.BatchIngestResponse, error) {
+	if len(req.Events) == 0 {
+		return domain.BatchIngestResponse{}, fmt.Errorf("events array cannot be empty")
+	}
+	if len(req.Events) > 500 {
+		return domain.BatchIngestResponse{}, fmt.Errorf("batch too large: max 500 events per request, got %d", len(req.Events))
+	}
+
+	events := make([]*domain.Event, 0, len(req.Events))
+	rejected := 0
+
+	for _, r := range req.Events {
+		if r.Product == "" || r.EventType == "" {
+			rejected++
+			continue
+		}
+
+		props := r.Properties
+		if props == nil {
+			props = make(map[string]interface{})
+		}
+		env := r.Environment
+		if env == "" {
+			env = "production"
+		}
+
+		e := &domain.Event{
+			Product:     r.Product,
+			EventType:   r.EventType,
+			UserID:      r.UserID,
+			SessionID:   r.SessionID,
+			Properties:  props,
+			Environment: env,
+			ProjectID:   r.ProjectID,
+		}
+		if ipAddress != "" {
+			e.IPAddress = &ipAddress
+		}
+		if userAgent != "" {
+			e.UserAgent = &userAgent
+		}
+		events = append(events, e)
+	}
+
+	n, err := s.repo.InsertBatch(ctx, events)
+	if err != nil {
+		return domain.BatchIngestResponse{}, fmt.Errorf("event_service: BatchIngest: %w", err)
+	}
+
+	return domain.BatchIngestResponse{
+		Accepted: n,
+		Rejected: rejected,
+	}, nil
+}
+
 // Identify vincula um anonymous_id a um user_id real.
 // Atualiza todos os eventos do anonymous_id para o user_id.
 func (s *EventService) Identify(ctx context.Context, req domain.IdentifyRequest) (int, error) {

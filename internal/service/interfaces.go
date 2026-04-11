@@ -26,6 +26,7 @@ type FlagServicer interface {
 // EventServicer define as operações do serviço de eventos.
 type EventServicer interface {
 	Ingest(ctx context.Context, req domain.IngestEventRequest, ipAddress, userAgent string) (*domain.Event, error)
+	BatchIngest(ctx context.Context, req domain.BatchIngestRequest, ipAddress, userAgent string) (domain.BatchIngestResponse, error) // BKL-1041
 	GetSummary(ctx context.Context) (domain.EventsSummaryResponse, error)
 	Track(ctx context.Context, req domain.TrackEventRequest, ipAddress, userAgent string) (*domain.Event, error)
 	Identify(ctx context.Context, req domain.IdentifyRequest) (int, error)

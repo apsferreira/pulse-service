@@ -15,22 +15,28 @@ import (
 // --- mock de EventServicer ---
 
 type mockEventService struct {
-	ingestEvent  *domain.Event
-	ingestErr    error
-	trackEvent   *domain.Event
-	trackErr     error
-	summary      domain.EventsSummaryResponse
-	summaryErr   error
+	ingestEvent   *domain.Event
+	ingestErr     error
+	batchResp     domain.BatchIngestResponse // BKL-1041
+	batchErr      error
+	trackEvent    *domain.Event
+	trackErr      error
+	summary       domain.EventsSummaryResponse
+	summaryErr    error
 	identifyCount int
-	identifyErr  error
-	countResp    domain.EventCountResponse
-	countErr     error
-	listResp     domain.EventListResponse
-	listErr      error
+	identifyErr   error
+	countResp     domain.EventCountResponse
+	countErr      error
+	listResp      domain.EventListResponse
+	listErr       error
 }
 
 func (m *mockEventService) Ingest(ctx context.Context, req domain.IngestEventRequest, ip, ua string) (*domain.Event, error) {
 	return m.ingestEvent, m.ingestErr
+}
+
+func (m *mockEventService) BatchIngest(ctx context.Context, req domain.BatchIngestRequest, ip, ua string) (domain.BatchIngestResponse, error) {
+	return m.batchResp, m.batchErr
 }
 
 func (m *mockEventService) Track(ctx context.Context, req domain.TrackEventRequest, ip, ua string) (*domain.Event, error) {
@@ -279,5 +285,81 @@ func TestEventHandler_CountEvents_Sucesso(t *testing.T) {
 	}
 	if resp.StatusCode != 200 {
 		t.Errorf("esperado 200, recebido %d", resp.StatusCode)
+	}
+}
+
+// --- POST /api/v1/events/batch --- BKL-1041
+
+func TestEventHandler_BatchIngest_Sucesso(t *testing.T) {
+	svc := &mockEventService{
+		batchResp: domain.BatchIngestResponse{Accepted: 2, Rejected: 0},
+	}
+	app := newTestEventApp(svc, "tok")
+
+	payload := domain.BatchIngestRequest{
+		Events: []domain.IngestEventRequest{
+			{Product: "libri", EventType: "page_view"},
+			{Product: "nitro", EventType: "task_created"},
+		},
+	}
+	body, _ := json.Marshal(payload)
+
+	req := httptest.NewRequest("POST", "/api/v1/events/batch", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("erro: %v", err)
+	}
+	if resp.StatusCode != 201 {
+		t.Errorf("esperado 201, recebido %d", resp.StatusCode)
+	}
+
+	var result domain.BatchIngestResponse
+	json.NewDecoder(resp.Body).Decode(&result)
+	if result.Accepted != 2 {
+		t.Errorf("esperado accepted=2, obtido %d", result.Accepted)
+	}
+}
+
+func TestEventHandler_BatchIngest_VazioRetorna400(t *testing.T) {
+	svc := &mockEventService{}
+	app := newTestEventApp(svc, "tok")
+
+	payload := domain.BatchIngestRequest{Events: []domain.IngestEventRequest{}}
+	body, _ := json.Marshal(payload)
+
+	req := httptest.NewRequest("POST", "/api/v1/events/batch", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("erro: %v", err)
+	}
+	if resp.StatusCode != 400 {
+		t.Errorf("esperado 400 para batch vazio, recebido %d", resp.StatusCode)
+	}
+}
+
+func TestEventHandler_BatchIngest_AcimaLimiteRetorna400(t *testing.T) {
+	svc := &mockEventService{}
+	app := newTestEventApp(svc, "tok")
+
+	events := make([]domain.IngestEventRequest, 501)
+	for i := range events {
+		events[i] = domain.IngestEventRequest{Product: "p", EventType: "e"}
+	}
+	payload := domain.BatchIngestRequest{Events: events}
+	body, _ := json.Marshal(payload)
+
+	req := httptest.NewRequest("POST", "/api/v1/events/batch", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("erro: %v", err)
+	}
+	if resp.StatusCode != 400 {
+		t.Errorf("esperado 400 para batch > 500, recebido %d", resp.StatusCode)
 	}
 }

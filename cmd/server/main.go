@@ -203,6 +203,27 @@ func main() {
 	churnAlertScheduler := service.NewChurnAlertScheduler(healthScoreRepo, 24*time.Hour)
 	churnAlertScheduler.Start(jobCtx)
 
+	// BKL-1082: Email sequence de onboarding — processa 1x/dia
+	emailSeqSvc := service.NewEmailSequenceService(pool)
+	go func() {
+		ticker := time.NewTicker(24 * time.Hour)
+		defer ticker.Stop()
+		// Processa imediatamente ao startup para não perder o ciclo do dia
+		if err := emailSeqSvc.ProcessDue(jobCtx); err != nil {
+			log.Printf("email_sequence: ProcessDue: %v", err)
+		}
+		for {
+			select {
+			case <-jobCtx.Done():
+				return
+			case <-ticker.C:
+				if err := emailSeqSvc.ProcessDue(jobCtx); err != nil {
+					log.Printf("email_sequence: ProcessDue: %v", err)
+				}
+			}
+		}
+	}()
+
 	// Start server in background
 	addr := fmt.Sprintf(":%s", cfg.Port)
 	go func() {

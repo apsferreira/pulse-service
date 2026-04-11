@@ -2,29 +2,30 @@
  * @pulse/react — SDK React para Pulse
  * Feature Flags + A/B Testing + Event Tracking
  *
- * Uso:
+ * BKL-307: usePulseFlag, usePulseVariant e PulseProvider com serviceToken/projectId.
+ * BKL-258: integra com fail-open do SDK JS — defaults são respeitados nos hooks.
+ *
+ * Uso (API original):
  *   import { PulseProvider, useFlag, useTrack, useExperiment } from '@pulse/react'
  *
- *   function App() {
- *     return (
- *       <PulseProvider projectKey="YOUR_KEY" apiUrl="https://pulse-api.institutoitinerante.com.br">
- *         <MyApp />
- *       </PulseProvider>
- *     )
- *   }
+ *   <PulseProvider projectKey="YOUR_KEY" apiUrl="https://pulse-api.institutoitinerante.com.br">
+ *     <MyApp />
+ *   </PulseProvider>
+ *
+ * Uso (BKL-307 — API com serviceToken/projectId):
+ *   import { PulseProvider, usePulseFlag, usePulseVariant } from '@pulse/react'
+ *
+ *   <PulseProvider serviceToken="svc_xxx" projectId="proj_yyy"
+ *                  apiUrl="https://pulse-api.institutoitinerante.com.br"
+ *                  defaults={{ 'nova-feature': false }}
+ *                  failOpen={true}>
+ *     <MyApp />
+ *   </PulseProvider>
  *
  *   function MyComponent() {
- *     const newCheckout = useFlag('new-checkout')
- *     const track = useTrack()
- *     const { variant, trackExposure } = useExperiment('pricing-test')
- *
- *     useEffect(() => { trackExposure() }, [trackExposure])
- *
- *     return (
- *       <button onClick={() => track('button_clicked', { name: 'signup' })}>
- *         {newCheckout ? 'New Checkout' : 'Old Checkout'}
- *       </button>
- *     )
+ *     const newFeature = usePulseFlag('nova-feature', false)
+ *     const variant = usePulseVariant('pricing-test', 'control')
+ *     return newFeature ? <NewFeature /> : <OldFeature />
  *   }
  */
 
@@ -39,6 +40,9 @@ import React, {
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
+/** BKL-258: mapa de defaults por flag — usados quando fail-open ativa */
+export type DefaultsMap = Record<string, boolean>
+
 export interface PulseConfig {
   /** Chave do projeto no Pulse */
   projectKey: string
@@ -50,8 +54,21 @@ export interface PulseConfig {
   traits?: Record<string, unknown>
   /** Habilita logs de debug no console */
   debug?: boolean
-  /** Timeout de requests em ms (default: 10000) */
+  /**
+   * Timeout de requests em ms (default: 2000).
+   * BKL-258: 2s para não bloquear a aplicação.
+   */
   timeout?: number
+  /**
+   * BKL-258: defaults por flag — usados quando fail-open ativa.
+   * Ex: { 'nova-feature': false }
+   */
+  defaults?: DefaultsMap
+  /**
+   * BKL-258: fail-open ativo (default: true).
+   * Retorna defaults em vez de lançar erro quando backend indisponível.
+   */
+  failOpen?: boolean
 }
 
 export interface PulseUser {
@@ -82,6 +99,10 @@ interface PulseContextValue {
   userId: string | null
   anonymousId: string
   ready: boolean
+  /** BKL-258: defaults por flag configurados no Provider */
+  defaults: DefaultsMap
+  /** BKL-258: se fail-open está ativo */
+  failOpen: boolean
   identify: (userId: string, traits?: Record<string, unknown>) => void
   track: (eventName: string, properties?: Record<string, unknown>) => void
   reloadFlags: () => Promise<void>
@@ -118,28 +139,59 @@ function log(debug: boolean, ...args: unknown[]) {
 
 // ─── Core fetch helpers ────────────────────────────────────────────────────
 
-async function fetchGet(
-  apiUrl: string,
-  projectKey: string,
-  path: string,
-  timeout: number,
-): Promise<unknown> {
+interface FetchGetOptions {
+  apiUrl: string
+  projectKey: string
+  path: string
+  timeout: number
+  /** BKL-307: service token para autenticação */
+  serviceToken?: string
+}
+
+/**
+ * BKL-258: fetchGet com timeout de 2s e fail-open (retorna null em vez de throw).
+ * BKL-307: suporta X-Service-Token para autenticação server-side.
+ */
+async function fetchGet({
+  apiUrl,
+  projectKey,
+  path,
+  timeout,
+  serviceToken,
+}: FetchGetOptions): Promise<unknown> {
   const url = apiUrl.replace(/\/+$/, '') + path
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeout)
   try {
+    const headers: Record<string, string> = {
+      'X-Project-Key': projectKey,
+      Accept: 'application/json',
+    }
+    if (serviceToken) {
+      headers['X-Service-Token'] = serviceToken
+    }
     const res = await fetch(url, {
       method: 'GET',
-      headers: { 'X-Project-Key': projectKey, Accept: 'application/json' },
+      headers,
       signal: controller.signal,
     })
     if (!res.ok) return null
     return await res.json()
   } catch {
+    // BKL-258: fail-open — retorna null em vez de throw (defaults usados pelo caller)
     return null
   } finally {
     clearTimeout(timer)
   }
+}
+
+interface FetchPostOptions {
+  apiUrl: string
+  projectKey: string
+  path: string
+  body: unknown
+  timeout: number
+  serviceToken?: string
 }
 
 async function fetchPost(
@@ -148,6 +200,7 @@ async function fetchPost(
   path: string,
   body: unknown,
   timeout: number,
+  serviceToken?: string,
 ): Promise<void> {
   const url = apiUrl.replace(/\/+$/, '') + path
   const payload = JSON.stringify(body)
@@ -170,12 +223,16 @@ async function fetchPost(
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeout)
   try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-Project-Key': projectKey,
+    }
+    if (serviceToken) {
+      headers['X-Service-Token'] = serviceToken
+    }
     await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Project-Key': projectKey,
-      },
+      headers,
       body: payload,
       signal: controller.signal,
     })
@@ -189,24 +246,60 @@ async function fetchPost(
 // ─── PulseProvider ─────────────────────────────────────────────────────────
 
 export interface PulseProviderProps {
-  projectKey: string
+  /**
+   * Chave do projeto (API legada).
+   * BKL-307: use `projectId` para a nova API.
+   */
+  projectKey?: string
+  /**
+   * BKL-307: ID do projeto — usado com `serviceToken`.
+   * Equivale a `projectKey` na API legada.
+   */
+  projectId?: string
+  /**
+   * BKL-307: service token para autenticação server-side.
+   * Passado como header `X-Service-Token` em requests.
+   */
+  serviceToken?: string
+  /** URL base do pulse-service */
   apiUrl: string
   userId?: string
   traits?: Record<string, unknown>
   debug?: boolean
+  /**
+   * Timeout em ms para fetch de flags (default: 2000).
+   * BKL-258: 2s para não bloquear a aplicação.
+   */
   timeout?: number
+  /**
+   * BKL-258: defaults por flag — usados quando fail-open ativa.
+   * Ex: { 'nova-feature': false }
+   */
+  defaults?: DefaultsMap
+  /**
+   * BKL-258: fail-open ativo (default: true).
+   * Retorna defaults em vez de lançar erro quando backend indisponível.
+   */
+  failOpen?: boolean
   children: React.ReactNode
 }
 
 export function PulseProvider({
-  projectKey,
+  projectKey: projectKeyProp,
+  projectId,
+  serviceToken,
   apiUrl,
   userId: initialUserId,
   traits: initialTraits,
   debug = false,
-  timeout = 10000,
+  timeout = 2000,
+  defaults = {},
+  failOpen = true,
   children,
 }: PulseProviderProps) {
+  // BKL-307: suporta tanto projectKey (legado) quanto projectId (novo)
+  const projectKey = projectKeyProp ?? projectId ?? ''
+
   const [flags, setFlags] = useState<FlagsMap | null>(null)
   const [variants, setVariants] = useState<VariantsMap | null>(null)
   const [userId, setUserId] = useState<string | null>(initialUserId ?? null)
@@ -220,24 +313,42 @@ export function PulseProvider({
   const loadFlags = useCallback(async () => {
     const uid = userId || anonymousId
     const qs = `?project_id=${encodeURIComponent(projectKey)}&user_id=${encodeURIComponent(uid)}`
-    const data = await fetchGet(apiUrl, projectKey, `/flags${qs}`, timeout) as { flags?: FlagsMap } | null
+    // BKL-258: fetchGet retorna null em caso de timeout/erro (fail-open no caller)
+    const data = await fetchGet({
+      apiUrl,
+      projectKey,
+      path: `/flags${qs}`,
+      timeout,
+      serviceToken,
+    }) as { flags?: FlagsMap } | null
     if (data?.flags) {
       setFlags(data.flags)
       log(debug, 'flags loaded', data.flags)
+    } else if (failOpen && Object.keys(defaults).length > 0) {
+      // BKL-258: backend indisponível — aplica defaults como flags iniciais
+      setFlags({ ...defaults })
+      log(debug, 'flags fail-open: usando defaults', defaults)
     }
-  }, [apiUrl, projectKey, userId, anonymousId, timeout, debug])
+  }, [apiUrl, projectKey, serviceToken, userId, anonymousId, timeout, debug, failOpen, defaults])
 
   const loadVariants = useCallback(async () => {
     const uid = userId || anonymousId
     const qs = `?user_id=${encodeURIComponent(uid)}&project_id=${encodeURIComponent(projectKey)}`
-    const data = await fetchGet(apiUrl, projectKey, `/flags/variants${qs}`, timeout) as { variants?: VariantsMap } | null
+    const data = await fetchGet({
+      apiUrl,
+      projectKey,
+      path: `/flags/variants${qs}`,
+      timeout,
+      serviceToken,
+    }) as { variants?: VariantsMap } | null
     if (data?.variants) {
       setVariants(data.variants)
       log(debug, 'variants loaded', data.variants)
     }
-  }, [apiUrl, projectKey, userId, anonymousId, timeout, debug])
+    // BKL-258: variantes não têm defaults — se falhar, mantém null (hooks usam defaultVariant)
+  }, [apiUrl, projectKey, serviceToken, userId, anonymousId, timeout, debug])
 
-  // Init: carrega flags e variantes
+  // Init: carrega flags e variantes; setReady=true mesmo em fail-open
   useEffect(() => {
     Promise.all([loadFlags(), loadVariants()]).then(() => setReady(true))
   }, [loadFlags, loadVariants])
@@ -263,11 +374,12 @@ export function PulseProvider({
           project_key: projectKey,
         },
         timeout,
+        serviceToken,
       )
       // Re-carrega flags com contexto do usuário
       Promise.all([loadFlags(), loadVariants()])
     },
-    [apiUrl, projectKey, anonymousId, timeout, debug, loadFlags, loadVariants],
+    [apiUrl, projectKey, serviceToken, anonymousId, timeout, debug, loadFlags, loadVariants],
   )
 
   const track = useCallback(
@@ -288,9 +400,10 @@ export function PulseProvider({
           properties: { ...traitsRef.current, ...(properties ?? {}) },
         },
         timeout,
+        serviceToken,
       )
     },
-    [apiUrl, projectKey, effectiveUserId, timeout, debug],
+    [apiUrl, projectKey, serviceToken, effectiveUserId, timeout, debug],
   )
 
   const reloadFlags = useCallback(async () => {
@@ -307,6 +420,8 @@ export function PulseProvider({
         userId,
         anonymousId,
         ready,
+        defaults,
+        failOpen,
         identify,
         track,
         reloadFlags,
@@ -331,18 +446,42 @@ function usePulse(): PulseContextValue {
 
 /**
  * Retorna se uma feature flag está habilitada para o usuário atual.
+ * BKL-258: usa defaults do Provider quando flags não carregadas (fail-open).
  *
  * @param flagKey - chave da flag (ex: 'new-checkout')
- * @param defaultValue - valor padrão enquanto carrega (default: false)
+ * @param defaultValue - valor padrão; se omitido, usa o default do Provider
  *
  * @example
  * const newCheckout = useFlag('new-checkout')
  * if (newCheckout) showNewCheckout()
  */
-export function useFlag(flagKey: string, defaultValue = false): boolean {
-  const { flags } = usePulse()
-  if (flags === null) return defaultValue
+export function useFlag(flagKey: string, defaultValue?: boolean): boolean {
+  const { flags, defaults } = usePulse()
+  // BKL-258: resolução de prioridade:
+  //   1. flags carregadas do servidor
+  //   2. default explícito do caller
+  //   3. default configurado no Provider
+  //   4. false
+  if (flags === null) return defaultValue ?? defaults[flagKey] ?? false
+  if (!(flagKey in flags)) return defaultValue ?? defaults[flagKey] ?? false
   return flags[flagKey] === true
+}
+
+// ─── usePulseFlag ──────────────────────────────────────────────────────────
+
+/**
+ * BKL-307: alias semântico de useFlag com assinatura explícita de defaultValue.
+ * Retorna o valor da flag; usa defaultValue se SDK não inicializado ou fail-open.
+ *
+ * @param flagKey - chave da flag (ex: 'nova-feature')
+ * @param defaultValue - valor padrão (default: false)
+ *
+ * @example
+ * const novaFeature = usePulseFlag('nova-feature', false)
+ * return novaFeature ? <NovaFeature /> : <FeatureAntiga />
+ */
+export function usePulseFlag(flagKey: string, defaultValue = false): boolean {
+  return useFlag(flagKey, defaultValue)
 }
 
 // ─── useTrack ──────────────────────────────────────────────────────────────
@@ -401,6 +540,27 @@ export function useExperiment(
   }, [track, flagKey, variant])
 
   return { variant, trackExposure }
+}
+
+// ─── usePulseVariant ───────────────────────────────────────────────────────
+
+/**
+ * BKL-307: retorna a variante de um experimento A/B.
+ * Usa defaultVariant como fallback quando SDK não inicializado ou fail-open.
+ *
+ * Diferença de useExperiment: retorna apenas a string da variante (sem trackExposure).
+ * Use useExperiment quando precisar registrar a exposição.
+ *
+ * @param flagKey - chave da flag com variantes (ex: 'pricing-test')
+ * @param defaultVariant - variante padrão (default: 'control')
+ *
+ * @example
+ * const variant = usePulseVariant('pricing-test', 'control')
+ * return variant === 'challenger' ? <NewPricing /> : <OldPricing />
+ */
+export function usePulseVariant(flagKey: string, defaultVariant = 'control'): string {
+  const { variants } = usePulse()
+  return variants?.[flagKey] ?? defaultVariant
 }
 
 // ─── usePulseReady ─────────────────────────────────────────────────────────

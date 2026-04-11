@@ -9,6 +9,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/institutoitinerante/pulse-service/internal/domain"
 	"github.com/institutoitinerante/pulse-service/internal/pkg/metrics"
 	"github.com/institutoitinerante/pulse-service/internal/repository"
@@ -88,7 +89,7 @@ func (s *FlagService) Create(ctx context.Context, req domain.CreateFlagRequest) 
 		return nil, fmt.Errorf("service: Create: %w", err)
 	}
 
-	s.invalidateCache(ctx, req.ProjectID)
+	s.invalidateCache(ctx, uuidPtrToStr(req.ProjectID))
 	return flag, nil
 }
 
@@ -102,7 +103,7 @@ func (s *FlagService) Update(ctx context.Context, key string, req domain.UpdateF
 		return nil, nil
 	}
 
-	s.invalidateCache(ctx, updated.ProjectID)
+	s.invalidateCache(ctx, uuidPtrToStr(updated.ProjectID))
 	return updated, nil
 }
 
@@ -116,7 +117,7 @@ func (s *FlagService) Delete(ctx context.Context, key string) error {
 		return fmt.Errorf("service: Delete: %w", err)
 	}
 	if existing != nil {
-		s.invalidateCache(ctx, existing.ProjectID)
+		s.invalidateCache(ctx, uuidPtrToStr(existing.ProjectID))
 	}
 	return nil
 }
@@ -362,4 +363,13 @@ func (s *FlagService) invalidateCache(ctx context.Context, projectID string) {
 	if err := s.redis.Del(ctx, key).Err(); err != nil {
 		log.Printf("warning: failed to invalidate flags cache for project %s: %v", projectID, err)
 	}
+}
+
+// uuidPtrToStr converte *uuid.UUID para string.
+// Retorna string vazia se nil (sem cache invalidation).
+func uuidPtrToStr(id *uuid.UUID) string {
+	if id == nil {
+		return ""
+	}
+	return id.String()
 }

@@ -234,6 +234,37 @@ func main() {
 	// BKL-1037: Retention purge — deleta eventos mais antigos que data_retention_days de cada projeto (1x/dia)
 	go retentionpurge.Start(jobCtx, pool, 24*time.Hour)
 
+	// BKL-864: Weekly insight narrativo — gera toda segunda-feira via Haiku
+	weeklyInsightSvc := service.NewWeeklyInsightService(pool)
+	insightHandler := handler.NewInsightHandler(weeklyInsightSvc, cfg.ServiceToken)
+	insightHandler.RegisterRoutes(app)
+	go func() {
+		// Verifica toda segunda-feira às 08h se o insight da semana já foi gerado
+		for {
+			now := time.Now().UTC()
+			// Próxima segunda-feira às 08h
+			daysUntilMonday := (8 - int(now.Weekday())) % 7
+			if daysUntilMonday == 0 && now.Hour() >= 8 {
+				daysUntilMonday = 7
+			}
+			nextRun := time.Date(now.Year(), now.Month(), now.Day()+daysUntilMonday, 8, 0, 0, 0, time.UTC)
+			select {
+			case <-jobCtx.Done():
+				return
+			case <-time.After(time.Until(nextRun)):
+				if err := weeklyInsightSvc.Generate(jobCtx); err != nil {
+					log.Printf("weekly_insight: %v", err)
+				}
+			}
+		}
+	}()
+	// Gera imediatamente ao startup caso ainda não exista insight desta semana
+	go func() {
+		if err := weeklyInsightSvc.Generate(jobCtx); err != nil {
+			log.Printf("weekly_insight startup: %v", err)
+		}
+	}()
+
 	// BKL-1082: Email sequence de onboarding — processa 1x/dia
 	emailSeqSvc := service.NewEmailSequenceService(pool)
 	go func() {

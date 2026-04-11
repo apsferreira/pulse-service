@@ -5,6 +5,7 @@ import Overview from './pages/Overview'
 import Flags from './pages/Flags'
 import Events from './pages/Events'
 import Retention from './pages/Retention'
+import Experiments from './pages/Experiments'
 import Login from './pages/Login'
 import AuthCallback from './pages/AuthCallback'
 
@@ -31,6 +32,8 @@ function App() {
                   <Route path="/flags" element={<Flags />} />
                   <Route path="/events" element={<Events />} />
                   <Route path="/retention" element={<Retention />} />
+                  {/* BKL-1073: Análise estatística de experimentos A/B */}
+                  <Route path="/experiments" element={<Experiments />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </Layout>

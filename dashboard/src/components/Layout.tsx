@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Flag, Activity, TrendingUp, Moon, Sun, Zap, LogOut } from 'lucide-react'
+import { LayoutDashboard, Flag, Activity, TrendingUp, FlaskConical, Moon, Sun, Zap, LogOut } from 'lucide-react'
 import { logout } from '../lib/auth'
 
 interface LayoutProps {
@@ -37,6 +37,7 @@ export default function Layout({ children }: LayoutProps) {
     { to: '/flags', label: 'Feature Flags', icon: Flag },
     { to: '/events', label: 'Eventos', icon: Activity },
     { to: '/retention', label: 'Retencao', icon: TrendingUp },
+    { to: '/experiments', label: 'Experimentos', icon: FlaskConical }, // BKL-1073
   ]
 
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>

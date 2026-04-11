@@ -9,13 +9,15 @@ RUN apk add --no-cache git ca-certificates
 # Copy all source first (go mod tidy needs source to resolve imports)
 COPY . .
 
+# GOTOOLCHAIN=auto permite usar go 1.25+ quando exigido por dependências (pgx v5.9+)
+ENV GOTOOLCHAIN=auto
+ENV CGO_ENABLED=0
+ENV GOOS=linux
+
 # Generate go.sum and download dependencies
 RUN go mod tidy && go mod download
 
 # Build the binary
-ENV CGO_ENABLED=0
-ENV GOOS=linux
-ENV GOTOOLCHAIN=auto
 RUN go build -ldflags="-s -w" -o /app/pulse-service ./cmd/server
 
 # ---- Runtime stage ----

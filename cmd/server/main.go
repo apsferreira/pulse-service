@@ -124,6 +124,10 @@ func main() {
 		WriteTimeout: 10 * time.Second,
 	})
 
+	// BKL-1053: Prometheus metrics + instrumentação (antes de tudo para capturar todas as rotas)
+	metricsHandler := handler.NewMetricsHandler()
+	metricsHandler.RegisterRoutes(app)
+
 	// Global middleware
 	app.Use(recover.New())
 	app.Use(custommw.SecurityHeaders())

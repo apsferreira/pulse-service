@@ -9,6 +9,7 @@ type Project struct {
 	Slug        string    `json:"slug"`
 	APIKey      string    `json:"api_key"`
 	Description string    `json:"description,omitempty"`
+	Plan        string    `json:"plan"`       // BKL-1077: free|starter|growth|pro
 	IsActive    bool      `json:"is_active"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`

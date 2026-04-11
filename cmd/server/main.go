@@ -208,6 +208,10 @@ func main() {
 	upgradeHandler := handler.NewUpgradeHandler(pool, cfg.ServiceToken)
 	upgradeHandler.RegisterRoutes(app)
 
+	// BKL-1078: Webhooks para eventos de produto (HMAC-SHA256, n8n/Make/Zapier)
+	webhookHandler := handler.NewWebhookHandler(pool, cfg.ServiceToken)
+	webhookHandler.RegisterRoutes(app)
+
 	// BKL-150: Register WebSocket routes
 	wsHandler.RegisterRoutes(app)
 

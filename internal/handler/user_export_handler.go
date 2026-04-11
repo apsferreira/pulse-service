@@ -6,6 +6,7 @@ package handler
 // é gerada inline (sem async job — volumes típicos são manejáveis).
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -42,13 +43,13 @@ func (h *UserExportHandler) Export(c *fiber.Ctx) error {
 	projectID := c.Query("project_id")
 
 	// Busca eventos do usuário
-	events, err := h.fetchUserEvents(c.Context(), userID, projectID)
+	events, err := h.fetchUserEvents(c.UserContext(), userID, projectID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: err.Error()})
 	}
 
 	// Busca avaliações de flags do usuário
-	flagEvals, err := h.fetchUserFlagEvals(c.Context(), userID, projectID)
+	flagEvals, err := h.fetchUserFlagEvals(c.UserContext(), userID, projectID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: err.Error()})
 	}
@@ -84,12 +85,12 @@ func (h *UserExportHandler) DeleteUserData(c *fiber.Ctx) error {
 	}
 	projectID := c.Query("project_id")
 
-	deletedEvents, err := h.deleteUserEvents(c.Context(), userID, projectID)
+	deletedEvents, err := h.deleteUserEvents(c.UserContext(), userID, projectID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: err.Error()})
 	}
 
-	deletedFlagEvals, err := h.deleteUserFlagEvals(c.Context(), userID, projectID)
+	deletedFlagEvals, err := h.deleteUserFlagEvals(c.UserContext(), userID, projectID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: err.Error()})
 	}
@@ -105,7 +106,7 @@ func (h *UserExportHandler) DeleteUserData(c *fiber.Ctx) error {
 
 // --- helpers de banco ---
 
-func (h *UserExportHandler) fetchUserEvents(ctx *fiber.Ctx, userID, projectID string) ([]map[string]interface{}, error) {
+func (h *UserExportHandler) fetchUserEvents(ctx context.Context, userID, projectID string) ([]map[string]interface{}, error) {
 	query := `SELECT id, product, event_type, session_id, properties, environment, project_id, created_at
 		FROM events WHERE user_id = $1`
 	args := []interface{}{userID}
@@ -115,7 +116,7 @@ func (h *UserExportHandler) fetchUserEvents(ctx *fiber.Ctx, userID, projectID st
 	}
 	query += " ORDER BY created_at DESC LIMIT 10000"
 
-	rows, err := h.db.Query(ctx.Context(), query, args...)
+	rows, err := h.db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("export: fetchEvents: %w", err)
 	}
@@ -150,7 +151,7 @@ func (h *UserExportHandler) fetchUserEvents(ctx *fiber.Ctx, userID, projectID st
 	return events, rows.Err()
 }
 
-func (h *UserExportHandler) fetchUserFlagEvals(ctx *fiber.Ctx, userID, projectID string) ([]map[string]interface{}, error) {
+func (h *UserExportHandler) fetchUserFlagEvals(ctx context.Context, userID, projectID string) ([]map[string]interface{}, error) {
 	query := `SELECT id, flag_key, project_id, result, variant, reason, evaluated_at
 		FROM flag_evaluations WHERE user_id = $1`
 	args := []interface{}{userID}
@@ -160,7 +161,7 @@ func (h *UserExportHandler) fetchUserFlagEvals(ctx *fiber.Ctx, userID, projectID
 	}
 	query += " ORDER BY evaluated_at DESC LIMIT 5000"
 
-	rows, err := h.db.Query(ctx.Context(), query, args...)
+	rows, err := h.db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("export: fetchFlagEvals: %w", err)
 	}
@@ -192,28 +193,28 @@ func (h *UserExportHandler) fetchUserFlagEvals(ctx *fiber.Ctx, userID, projectID
 	return evals, rows.Err()
 }
 
-func (h *UserExportHandler) deleteUserEvents(ctx *fiber.Ctx, userID, projectID string) (int64, error) {
+func (h *UserExportHandler) deleteUserEvents(ctx context.Context, userID, projectID string) (int64, error) {
 	query := "DELETE FROM events WHERE user_id = $1"
 	args := []interface{}{userID}
 	if projectID != "" {
 		query += " AND project_id = $2"
 		args = append(args, projectID)
 	}
-	tag, err := h.db.Exec(ctx.Context(), query, args...)
+	tag, err := h.db.Exec(ctx, query, args...)
 	if err != nil {
 		return 0, fmt.Errorf("deleteUserEvents: %w", err)
 	}
 	return tag.RowsAffected(), nil
 }
 
-func (h *UserExportHandler) deleteUserFlagEvals(ctx *fiber.Ctx, userID, projectID string) (int64, error) {
+func (h *UserExportHandler) deleteUserFlagEvals(ctx context.Context, userID, projectID string) (int64, error) {
 	query := "DELETE FROM flag_evaluations WHERE user_id = $1"
 	args := []interface{}{userID}
 	if projectID != "" {
 		query += " AND project_id = $2"
 		args = append(args, projectID)
 	}
-	tag, err := h.db.Exec(ctx.Context(), query, args...)
+	tag, err := h.db.Exec(ctx, query, args...)
 	if err != nil {
 		return 0, fmt.Errorf("deleteUserFlagEvals: %w", err)
 	}

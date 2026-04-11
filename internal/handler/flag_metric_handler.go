@@ -25,7 +25,7 @@ func NewFlagMetricHandler(repo *repository.FlagMetricRepository, serviceToken st
 // RegisterRoutes monta as rotas de métricas de flags.
 func (h *FlagMetricHandler) RegisterRoutes(app *fiber.App) {
 	// Todos os endpoints requerem service token (operações administrativas)
-	v1 := app.Group("/api/v1", middleware.ServiceTokenAuth(h.serviceToken))
+	v1 := app.Group("/api/v1", middleware.ServiceTokenMiddleware(h.serviceToken))
 
 	v1.Get("/flags/:key/metrics", h.List)
 	v1.Post("/flags/:key/metrics", h.Create)

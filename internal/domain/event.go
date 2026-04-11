@@ -3,23 +3,27 @@ package domain
 import "time"
 
 type Event struct {
-	ID         string                 `json:"id" db:"id"`
-	Product    string                 `json:"product" db:"product"`
-	EventType  string                 `json:"event_type" db:"event_type"`
-	UserID     *string                `json:"user_id,omitempty" db:"user_id"`
-	SessionID  *string                `json:"session_id,omitempty" db:"session_id"`
-	Properties map[string]interface{} `json:"properties" db:"properties"`
-	IPAddress  *string                `json:"ip_address,omitempty" db:"ip_address"`
-	UserAgent  *string                `json:"user_agent,omitempty" db:"user_agent"`
-	CreatedAt  time.Time              `json:"created_at" db:"created_at"`
+	ID          string                 `json:"id" db:"id"`
+	Product     string                 `json:"product" db:"product"`
+	EventType   string                 `json:"event_type" db:"event_type"`
+	UserID      *string                `json:"user_id,omitempty" db:"user_id"`
+	SessionID   *string                `json:"session_id,omitempty" db:"session_id"`
+	Properties  map[string]interface{} `json:"properties" db:"properties"`
+	IPAddress   *string                `json:"ip_address,omitempty" db:"ip_address"`
+	UserAgent   *string                `json:"user_agent,omitempty" db:"user_agent"`
+	Environment string                 `json:"environment" db:"environment"`  // BKL-750: production|staging|development
+	ProjectID   *string                `json:"project_id,omitempty" db:"project_id"` // BKL-1038: isolamento multi-tenant
+	CreatedAt   time.Time              `json:"created_at" db:"created_at"`
 }
 
 type IngestEventRequest struct {
-	Product    string                 `json:"product" validate:"required"`
-	EventType  string                 `json:"event_type" validate:"required"`
-	UserID     *string                `json:"user_id,omitempty"`
-	SessionID  *string                `json:"session_id,omitempty"`
-	Properties map[string]interface{} `json:"properties,omitempty"`
+	Product     string                 `json:"product" validate:"required"`
+	EventType   string                 `json:"event_type" validate:"required"`
+	UserID      *string                `json:"user_id,omitempty"`
+	SessionID   *string                `json:"session_id,omitempty"`
+	Properties  map[string]interface{} `json:"properties,omitempty"`
+	Environment string                 `json:"environment,omitempty"` // BKL-750: production|staging|development; default: production
+	ProjectID   *string                `json:"project_id,omitempty"` // BKL-1038
 }
 
 type EventSummaryItem struct {

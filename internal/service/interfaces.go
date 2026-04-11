@@ -18,9 +18,9 @@ type FlagServicer interface {
 	Create(ctx context.Context, req domain.CreateFlagRequest) (*domain.FeatureFlag, error)
 	Update(ctx context.Context, key string, req domain.UpdateFlagRequest) (*domain.FeatureFlag, error)
 	Delete(ctx context.Context, key string) error
-	GetFlagsMap(ctx context.Context) (domain.FlagsMapResponse, error)
-	EvaluateFlags(ctx context.Context, userID, tenantID string) (domain.FlagsMapResponse, error)
-	GetVariants(ctx context.Context, userID, tenantID string) (domain.VariantResponse, error)
+	GetFlagsMap(ctx context.Context, projectID string) (domain.FlagsMapResponse, error)          // BKL-1028
+	EvaluateFlags(ctx context.Context, userID, tenantID, projectID string) (domain.FlagsMapResponse, error) // BKL-1027
+	GetVariants(ctx context.Context, userID, tenantID, projectID string) (domain.VariantResponse, error)    // BKL-1027
 }
 
 // EventServicer define as operações do serviço de eventos.

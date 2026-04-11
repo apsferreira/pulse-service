@@ -14,10 +14,15 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-const (
-	flagCacheTTL = 5 * time.Minute
-	flagCacheKey = "pulse:flags:map"
-)
+const flagCacheTTL = 5 * time.Minute
+
+// flagCacheKeyForProject retorna chave Redis por project_id (BKL-1028: sem cache global).
+func flagCacheKeyForProject(projectID string) string {
+	if projectID == "" {
+		return "pulse:flags:_global:map"
+	}
+	return "pulse:flags:" + projectID + ":map"
+}
 
 type FlagService struct {
 	repo  *repository.FlagRepository
@@ -79,7 +84,7 @@ func (s *FlagService) Create(ctx context.Context, req domain.CreateFlagRequest) 
 		return nil, fmt.Errorf("service: Create: %w", err)
 	}
 
-	s.invalidateCache(ctx)
+	s.invalidateCache(ctx, req.ProjectID)
 	return flag, nil
 }
 
@@ -93,25 +98,32 @@ func (s *FlagService) Update(ctx context.Context, key string, req domain.UpdateF
 		return nil, nil
 	}
 
-	s.invalidateCache(ctx)
+	s.invalidateCache(ctx, updated.ProjectID)
 	return updated, nil
 }
 
 // Delete removes a feature flag by key.
 func (s *FlagService) Delete(ctx context.Context, key string) error {
+	existing, err := s.repo.GetByKey(ctx, key)
+	if err != nil {
+		return fmt.Errorf("service: Delete lookup: %w", err)
+	}
 	if err := s.repo.Delete(ctx, key); err != nil {
 		return fmt.Errorf("service: Delete: %w", err)
 	}
-	s.invalidateCache(ctx)
+	if existing != nil {
+		s.invalidateCache(ctx, existing.ProjectID)
+	}
 	return nil
 }
 
-// GetFlagsMap returns a map of key:enabled for all flags.
-// Quando sem contexto (user_id/tenant_id vazio), retorna o campo enabled diretamente.
-// Results are cached in Redis (DB 6) with TTL 5min.
-func (s *FlagService) GetFlagsMap(ctx context.Context) (domain.FlagsMapResponse, error) {
+// GetFlagsMap returns a map of key:enabled for all flags filtered by projectID.
+// BKL-1028: chave Redis por project_id — sem cache global compartilhado entre tenants.
+func (s *FlagService) GetFlagsMap(ctx context.Context, projectID string) (domain.FlagsMapResponse, error) {
+	cacheKey := flagCacheKeyForProject(projectID)
+
 	// Try cache first
-	cached, err := s.redis.Get(ctx, flagCacheKey).Bytes()
+	cached, err := s.redis.Get(ctx, cacheKey).Bytes()
 	if err == nil {
 		var resp domain.FlagsMapResponse
 		if jsonErr := json.Unmarshal(cached, &resp); jsonErr == nil {
@@ -120,7 +132,12 @@ func (s *FlagService) GetFlagsMap(ctx context.Context) (domain.FlagsMapResponse,
 	}
 
 	// Cache miss — load from DB
-	flags, err := s.repo.GetAll(ctx, nil)
+	var flags []domain.FeatureFlag
+	if projectID != "" {
+		flags, err = s.repo.GetAll(ctx, &projectID)
+	} else {
+		flags, err = s.repo.GetAll(ctx, nil)
+	}
 	if err != nil {
 		return domain.FlagsMapResponse{}, fmt.Errorf("service: GetFlagsMap: %w", err)
 	}
@@ -134,7 +151,7 @@ func (s *FlagService) GetFlagsMap(ctx context.Context) (domain.FlagsMapResponse,
 
 	// Cache the result
 	if data, jsonErr := json.Marshal(resp); jsonErr == nil {
-		if setErr := s.redis.Set(ctx, flagCacheKey, data, flagCacheTTL).Err(); setErr != nil {
+		if setErr := s.redis.Set(ctx, cacheKey, data, flagCacheTTL).Err(); setErr != nil {
 			log.Printf("warning: failed to cache flags map: %v", setErr)
 		}
 	}
@@ -142,15 +159,22 @@ func (s *FlagService) GetFlagsMap(ctx context.Context) (domain.FlagsMapResponse,
 	return resp, nil
 }
 
-// EvaluateFlags avalia flags com contexto de user_id e tenant_id.
+// EvaluateFlags avalia flags com contexto de user_id, tenant_id e project_id.
+// BKL-1027: project_id obrigatório para isolar flags por tenant — evita cross-tenant leak.
 // Lógica de avaliação (em ordem de prioridade):
 // 1. Se flag.Enabled = false → false (kill switch)
 // 2. Se targeting tem user_ids e user_id está na lista → true
 // 3. Se targeting tem tenant_ids e tenant_id está na lista → true
 // 4. Se rollout_percentage > 0 → hash(user_id + flag_key) % 100 < rollout_percentage
 // 5. Se rollout_percentage = 0 e targeting vazio → enabled (comportamento legado)
-func (s *FlagService) EvaluateFlags(ctx context.Context, userID, tenantID string) (domain.FlagsMapResponse, error) {
-	flags, err := s.repo.GetAll(ctx, nil)
+func (s *FlagService) EvaluateFlags(ctx context.Context, userID, tenantID, projectID string) (domain.FlagsMapResponse, error) {
+	var flags []domain.FeatureFlag
+	var err error
+	if projectID != "" {
+		flags, err = s.repo.GetAll(ctx, &projectID)
+	} else {
+		flags, err = s.repo.GetAll(ctx, nil)
+	}
 	if err != nil {
 		return domain.FlagsMapResponse{}, fmt.Errorf("service: EvaluateFlags: %w", err)
 	}
@@ -219,10 +243,17 @@ func hashBucket(userID, flagKey string) int {
 }
 
 // GetVariants retorna a variante A/B selecionada para cada flag com variantes configuradas. BKL-094.
+// BKL-1027: filtra por projectID para isolar variantes por tenant.
 // A seleção é determinística: mesmo userID+flagKey sempre retorna a mesma variante.
 // Flags sem variantes ou desabilitadas não aparecem na resposta.
-func (s *FlagService) GetVariants(ctx context.Context, userID, tenantID string) (domain.VariantResponse, error) {
-	flags, err := s.repo.GetAll(ctx, nil)
+func (s *FlagService) GetVariants(ctx context.Context, userID, tenantID, projectID string) (domain.VariantResponse, error) {
+	var flags []domain.FeatureFlag
+	var err error
+	if projectID != "" {
+		flags, err = s.repo.GetAll(ctx, &projectID)
+	} else {
+		flags, err = s.repo.GetAll(ctx, nil)
+	}
 	if err != nil {
 		return domain.VariantResponse{}, fmt.Errorf("service: GetVariants: %w", err)
 	}
@@ -276,9 +307,11 @@ func selectVariant(variants []domain.FlagVariant, userID, flagKey string) string
 	return variants[len(variants)-1].Key
 }
 
-// invalidateCache deletes the flags map cache key.
-func (s *FlagService) invalidateCache(ctx context.Context) {
-	if err := s.redis.Del(ctx, flagCacheKey).Err(); err != nil {
-		log.Printf("warning: failed to invalidate flags cache: %v", err)
+// invalidateCache deletes the flags map cache key for a given project.
+// BKL-1028: invalida apenas a chave do projeto afetado.
+func (s *FlagService) invalidateCache(ctx context.Context, projectID string) {
+	key := flagCacheKeyForProject(projectID)
+	if err := s.redis.Del(ctx, key).Err(); err != nil {
+		log.Printf("warning: failed to invalidate flags cache for project %s: %v", projectID, err)
 	}
 }

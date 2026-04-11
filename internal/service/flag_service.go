@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/institutoitinerante/pulse-service/internal/domain"
+	"github.com/institutoitinerante/pulse-service/internal/pkg/metrics"
 	"github.com/institutoitinerante/pulse-service/internal/repository"
 	"github.com/redis/go-redis/v9"
 )
@@ -130,9 +131,11 @@ func (s *FlagService) GetFlagsMap(ctx context.Context, projectID string) (domain
 	if err == nil {
 		var resp domain.FlagsMapResponse
 		if jsonErr := json.Unmarshal(cached, &resp); jsonErr == nil {
+			metrics.RecordCacheHit() // BKL-1053
 			return resp, nil
 		}
 	}
+	metrics.RecordCacheMiss() // BKL-1053
 
 	// Cache miss — load from DB
 	var flags []domain.FeatureFlag
@@ -199,6 +202,7 @@ func (s *FlagService) EvaluateFlags(ctx context.Context, userID, tenantID, proje
 	result := make(map[string]bool, len(flags))
 	for _, f := range flags {
 		result[f.Key] = evaluateFlagWithPrereqs(f, userID, tenantID, flagMap)
+		metrics.RecordFlagEvaluation() // BKL-1053
 	}
 
 	return domain.FlagsMapResponse{Flags: result}, nil

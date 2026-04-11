@@ -30,7 +30,7 @@ func NewEventSchemaHandler(repo *repository.EventSchemaRepository, serviceToken 
 
 // RegisterRoutes monta as rotas do schema registry.
 func (h *EventSchemaHandler) RegisterRoutes(app *fiber.App) {
-	v1 := app.Group("/api/v1", middleware.ServiceTokenAuth(h.serviceToken))
+	v1 := app.Group("/api/v1", middleware.ServiceTokenMiddleware(h.serviceToken))
 
 	v1.Get("/event-schemas", h.List)
 	v1.Get("/event-schemas/:event_name", h.Get)

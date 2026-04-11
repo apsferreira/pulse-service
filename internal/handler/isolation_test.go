@@ -54,9 +54,9 @@ func (m *mockIsolationFlagService) List(_ context.Context) ([]domain.FeatureFlag
 func (m *mockIsolationFlagService) ListByProject(_ context.Context, projectID string) ([]domain.FeatureFlag, error) {
 	switch projectID {
 	case "project-a":
-		return []domain.FeatureFlag{{Key: "flag-alpha", Enabled: true, ProjectID: "project-a"}}, nil
+		return []domain.FeatureFlag{{Key: "flag-alpha", Enabled: true}}, nil
 	case "project-b":
-		return []domain.FeatureFlag{{Key: "flag-beta", Enabled: true, ProjectID: "project-b"}}, nil
+		return []domain.FeatureFlag{{Key: "flag-beta", Enabled: true}}, nil
 	}
 	return nil, nil
 }

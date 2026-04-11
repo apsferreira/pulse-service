@@ -1,8 +1,9 @@
 import React, { useState, createContext, useContext } from 'react'
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Activity, Zap, Moon, Sun, HeartPulse, Users, FlaskConical, DollarSign, Star, ChevronDown, History } from 'lucide-react'
+import { LayoutDashboard, Activity, Zap, Moon, Sun, HeartPulse, Users, FlaskConical, DollarSign, Star, ChevronDown, History, LogOut } from 'lucide-react'
 import { useProjects } from '../hooks/useProjects'
 import { useProjectContext } from '../hooks/useProjectContext'
+import { useAuth } from '../context/AuthContext'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -52,6 +53,7 @@ export default function Layout({ children }: LayoutProps) {
   const { projects } = useProjects()
   const { projectId, setProjectId } = useProjectContext()
   const [selectorOpen, setSelectorOpen] = useState(false)
+  const { user, logout } = useAuth()
 
   const selectedProject = projects.find((p) => p.id === projectId)
   const projectSlug = selectedProject?.slug ?? null
@@ -162,6 +164,23 @@ export default function Layout({ children }: LayoutProps) {
               >
                 {dark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
               </button>
+
+              {/* BKL-1115: user info + logout */}
+              {user && (
+                <div className="flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-700">
+                  <span className="hidden sm:block text-xs text-slate-500 dark:text-slate-400 max-w-[120px] truncate">
+                    {user.email}
+                  </span>
+                  <button
+                    onClick={logout}
+                    className="p-2 rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-900/20 dark:hover:text-red-400 transition-colors"
+                    aria-label="Sair"
+                    title="Sair"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
               {/* Mobile hamburger */}
               <button
                 onClick={() => setMobileOpen((v) => !v)}

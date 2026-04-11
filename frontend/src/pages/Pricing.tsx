@@ -1,5 +1,7 @@
 // BKL-1061: Pricing page pública do Pulse.
+// BKL-1085: ROI Calculator interativo.
 // Rota: /pricing (sem autenticação — página pública)
+import { useState } from 'react'
 import { Check, X, Zap } from 'lucide-react'
 
 interface Plan {
@@ -100,6 +102,209 @@ const featureRow = (label: string, value: string | false) => (
   </div>
 )
 
+// Passos discretos para o slider de usuários únicos
+const USER_STEPS = [1_000, 10_000, 50_000, 100_000, 500_000, 1_000_000]
+
+function formatUsers(n: number): string {
+  if (n >= 1_000_000) return '1M'
+  if (n >= 1_000) return `${n / 1_000}k`
+  return String(n)
+}
+
+function formatBRL(n: number): string {
+  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+}
+
+interface ROIOutputs {
+  hoursSaved: number
+  timeSavingsValue: number
+  conversionGain: number
+  extraRevenue: number | null
+  recommendedPlan: { name: string; href: string }
+}
+
+function calcROI(flags: number, experiments: number, users: number): ROIOutputs {
+  const hoursSaved = flags * 0.5 + experiments * 2
+  const timeSavingsValue = hoursSaved * 150
+  const conversionGain = Math.min(experiments * 3, 25)
+  const extraRevenue = users >= 10_000 ? users * 0.02 * 50 : null
+
+  let recommendedPlan: { name: string; href: string }
+  if (flags <= 5 && users <= 10_000) {
+    recommendedPlan = { name: 'Free', href: '/register' }
+  } else if (flags <= 20 && users <= 500_000) {
+    recommendedPlan = { name: 'Starter', href: '/checkout?plan=starter' }
+  } else if (flags <= 50) {
+    recommendedPlan = { name: 'Growth', href: '/checkout?plan=growth' }
+  } else {
+    recommendedPlan = { name: 'Pro', href: 'mailto:comercial@institutoitinerante.com.br' }
+  }
+
+  return { hoursSaved, timeSavingsValue, conversionGain, extraRevenue, recommendedPlan }
+}
+
+function ROICalculator() {
+  const [flags, setFlags] = useState(10)
+  const [experiments, setExperiments] = useState(3)
+  const [userStepIndex, setUserStepIndex] = useState(1) // default 10k
+
+  const users = USER_STEPS[userStepIndex]
+  const { hoursSaved, timeSavingsValue, conversionGain, extraRevenue, recommendedPlan } = calcROI(
+    flags,
+    experiments,
+    users,
+  )
+
+  return (
+    <section
+      aria-labelledby="roi-calc-title"
+      className="rounded-2xl border border-violet-700 bg-slate-900 p-8 mb-16"
+    >
+      <div className="text-center mb-8">
+        <h2 id="roi-calc-title" className="text-2xl font-bold mb-2">
+          Calcule seu ROI com o Pulse
+        </h2>
+        <p className="text-slate-400 text-sm">
+          Estimativas baseadas em métricas de produto reais
+        </p>
+      </div>
+
+      {/* Inputs */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
+        {/* Feature flags */}
+        <div className="space-y-3">
+          <label
+            htmlFor="slider-flags"
+            className="block text-sm font-medium text-slate-300"
+          >
+            Feature flags gerenciadas
+            <span className="ml-2 text-violet-400 font-bold">{flags}</span>
+          </label>
+          <input
+            id="slider-flags"
+            type="range"
+            min={1}
+            max={100}
+            step={1}
+            value={flags}
+            onChange={(e) => setFlags(Number(e.target.value))}
+            className="w-full h-2 rounded-full appearance-none cursor-pointer bg-slate-700 accent-violet-500"
+            aria-label="Quantidade de feature flags gerenciadas"
+          />
+          <div className="flex justify-between text-xs text-slate-500">
+            <span>1</span>
+            <span>100</span>
+          </div>
+        </div>
+
+        {/* Experimentos A/B */}
+        <div className="space-y-3">
+          <label
+            htmlFor="slider-experiments"
+            className="block text-sm font-medium text-slate-300"
+          >
+            Experimentos A/B por mês
+            <span className="ml-2 text-violet-400 font-bold">{experiments}</span>
+          </label>
+          <input
+            id="slider-experiments"
+            type="range"
+            min={1}
+            max={20}
+            step={1}
+            value={experiments}
+            onChange={(e) => setExperiments(Number(e.target.value))}
+            className="w-full h-2 rounded-full appearance-none cursor-pointer bg-slate-700 accent-violet-500"
+            aria-label="Quantidade de experimentos A/B por mês"
+          />
+          <div className="flex justify-between text-xs text-slate-500">
+            <span>1</span>
+            <span>20</span>
+          </div>
+        </div>
+
+        {/* Usuários únicos */}
+        <div className="space-y-3">
+          <label
+            htmlFor="slider-users"
+            className="block text-sm font-medium text-slate-300"
+          >
+            Usuários únicos
+            <span className="ml-2 text-violet-400 font-bold">{formatUsers(users)}</span>
+          </label>
+          <input
+            id="slider-users"
+            type="range"
+            min={0}
+            max={USER_STEPS.length - 1}
+            step={1}
+            value={userStepIndex}
+            onChange={(e) => setUserStepIndex(Number(e.target.value))}
+            className="w-full h-2 rounded-full appearance-none cursor-pointer bg-slate-700 accent-violet-500"
+            aria-label="Quantidade de usuários únicos"
+          />
+          <div className="flex justify-between text-xs text-slate-500">
+            <span>1k</span>
+            <span>1M</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Outputs */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="rounded-xl bg-slate-800 border border-slate-700 p-4 text-center">
+          <p className="text-xs text-slate-400 mb-1">Horas economizadas/semana</p>
+          <p className="text-3xl font-bold text-violet-400">{hoursSaved.toFixed(1)}</p>
+          <p className="text-xs text-slate-500 mt-1">horas de dev sênior</p>
+        </div>
+
+        <div className="rounded-xl bg-slate-800 border border-slate-700 p-4 text-center">
+          <p className="text-xs text-slate-400 mb-1">Valor do tempo economizado</p>
+          <p className="text-3xl font-bold text-emerald-400">{formatBRL(timeSavingsValue)}</p>
+          <p className="text-xs text-slate-500 mt-1">por semana (R$150/h)</p>
+        </div>
+
+        <div className="rounded-xl bg-slate-800 border border-slate-700 p-4 text-center">
+          <p className="text-xs text-slate-400 mb-1">Aumento de conversão est.</p>
+          <p className="text-3xl font-bold text-violet-400">+{conversionGain}%</p>
+          <p className="text-xs text-slate-500 mt-1">média por A/B test</p>
+        </div>
+
+        <div className="rounded-xl bg-slate-800 border border-slate-700 p-4 text-center">
+          <p className="text-xs text-slate-400 mb-1">Receita adicional est.</p>
+          {extraRevenue !== null ? (
+            <>
+              <p className="text-3xl font-bold text-emerald-400">{formatBRL(extraRevenue)}</p>
+              <p className="text-xs text-slate-500 mt-1">ARPU R$50 hipotético</p>
+            </>
+          ) : (
+            <>
+              <p className="text-2xl font-bold text-slate-500">—</p>
+              <p className="text-xs text-slate-500 mt-1">disponível a partir de 10k users</p>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Plano recomendado + CTA */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t border-slate-700">
+        <div className="flex items-center gap-3">
+          <span className="text-slate-400 text-sm">Plano recomendado para você:</span>
+          <span className="inline-block bg-violet-600/20 border border-violet-600 text-violet-300 text-sm font-semibold px-3 py-1 rounded-full">
+            {recommendedPlan.name}
+          </span>
+        </div>
+        <a
+          href={recommendedPlan.href}
+          className="bg-violet-600 hover:bg-violet-500 text-white font-semibold py-2.5 px-6 rounded-xl transition-colors text-sm whitespace-nowrap"
+        >
+          Começar com {recommendedPlan.name}
+        </a>
+      </div>
+    </section>
+  )
+}
+
 export default function Pricing() {
   return (
     <div className="min-h-screen bg-slate-950 text-white">
@@ -182,6 +387,9 @@ export default function Pricing() {
             </div>
           ))}
         </div>
+
+        {/* ROI Calculator */}
+        <ROICalculator />
 
         {/* FAQ */}
         <div className="max-w-2xl mx-auto">

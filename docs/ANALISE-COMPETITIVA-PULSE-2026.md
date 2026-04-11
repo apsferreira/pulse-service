@@ -385,7 +385,175 @@ Os BKLs abaixo devem ser adicionados ao `BACKLOG.md` do `instituto-itinerante-ec
 
 ---
 
-## 7. Segmentação de ICPs e Go-To-Market
+## 7. Concorrentes Adicionais — Análise Profunda
+
+### 7.1 Avo (avo.app)
+
+**Posicionamento:** Analytics Governance Platform — "Tracking Plan Management"
+
+**Proposta de Valor:**
+- Define um "contrato de eventos" antes do desenvolvimento: quais eventos devem ser rastreados, propriedades obrigatórias, tipos de dados
+- Gera SDKs tipados para evitar inconsistências de schema (ex: `user_signed_up` vs `UserSignedUp`)
+- Colaboração entre Product Manager e Engenheiro — PM propõe tracking plan, eng implementa com auto-complete tipado
+
+**ICP:**
+- Head of Data ou Staff Engineer de SaaS 100+ pessoas
+- Times com múltiplos squad enviando eventos para warehouse centralizado
+- Compradores: não o CEO, mas o Head of Data/Analytics
+
+**Pricing:**
+- Free: 1 workspace, 2 usuários
+- Team: USD 249/mês (5 usuários)
+- Business: USD 750+/mês
+- Faturamento anual com desconto
+
+**Features Principais:**
+- Schema registry com versionamento
+- Branch/PR para tracking plans (workflow de aprovação)
+- Inspector em runtime (detecta desvios, ex: propriedade não enviada)
+- SDK generation — gera TS/JS/Python SDKs tipados a partir do schema
+- Colaboração assíncrona entre equipes
+
+**Como Pulse se posiciona vs Avo:**
+- Avo é um produto de governança de dados — é used by Data Teams.
+- Pulse é um produto de product engineering — usado por Product Managers e engenheiros de produto.
+- Avo + PostHog é uma stack (governance + analytics). Pulse tenta ser tudo em um.
+- **Diferencial do Pulse:** Inclui leve schema registry (BKL-1000) sem a complexidade de branch/PR, apenas para validação. Avo é separado, com processo colaborativo pesado.
+
+**Risco para Pulse:** Se o cliente já usa Avo para schema governance, não há razão para adicionar schema registry ao Pulse — é duplicação. Posicionar como: "Pulse é tracking + flags + analytics; Avo é governance de schema. Use Pulse se não tiver time de data maduro; use Avo + Pulse se tiver."
+
+---
+
+### 7.2 Segment (Twilio Segment)
+
+**Posicionamento:** Customer Data Platform (CDP) — "Analytics Middleware"
+
+**Proposta de Valor:**
+- Coleta eventos de todos os canais (web, app, backend, CRM, email)
+- Normaliza e roteam dados para 400+ destinos (data warehouses, analytics tools, CRMs, marketing platforms)
+- Identity resolution — unifica o mesmo user ao longo de múltiplos canais sem ID manual
+- Funciona como middleware — você envia evento 1x, Segment distribui para 400+ destinos
+
+**ICP:**
+- CMO ou Chief Data Officer de empresa com múltiplos canais (web, app, email, ads)
+- Empresas que já têm warehouse (Snowflake, BigQuery) e querem centralizar coleta
+
+**Pricing:**
+- Free tier: até 1.000 Monthly Tracked Users (MTUs)
+- Pago: USD 120/mês para começar, escala com MTUs
+- Enterprise: customizado
+
+**Features Principais:**
+- 400+ integrações (Mixpanel, Amplitude, HubSpot, Salesforce, Google Analytics, etc)
+- Real-time CDP — oferece segmentação em tempo real
+- Identity resolution com graph
+- Transformações de dados (limpar, validar, enriquecer)
+- Reverse ETL — dados do warehouse de volta para ferramentas operacionais
+
+**Como Pulse se posiciona vs Segment:**
+- Segment é roteamento de dados; Pulse é análise + flags.
+- Segment não oferece feature flags, A/B testing ou analytics nativo — é middleware.
+- Pulse pode enviar eventos _para_ Segment via webhooks (BKL-995), mas não compete diretamente.
+- **Complementariedade:** Pulse pode integrar com Segment: ao ativar uma flag no Pulse, enriquece evento em Segment com `flag_variant: "A"`. Segment rotueia para downstream.
+
+**Risco para Pulse:** Nenhum direto. Segment e Pulse resolvem problemas diferentes. Mas enterprise que já usa Segment pode considerar: "Por que usar Pulse se Segment coleta tudo e roteia para PostHog/GrowthBook?"
+- **Resposta:** Pulse é self-hosted e integrado (flags + analytics em 1 produto). Segment requer setup de múltiplas ferramentas.
+
+---
+
+### 7.3 VWO (Visual Website Optimizer) — Aprofundamento
+
+**Posicionamento:** A/B Testing + CRO (Conversion Rate Optimization) Platform
+
+**Proposta de Valor:**
+- Editor visual no-code para criar variações de página sem código (não requer deploy)
+- Heatmaps + session recording integrados — ver **onde** e **como** o usuário interage
+- Segmentação avançada por comportamento, device, localização, UTM
+- Otimização de conversão para e-commerce/SaaS
+
+**ICP:**
+- Marketing Manager ou CRO specialist de e-commerce / SaaS
+- Não é target de desenvolvedor — é target de Marketing/Growth
+
+**Pricing:**
+- Starter: USD 199/mês
+- Growth: USD 399/mês
+- Enterprise: customizado
+- Faturamento mensal
+
+**Features Principais:**
+- Visual editor (drag-drop, sem código)
+- Heatmaps (click maps, scroll maps)
+- Session recording (vidoes de sessões anônimas)
+- Segmentação por comportamento + demographics
+- Stats engine com Bayesian + Frequentist
+- Otimizador automático de variantes (AI)
+
+**Como Pulse se posiciona vs VWO:**
+- VWO é focado em CRO visual — Marketing e Growth usam.
+- Pulse é focado em feature management + analytics de produto — Engenheiros e Product Managers usam.
+- VWO oferece heatmaps/recording (Pulse não prioriza); Pulse oferece flags (VWO não oferece).
+- **Overlap:** ambos fazem A/B testing, mas VWO para conversão visual; Pulse para rollout de features.
+
+**Diferencial do Pulse vs VWO:**
+- Pulse: flags + analytics integrado, self-hosted, em R$
+- VWO: heatmaps + recording, editor visual, sem self-hosted
+
+**Risco para Pulse:** Se o cliente é e-commerce focusing em CRO visual (checkout, landing page), VWO é melhor. Se é SaaS B2B com feature development rápido, Pulse é melhor.
+
+---
+
+## 7.4 Tabela Comparativa Atualizada — Pulse vs Concorrentes (Todos)
+
+| Feature | **Pulse** | **LaunchDarkly** | **GrowthBook** | **PostHog** | **Avo** | **Segment** | **VWO** |
+|---------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **FEATURE FLAGS** | | | | | | | |
+| On/off + rollout | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Audit log | ✅ (v2026-04) | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ |
+| Ambientes (staging/prod) | ✅ (v2026-04) | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **A/B TESTING** | | | | | | | |
+| Análise estatística | ✅ (chi-squared) | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ (Bayesian) |
+| Heatmaps | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| Session recording | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| **EVENT TRACKING** | | | | | | | |
+| Ingestão customizada | ✅ | Contexto apenas | ✅ | ✅ | Validação (sim) | ✅ (roteamento) | ❌ |
+| Funis | ✅ (v2026-04) | ❌ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Retenção | ✅ | ❌ | ✅ | ✅ | ❌ | ❌ | Parcial |
+| **SCHEMA GOVERNANCE** | | | | | | | |
+| Schema registry | ❌ (planejado) | ❌ | ❌ | Parcial | ✅ (core) | ✅ (transformações) | ❌ |
+| Validação de propriedades | ❌ (planejado) | ❌ | ❌ | ❌ | ✅ | ✅ | ❌ |
+| SDK tipado | ❌ | ❌ | ❌ | ❌ | ✅ (core) | ❌ | ❌ |
+| **DISTRIBUIÇÃO / ROTEAMENTO** | | | | | | | |
+| Integrações (out) | ❌ | ✅ | ✅ | ✅ | ❌ | ✅ (400+) | ✅ |
+| Webhooks | ❌ (planejado) | ✅ | ✅ | ✅ | ❌ | ✅ | ❌ |
+| **INFRA** | | | | | | | |
+| Self-hosted | ✅ | ❌ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Cloud SaaS | Planejado | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **PRICING** | | | | | | | |
+| Free tier | ✅ (self-hosted) | ❌ | ✅ | ✅ | Sim (1 user) | ✅ (1k MTU) | ❌ |
+| Inicial cloud | R$99 | USD 12 | USD 40 | USD 0-4.5k | USD 249 | USD 120 | USD 199 |
+| Pricing em R$ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+
+---
+
+## 7.5 Matriz de Competição por ICP
+
+| ICP | **Melhor opção** | **2ª opção** | **3ª opção** | **Pulse score** |
+|-----|-----------------|------------|-------------|-----------------|
+| Startup SaaS 20-50 eng, budget R$ 99-500/mês | **Pulse** | PostHog | GrowthBook | 8/10 |
+| SaaS 50-200 eng, budget USD 1-5k/mês | **LaunchDarkly** | **Pulse** | GrowthBook | 7/10 |
+| E-commerce, CRO visual | **VWO** | PostHog | — | 3/10 |
+| EdTech LGPD-compliant | **Pulse** | PostHog | — | 8/10 |
+| Empresa com múltiplos canais (web, app, email) | **Segment** | PostHog | — | 2/10 |
+| Data team com governance rígido | **Avo** | LaunchDarkly | — | 4/10 |
+
+**Interpretação:**
+- Pulse compete melhor com startups BR early-stage que precisam de tudo integrado e pricing em R$.
+- Pulse não compete bem com e-commerce (VWO cobre melhor) ou enterprise data teams (Avo + Segment cobrem melhor).
+
+---
+
+## Segmentação de ICPs e Go-To-Market
 
 ### ICP 1: Startup SaaS Brasileira (20-50 engenheiros)
 - **Problemas:** Feature flags sem rastreabilidade, A/B testing manual, analytics fragmentado
@@ -410,7 +578,40 @@ Os BKLs abaixo devem ser adicionados ao `BACKLOG.md` do `instituto-itinerante-ec
 
 ---
 
-## 8. Recomendações Executivas
+## 8. Oportunidades de Diferenciação (pós-análise dos 6 concorrentes)
+
+### 8.1 Diferenciadores únicos do Pulse
+
+Após análise completa vs LaunchDarkly, GrowthBook, PostHog, Avo, Segment e VWO, o Pulse tem 3 diferenciadores defensáveis:
+
+| Diferenciador | Vantagem | Por que importa | Risco |
+|---|---|---|---|
+| **Self-hosted + Pricing em R$** | Nenhum concorrente oferece ambos integrados | LGPD compliance + sem conversão câmbio | Baixo custo de cópia (barreira baixa) |
+| **Health score nativo** | Avo/Segment/VWO/LaunchDarkly não oferecem | Único que avisa quando cliente vai churnar | Requer ML real para defender |
+| **Flags integrado em analytics** | Apenas Pulse + PostHog + GrowthBook | Correlacionar flag ativada → impacto em funil | Médio — GrowthBook faz parcial |
+
+### 8.2 Gaps onde Pulse é claramente inferior
+
+| Gap | Concorrente que vence | Recomendação |
+|---|---|---|
+| Heatmaps + session recording | VWO + PostHog | **NÃO compete** — deixar para PostHog |
+| Schema governance com colaboração | Avo | **NÃO compete** — oferecer schema leve (BKL-1000), não clonar Avo |
+| Roteamento para 400+ destinos | Segment | **NÃO compete** — integrar via webhooks (BKL-995) se quiser |
+| Visual rule builder para e-commerce | VWO | **NÃO compete** — target é eng/PM, não marketer |
+
+### 8.3 Oportunidades de expansão (não imediato)
+
+1. **Integração com Segment:** Quando Pulse tiver webhooks (BKL-995), oferecer Pulse como destino no Segment. Clientes Segment usam Pulse para analytics de produto + flags.
+
+2. **Integração com Avo:** Pulse pode validar eventos contra schema Avo. "Se você usa Avo, Pulse valida; se não usa, Pulse oferece schema leve."
+
+3. **Competir com GrowthBook em SaaS brasileira:** GrowthBook é USD 40/user/mês. Pulse Pro é R$297 (~USD 60) com **15+ usuários** ilimitados. Vantagem.
+
+4. **Churn prediction como moat:** Implementar BKL-999 (ML real) para evitar que concorrentes copiem health score.
+
+---
+
+## 9. Recomendações Executivas
 
 ### Para o CEO (Antonio)
 
@@ -440,17 +641,47 @@ Os BKLs abaixo devem ser adicionados ao `BACKLOG.md` do `instituto-itinerante-ec
 
 ---
 
-## 9. Conclusão
+## 9. Conclusão Estratégica
+
+### 9.1 Maturidade e Roadmap
 
 **Maturidade atual do Pulse:** 4/10 (MVP funcional, mas com gaps críticos bloqueadores)
 
-**Após Phase 1 (2-3 meses):** 7/10 (competitivo com LaunchDarkly starter + GrowthBook básico)
+**Após Phase 1 (2-3 meses):** 7/10 (competitivo com LaunchDarkly starter + GrowthBook básico para SaaS BR)
 
-**Após Phase 2 (6-9 meses):** 8.5/10 (paridade funcional com concorrentes, pronto para escala)
+**Após Phase 2 (6-9 meses):** 8.5/10 (paridade funcional, health score diferenciador, pronto para escala)
 
-**Após Phase 3 (12+ meses):** 9/10 (diferenciadores únicos defensáveis)
+**Após Phase 3 (12+ meses):** 9/10 (churn prediction com ML + schema registry leve = moat defensável)
 
-**Veredito:** Pulse é um produto viável se executado com disciplina. Os gaps não são bloqueadores estruturais — são implementáveis em 6 meses. O timing é crítico: meses 2-3 de 2026 para ganhar mercado antes de concorrentes se movimentarem no Brasil.
+### 9.2 Posicionamento Refinado (pós-análise dos 6 concorrentes)
+
+**Posicionamento anterior:** "LaunchDarkly + GrowthBook + PostHog em um produto, self-hosted, em R$"
+
+**Posicionamento refinado:** 
+> **"O único feature flags + A/B testing + analytics integrado com health score nativo, self-hosted, pricing em R$ e sem conversão câmbio. Para startup/scale-up SaaS brasileira."**
+
+**Diferencial defensável:**
+1. Self-hosted em Docker Compose (vs LaunchDarkly/VWO cloud-only)
+2. Pricing em R$ direto (vs 15-20% de perda em conversão USD → R$)
+3. Health score + churn alert (vs nenhum concorrente oferece)
+4. Integrado em 1 product (vs 3-4 ferramentas: LD + PostHog/GrowthBook + Avo)
+
+**Não compete com:**
+- VWO em CRO visual (heatmaps/recording) — deixar para PostHog
+- Avo em governance com colaboração — oferecer schema leve
+- Segment em roteamento para 400+ destinos — integrar via webhooks
+- LaunchDarkly em enterprise (audit/SSO/SLA) — target é SMB BR
+
+### 9.3 Veredito Final
+
+Pulse é um produto viável e defensável se:
+
+1. ✅ **Executado com disciplina**: Phase 1 (2-3 meses) → pronto para vender a primeiros clientes
+2. ✅ **Proteger diferenciais**: Health score + churn ML (BKL-999) antes de LaunchDarkly copiar
+3. ✅ **Não competir fora do escopo**: Deixar heatmaps/recording para PostHog, governance para Avo
+4. ✅ **Target SaaS BR**: 20-500 engenheiros, budget R$99-2.499/mês (não enterprise, não e-commerce puro)
+
+**Timing crítico:** Q2-Q3 2026. Meses 2-3 para ganhar mercado Brasil antes de concorrentes se movimentarem (LaunchDarkly já expandiu para LATAM, VWO também — mas nenhum com pricing em R$ nativo).
 
 ---
 

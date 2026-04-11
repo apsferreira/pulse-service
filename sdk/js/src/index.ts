@@ -85,6 +85,10 @@ export class PulseError extends Error {
 
 // --- Client ---
 
+// BKL-1054: chave do localStorage para flags de fallback
+const FALLBACK_STORAGE_KEY = "pulse_flags_fallback";
+const FALLBACK_TTL_MS = 5 * 60 * 1000; // 5 minutos
+
 export class PulseClient {
   private readonly baseURL: string;
   private readonly timeout: number;
@@ -124,11 +128,55 @@ export class PulseClient {
 
   /**
    * GET /flags — retorna mapa de flags públicas {key: enabled}.
+   * BKL-1054: em caso de erro, usa fallback de localStorage (TTL 5min).
    */
   async getFlags(): Promise<FlagsMap> {
-    const response = await this.request<FlagsMapResponse>("GET", "/flags");
-    this.cachedFlags = response.flags ?? {};
-    return this.cachedFlags;
+    try {
+      const response = await this.request<FlagsMapResponse>("GET", "/flags");
+      const flags = response.flags ?? {};
+      this.cachedFlags = flags;
+      this.saveFallback(flags); // BKL-1054: persiste para fallback
+      return flags;
+    } catch (err) {
+      // Tenta fallback antes de propagar o erro
+      const fallback = this.loadFallback();
+      if (fallback !== null) {
+        this.cachedFlags = fallback;
+        return fallback;
+      }
+      throw err;
+    }
+  }
+
+  // BKL-1054: salva flags no localStorage com timestamp para TTL
+  private saveFallback(flags: FlagsMap): void {
+    try {
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem(
+          FALLBACK_STORAGE_KEY,
+          JSON.stringify({ flags, savedAt: Date.now() })
+        );
+      }
+    } catch {
+      // localStorage indisponível (SSR, cookies bloqueados) — ignora
+    }
+  }
+
+  // BKL-1054: carrega flags do localStorage se dentro do TTL
+  private loadFallback(): FlagsMap | null {
+    try {
+      if (typeof localStorage === "undefined") return null;
+      const raw = localStorage.getItem(FALLBACK_STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as { flags: FlagsMap; savedAt: number };
+      if (Date.now() - parsed.savedAt > FALLBACK_TTL_MS) {
+        localStorage.removeItem(FALLBACK_STORAGE_KEY);
+        return null;
+      }
+      return parsed.flags;
+    } catch {
+      return null;
+    }
   }
 
   /**

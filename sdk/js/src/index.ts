@@ -33,9 +33,18 @@ export interface FeatureFlag {
 
 export interface TrackEventRequest {
   event_name: string;
+  product?: string;
   user_id?: string;
   environment?: string;
   properties?: Record<string, unknown>;
+}
+
+// BKL-1047: batch queue de eventos — acumula eventos e faz flush automático.
+export interface BatchQueueOptions {
+  /** Intervalo de flush em ms (default: 5000) */
+  flushInterval?: number;
+  /** Tamanho máximo do buffer antes de flush imediato (default: 25) */
+  maxBatchSize?: number;
 }
 
 export interface TrackEventResponse {
@@ -82,12 +91,21 @@ export class PulseClient {
   private readonly fetchFn: typeof globalThis.fetch;
   private cachedFlags: FlagsMap | null = null;
 
-  constructor(options: PulseClientOptions) {
+  // BKL-1047: batch queue
+  private eventQueue: TrackEventRequest[] = [];
+  private flushTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly flushInterval: number;
+  private readonly maxBatchSize: number;
+
+  constructor(options: PulseClientOptions & BatchQueueOptions) {
     if (!options.baseURL) {
       throw new PulseError("baseURL is required");
     }
     this.baseURL = options.baseURL.replace(/\/+$/, "");
     this.timeout = options.timeout ?? 10000;
+    // BKL-1047: batch queue config
+    this.flushInterval = options.flushInterval ?? 5000;
+    this.maxBatchSize = options.maxBatchSize ?? 25;
     // BKL-1046: guard SSR — globalThis.fetch é undefined em Node < 18 e Deno sem --allow-net
     // Usar options.fetch injetado pelo caller (ex: node-fetch) para compatibilidade SSR.
     if (options.fetch) {
@@ -150,13 +168,65 @@ export class PulseClient {
   }
 
   /**
-   * POST /api/v1/events/track — envia evento de tracking.
+   * POST /api/v1/events/track — envia evento de tracking imediatamente (sem queue).
    */
   async trackEvent(event: TrackEventRequest): Promise<TrackEventResponse> {
     if (!event.event_name || event.event_name.trim() === "") {
       throw new PulseError("event_name is required");
     }
     return this.request<TrackEventResponse>("POST", "/api/v1/events/track", event);
+  }
+
+  /**
+   * BKL-1047: Adiciona evento à fila batch.
+   * Faz flush automático quando a fila atinge maxBatchSize ou após flushInterval ms.
+   * Não lança erro — falhas de rede são silenciosas (fire-and-forget).
+   */
+  queue(event: TrackEventRequest): void {
+    if (!event.event_name || event.event_name.trim() === "") return;
+
+    this.eventQueue.push(event);
+
+    // Flush imediato se atingiu o limite
+    if (this.eventQueue.length >= this.maxBatchSize) {
+      this.flush();
+      return;
+    }
+
+    // Agenda flush periódico se não houver um ativo
+    if (this.flushTimer === null) {
+      this.flushTimer = setTimeout(() => this.flush(), this.flushInterval);
+    }
+  }
+
+  /**
+   * BKL-1047: Envia todos os eventos acumulados via POST /api/v1/events/batch.
+   * Chamado automaticamente pelo timer ou quando o buffer está cheio.
+   * Pode ser chamado manualmente (ex: beforeunload).
+   */
+  flush(): void {
+    if (this.flushTimer !== null) {
+      clearTimeout(this.flushTimer);
+      this.flushTimer = null;
+    }
+    if (this.eventQueue.length === 0) return;
+
+    const batch = this.eventQueue.splice(0, this.maxBatchSize);
+    const payload = {
+      events: batch.map((e) => ({
+        product: e.product ?? "default",
+        event_type: e.event_name,
+        user_id: e.user_id ? [e.user_id] : undefined,
+        properties: e.properties,
+        environment: e.environment,
+      })),
+    };
+
+    // Fire-and-forget — falhas de rede não afetam o caller
+    this.request("POST", "/api/v1/events/batch", payload).catch(() => {
+      // Re-enqueue eventos que falharam (no início da fila)
+      this.eventQueue.unshift(...batch);
+    });
   }
 
   // --- Internal ---

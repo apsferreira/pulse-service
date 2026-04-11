@@ -97,22 +97,23 @@ func (h *LLMObservabilityHandler) Overview(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	// Query base com filtro opcional de produto
-	whereProduct := ""
+	// Filtro de produto via placeholder paramétrico — nunca interpolação de input.
+	// whereProduct é string literal fixa; o valor do usuário só entra como argumento $3.
+	const productFilter = " AND product = $3"
 	args := []interface{}{start, end}
+	filterClause := ""
 	if product != "" {
-		whereProduct = " AND product = $3"
+		filterClause = productFilter
 		args = append(args, product)
 	}
 
 	// Métricas gerais
 	var totalCalls, totalErrors int
 	var totalUSD float64
-	err = h.db.QueryRow(c.Context(), fmt.Sprintf(`
-		SELECT COUNT(*), COUNT(*) FILTER (WHERE is_error), COALESCE(SUM(cost_usd), 0)
-		FROM api_costs
-		WHERE created_at BETWEEN $1 AND $2%s
-	`, whereProduct), args...).Scan(&totalCalls, &totalErrors, &totalUSD)
+	err = h.db.QueryRow(c.Context(),
+		"SELECT COUNT(*), COUNT(*) FILTER (WHERE is_error), COALESCE(SUM(cost_usd), 0)"+
+			" FROM api_costs WHERE created_at BETWEEN $1 AND $2"+filterClause,
+		args...).Scan(&totalCalls, &totalErrors, &totalUSD)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "falha na query"})
 	}
@@ -135,29 +136,26 @@ func (h *LLMObservabilityHandler) Overview(c *fiber.Ctx) error {
 	// Latência P50/P99 (apenas se a coluna tiver dados)
 	var avgLat *float64
 	var p50, p99 *int
-	_ = h.db.QueryRow(c.Context(), fmt.Sprintf(`
-		SELECT
-			AVG(latency_ms),
-			PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY latency_ms)::INT,
-			PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY latency_ms)::INT
-		FROM api_costs
-		WHERE created_at BETWEEN $1 AND $2 AND latency_ms IS NOT NULL%s
-	`, whereProduct), args...).Scan(&avgLat, &p50, &p99)
+	_ = h.db.QueryRow(c.Context(),
+		"SELECT AVG(latency_ms),"+
+			" PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY latency_ms)::INT,"+
+			" PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY latency_ms)::INT"+
+			" FROM api_costs WHERE created_at BETWEEN $1 AND $2 AND latency_ms IS NOT NULL"+filterClause,
+		args...).Scan(&avgLat, &p50, &p99)
 	overview.AvgLatencyMs = avgLat
 	overview.P50LatencyMs = p50
 	overview.P99LatencyMs = p99
 
 	// Por provider
-	pRows, _ := h.db.Query(c.Context(), fmt.Sprintf(`
-		SELECT provider,
-			COUNT(*) AS calls,
-			COUNT(*) FILTER (WHERE is_error) AS errors,
-			COALESCE(SUM(cost_usd), 0),
-			COALESCE(AVG(tokens_in + tokens_out), 0)
-		FROM api_costs
-		WHERE created_at BETWEEN $1 AND $2%s
-		GROUP BY provider ORDER BY calls DESC
-	`, whereProduct), args...)
+	pRows, _ := h.db.Query(c.Context(),
+		"SELECT provider,"+
+			" COUNT(*) AS calls,"+
+			" COUNT(*) FILTER (WHERE is_error) AS errors,"+
+			" COALESCE(SUM(cost_usd), 0),"+
+			" COALESCE(AVG(tokens_in + tokens_out), 0)"+
+			" FROM api_costs WHERE created_at BETWEEN $1 AND $2"+filterClause+
+			" GROUP BY provider ORDER BY calls DESC",
+		args...)
 	if pRows != nil {
 		defer pRows.Close()
 		for pRows.Next() {
@@ -232,26 +230,22 @@ func (h *LLMObservabilityHandler) ByFeature(c *fiber.Ctx) error {
 	product := c.Query("product", "")
 	start, end, _ := parseDateRange(c.Query("from"), c.Query("to"))
 
-	whereProduct := ""
+	const productFilter = " AND product = $3"
 	args := []interface{}{start, end}
+	filterClause := ""
 	if product != "" {
-		whereProduct = " AND product = $3"
+		filterClause = productFilter
 		args = append(args, product)
 	}
 
-	rows, err := h.db.Query(c.Context(), fmt.Sprintf(`
-		SELECT
-			feature,
-			COUNT(*) AS calls,
-			COALESCE(SUM(cost_usd), 0),
-			COALESCE(AVG(tokens_in + tokens_out), 0)
-		FROM api_costs
-		WHERE created_at BETWEEN $1 AND $2
-		  AND feature IS NOT NULL%s
-		GROUP BY feature
-		ORDER BY calls DESC
-		LIMIT 30
-	`, whereProduct), args...)
+	rows, err := h.db.Query(c.Context(),
+		"SELECT feature, COUNT(*) AS calls,"+
+			" COALESCE(SUM(cost_usd), 0),"+
+			" COALESCE(AVG(tokens_in + tokens_out), 0)"+
+			" FROM api_costs"+
+			" WHERE created_at BETWEEN $1 AND $2 AND feature IS NOT NULL"+filterClause+
+			" GROUP BY feature ORDER BY calls DESC LIMIT 30",
+		args...)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "falha na query"})
 	}

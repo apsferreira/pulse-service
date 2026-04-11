@@ -9,13 +9,15 @@ import Costs from './pages/Costs'
 import CSAT from './pages/CSAT'
 import LandingPage from './pages/LandingPage'
 import FlagAudit from './pages/FlagAudit'
+import Pricing from './pages/Pricing'
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Rota pública — LP sem layout do dashboard */}
+        {/* Rotas públicas — sem layout do dashboard */}
         <Route path="/landing" element={<LandingPage />} />
+        <Route path="/pricing" element={<Pricing />} />
 
         {/* Rotas autenticadas — com layout */}
         <Route

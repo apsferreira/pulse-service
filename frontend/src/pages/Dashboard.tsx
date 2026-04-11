@@ -3,6 +3,7 @@ import { Plus, RefreshCw, Search } from 'lucide-react'
 import toast from 'react-hot-toast'
 import FlagTable from '../components/FlagTable'
 import FlagModal from '../components/FlagModal'
+import OnboardingWizard from '../components/OnboardingWizard'
 import { flagsApi } from '../services/api'
 import type { FeatureFlag, CreateFlagPayload, UpdateFlagPayload } from '../services/api'
 
@@ -95,6 +96,9 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-5">
+      {/* BKL-1050: Onboarding wizard — visível apenas quando não há flags */}
+      <OnboardingWizard flagsCount={flags.length} />
+
       {/* Page header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>

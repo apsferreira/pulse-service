@@ -1,5 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { AuthProvider } from './context/AuthContext'
+import ProtectedRoute from './components/ProtectedRoute'
 import Layout from './components/Layout'
+import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Events from './pages/Events'
 import Uptime from './pages/Uptime'
@@ -15,33 +18,38 @@ import StatusPage from './pages/StatusPage'
 function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        {/* Rotas públicas — sem layout do dashboard */}
-        <Route path="/landing" element={<LandingPage />} />
-        <Route path="/pricing" element={<Pricing />} />
-        {/* BKL-1068: status page pública dos serviços IIT */}
-        <Route path="/status" element={<StatusPage />} />
+      <AuthProvider>
+        <Routes>
+          {/* Rotas públicas — sem layout do dashboard */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/landing" element={<LandingPage />} />
+          <Route path="/pricing" element={<Pricing />} />
+          {/* BKL-1068: status page pública dos serviços IIT */}
+          <Route path="/status" element={<StatusPage />} />
 
-        {/* Rotas autenticadas — com layout */}
-        <Route
-          path="/*"
-          element={
-            <Layout>
-              <Routes>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/uptime" element={<Uptime />} />
-                <Route path="/events" element={<Events />} />
-                <Route path="/retention" element={<Retention />} />
-                <Route path="/ab-testing" element={<ABTesting />} />
-                <Route path="/costs" element={<Costs />} />
-                <Route path="/csat" element={<CSAT />} />
-                <Route path="/flags/audit" element={<FlagAudit />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </Layout>
-          }
-        />
-      </Routes>
+          {/* Rotas autenticadas — com layout */}
+          <Route
+            path="/*"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Routes>
+                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/uptime" element={<Uptime />} />
+                    <Route path="/events" element={<Events />} />
+                    <Route path="/retention" element={<Retention />} />
+                    <Route path="/ab-testing" element={<ABTesting />} />
+                    <Route path="/costs" element={<Costs />} />
+                    <Route path="/csat" element={<CSAT />} />
+                    <Route path="/flags/audit" element={<FlagAudit />} />
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                  </Routes>
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </AuthProvider>
     </BrowserRouter>
   )
 }

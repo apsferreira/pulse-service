@@ -228,6 +228,10 @@ func main() {
 	overageHandler := handler.NewOverageHandler(pool, redisClient, cfg.ServiceToken)
 	overageHandler.RegisterRoutes(app)
 
+	// BKL-424: Dashboard Analytics Unificado — agrega métricas de todos os produtos IIT
+	iitDashboardHandler := handler.NewIITDashboardHandler(pool, cfg.ServiceToken)
+	iitDashboardHandler.RegisterRoutes(app)
+
 	// BKL-150: Register WebSocket routes
 	wsHandler.RegisterRoutes(app)
 

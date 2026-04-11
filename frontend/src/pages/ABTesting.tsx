@@ -364,14 +364,33 @@ export default function ABTesting() {
         </div>
       )}
 
+      {/* BKL-1051: empty state com instruções de SDK */}
       {!loading && !error && displayed.length === 0 && (
-        <div className="text-center py-16 text-slate-400">
-          <FlaskConical className="w-12 h-12 mx-auto mb-3 opacity-30" />
-          <p className="font-medium text-slate-500">Nenhuma flag encontrada</p>
-          {filter === 'ab' && (
-            <p className="text-sm mt-1">
-              Para criar um experimento A/B, edite uma flag e adicione variantes com pesos percentuais.
+        <div className="rounded-xl border border-dashed border-violet-300 dark:border-violet-700 bg-violet-50/50 dark:bg-violet-950/20 p-10 flex flex-col items-center text-center gap-6">
+          <div className="w-16 h-16 rounded-2xl bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center">
+            <FlaskConical className="w-8 h-8 text-violet-500 dark:text-violet-400" />
+          </div>
+          <div className="space-y-1">
+            <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">
+              {filter === 'ab' ? 'Nenhum experimento A/B configurado' : 'Nenhuma flag encontrada'}
+            </h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md">
+              {filter === 'ab'
+                ? 'Para criar um experimento A/B, edite uma flag e adicione variantes com pesos percentuais (ex: control 50%, challenger 50%).'
+                : 'Crie uma flag de feature para começar a controlar o lançamento de funcionalidades.'}
             </p>
+          </div>
+          {filter === 'ab' && (
+            <div className="w-full max-w-xl text-left space-y-3">
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Consultar variante no SDK</p>
+              <div className="rounded-lg bg-slate-900 text-slate-100 p-4 text-xs font-mono space-y-1 overflow-x-auto">
+                <p>{'const variants = await pulse.getVariants({ user_id: userId });'}</p>
+                <p>{'const variant = variants["pricing-test"]; // "control" | "challenger"'}</p>
+                <p>{'if (variant === "challenger") {'}</p>
+                <p>{'  // mostrar novo preço'}</p>
+                <p>{'}'}</p>
+              </div>
+            </div>
           )}
         </div>
       )}

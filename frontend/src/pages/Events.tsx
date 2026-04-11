@@ -145,9 +145,29 @@ export default function Events() {
               Nenhum evento registado nas últimas 24h
             </h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md">
-              Os eventos aparecerão aqui quando as aplicações Libri, Nitro e Brio começarem a enviar dados para
-              o endpoint <code className="font-mono text-xs bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded">POST /api/v1/events</code>.
+              Os eventos aparecerão aqui quando suas aplicações começarem a enviar dados via SDK.
             </p>
+          </div>
+          {/* BKL-1051: instrução de SDK no empty state */}
+          <div className="w-full max-w-xl text-left space-y-3">
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Rastrear evento via SDK</p>
+            <div className="rounded-lg bg-slate-900 text-slate-100 p-4 text-xs font-mono space-y-1 overflow-x-auto">
+              <p>{'import PulseClient from "@iit/pulse-sdk";'}</p>
+              <p>{''}</p>
+              <p>{'const pulse = new PulseClient({'}</p>
+              <p>{'  baseURL: "https://pulse-api.institutoitinerante.com.br",'}</p>
+              <p>{'});'}</p>
+              <p>{''}</p>
+              <p>{'// Evento imediato'}</p>
+              <p>{'await pulse.trackEvent({'}</p>
+              <p>{'  event_name: "checkout_completed",'}</p>
+              <p>{'  user_id: userId,'}</p>
+              <p>{'  product: "libri",'}</p>
+              <p>{'});'}</p>
+              <p>{''}</p>
+              <p>{'// Ou com batch queue (mais eficiente)'}</p>
+              <p>{'pulse.queue({ event_name: "page_view", product: "nitro" });'}</p>
+            </div>
           </div>
         </div>
       )}

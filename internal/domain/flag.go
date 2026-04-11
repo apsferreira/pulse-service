@@ -28,6 +28,8 @@ type FeatureFlag struct {
 	Targeting         FlagTargeting `json:"targeting"`          // lista de user_ids/tenant_ids com acesso direto
 	Variants          []FlagVariant `json:"variants,omitempty"` // BKL-094: variantes A/B (vazio = on/off normal)
 	ProjectID         *uuid.UUID    `json:"project_id,omitempty"` // BKL-323: scope por projeto (nullable)
+	StartsAt          *time.Time    `json:"starts_at,omitempty"`  // BKL-1040: ativação agendada (nil = imediato)
+	EndsAt            *time.Time    `json:"ends_at,omitempty"`    // BKL-1040: desativação agendada (nil = sem expiração)
 	CreatedAt         time.Time     `json:"created_at"`
 	UpdatedAt         time.Time     `json:"updated_at"`
 }
@@ -47,6 +49,8 @@ type CreateFlagRequest struct {
 	Targeting         FlagTargeting `json:"targeting,omitempty"`
 	Variants          []FlagVariant `json:"variants,omitempty"` // BKL-094
 	ProjectID         *uuid.UUID    `json:"project_id,omitempty"` // BKL-323
+	StartsAt          *time.Time    `json:"starts_at,omitempty"`  // BKL-1040
+	EndsAt            *time.Time    `json:"ends_at,omitempty"`    // BKL-1040
 }
 
 // UpdateFlagRequest is the payload for PUT /api/v1/flags/:key.
@@ -56,6 +60,8 @@ type UpdateFlagRequest struct {
 	RolloutPercentage *int           `json:"rollout_percentage"`
 	Targeting         *FlagTargeting `json:"targeting"`
 	Variants          []FlagVariant  `json:"variants"` // BKL-094 (nil = não alterar, [] = remover variantes)
+	StartsAt          *time.Time     `json:"starts_at,omitempty"` // BKL-1040
+	EndsAt            *time.Time     `json:"ends_at,omitempty"`   // BKL-1040
 }
 
 // VariantResponse é retornada pelo endpoint GET /flags/variants. BKL-094.

@@ -175,6 +175,30 @@ func (r *HealthScoreRepository) ListAtRisk(ctx context.Context, threshold int) (
 	return results, rows.Err()
 }
 
+// ListAll retorna todos os health scores ordenados por score ASC (BKL-1083: visão admin).
+func (r *HealthScoreRepository) ListAll(ctx context.Context) ([]*domain.TenantHealthScore, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT id, tenant_id, score, login_score, content_score, adoption_score, subscription_score,
+		       last_login_at, last_content_at, calculated_at, created_at, updated_at
+		FROM tenant_health_scores
+		ORDER BY score ASC
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("health_score_repository: ListAll: %w", err)
+	}
+	defer rows.Close()
+
+	var results []*domain.TenantHealthScore
+	for rows.Next() {
+		hs, err := scanHealthScoreRows(rows)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, hs)
+	}
+	return results, rows.Err()
+}
+
 func scanHealthScoreRows(rows pgx.Rows) (*domain.TenantHealthScore, error) {
 	hs := &domain.TenantHealthScore{}
 	err := rows.Scan(

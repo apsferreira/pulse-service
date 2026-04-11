@@ -228,6 +228,10 @@ func main() {
 	churnAlertScheduler := service.NewChurnAlertScheduler(healthScoreRepo, 24*time.Hour)
 	churnAlertScheduler.Start(jobCtx)
 
+	// BKL-1084: Churn trend alert — 7 dias consecutivos score < 30 → alerta crítico
+	churnTrendScheduler := service.NewChurnTrendScheduler(pool)
+	churnTrendScheduler.Start(jobCtx)
+
 	// BKL-1040: Flag scheduler — ativa/desativa flags agendadas (starts_at/ends_at) a cada 60s
 	go flagscheduler.Start(jobCtx, flagRepo, 60*time.Second)
 

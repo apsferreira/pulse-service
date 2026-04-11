@@ -11,10 +11,14 @@ export const api = axios.create({
   },
 })
 
-// Attach X-Service-Token on every request
+// BKL-1115: enviar JWT do auth-service em todas as requests
 api.interceptors.request.use(
   (config) => {
-    if (SERVICE_TOKEN) {
+    const jwtToken = localStorage.getItem('access_token')
+    if (jwtToken) {
+      config.headers['Authorization'] = `Bearer ${jwtToken}`
+    } else if (SERVICE_TOKEN) {
+      // fallback para SERVICE_TOKEN em ambientes sem auth (dev local sem auth-service)
       config.headers['X-Service-Token'] = SERVICE_TOKEN
     }
     if ((import.meta.env?.DEV as boolean) || (import.meta.env?.MODE as string) === 'development') {
@@ -31,7 +35,13 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response) {
+    if (error.response?.status === 401) {
+      // Token expirado — limpar sessão e redirecionar para login
+      localStorage.removeItem('access_token')
+      localStorage.removeItem('refresh_token')
+      localStorage.removeItem('pulse_user')
+      window.location.replace('/login')
+    } else if (error.response) {
       console.error('[Pulse API] Response error:', error.response.status, error.response.data)
     } else if (error.request) {
       console.error('[Pulse API] No response received')

@@ -149,10 +149,16 @@ func (s *FlagService) GetFlagsMap(ctx context.Context, projectID string) (domain
 
 	resp := domain.FlagsMapResponse{Flags: result}
 
-	// Cache the result
+	// BKL-1042: SET NX EX atômico — apenas o primeiro goroutine popula o cache.
+	// Evita thundering herd: múltiplos goroutines simultâneos tentam SET, mas só um vence.
 	if data, jsonErr := json.Marshal(resp); jsonErr == nil {
-		if setErr := s.redis.Set(ctx, cacheKey, data, flagCacheTTL).Err(); setErr != nil {
-			log.Printf("warning: failed to cache flags map: %v", setErr)
+		// SetNX: escreve somente se a chave ainda não existe (atômico no Redis).
+		ok, setErr := s.redis.SetNX(ctx, cacheKey, data, flagCacheTTL).Result()
+		if setErr != nil {
+			log.Printf("aviso: falha ao gravar cache de flags (project=%s): %v", projectID, setErr)
+		} else if !ok {
+			// Outro goroutine já populou — sem ação necessária
+			_ = ok
 		}
 	}
 

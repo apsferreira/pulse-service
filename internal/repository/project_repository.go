@@ -31,6 +31,18 @@ func generateAPIKey() (string, error) {
 	return "pulse_" + hex.EncodeToString(b), nil
 }
 
+// retentionByPlan retorna o número padrão de dias de retenção por plano.
+func retentionByPlan(plan string) int {
+	switch plan {
+	case "pro":
+		return 365
+	case "starter", "growth":
+		return 180
+	default:
+		return 90
+	}
+}
+
 // Create insere um novo projeto com API key gerada automaticamente.
 func (r *ProjectRepository) Create(ctx context.Context, req domain.ProjectCreateRequest) (*domain.Project, error) {
 	apiKey, err := generateAPIKey()
@@ -38,22 +50,24 @@ func (r *ProjectRepository) Create(ctx context.Context, req domain.ProjectCreate
 		return nil, fmt.Errorf("repository: Create project: generate api key: %w", err)
 	}
 
+	plan := "free"
 	p := &domain.Project{
-		ID:          uuid.New().String(),
-		Name:        req.Name,
-		Slug:        req.Slug,
-		APIKey:      apiKey,
-		Description: req.Description,
-		Plan:        "free", // BKL-1077: padrão free
-		IsActive:    true,
-		CreatedAt:   time.Now().UTC(),
-		UpdatedAt:   time.Now().UTC(),
+		ID:                uuid.New().String(),
+		Name:              req.Name,
+		Slug:              req.Slug,
+		APIKey:            apiKey,
+		Description:       req.Description,
+		Plan:              plan,
+		DataRetentionDays: retentionByPlan(plan), // BKL-1037
+		IsActive:          true,
+		CreatedAt:         time.Now().UTC(),
+		UpdatedAt:         time.Now().UTC(),
 	}
 
 	_, err = r.db.Exec(ctx, `
-		INSERT INTO projects (id, name, slug, api_key, description, plan, is_active, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-	`, p.ID, p.Name, p.Slug, p.APIKey, p.Description, p.Plan, p.IsActive, p.CreatedAt, p.UpdatedAt)
+		INSERT INTO projects (id, name, slug, api_key, description, plan, data_retention_days, is_active, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+	`, p.ID, p.Name, p.Slug, p.APIKey, p.Description, p.Plan, p.DataRetentionDays, p.IsActive, p.CreatedAt, p.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("repository: Create project: %w", err)
 	}
@@ -63,7 +77,7 @@ func (r *ProjectRepository) Create(ctx context.Context, req domain.ProjectCreate
 // GetBySlug retorna um projeto pelo slug.
 func (r *ProjectRepository) GetBySlug(ctx context.Context, slug string) (*domain.Project, error) {
 	row := r.db.QueryRow(ctx, `
-		SELECT id, name, slug, api_key, COALESCE(description, ''), COALESCE(plan, 'free'), is_active, created_at, updated_at
+		SELECT id, name, slug, api_key, COALESCE(description, ''), COALESCE(plan, 'free'), COALESCE(data_retention_days, 90), is_active, created_at, updated_at
 		FROM projects WHERE slug = $1
 	`, slug)
 	return scanProject(row)
@@ -72,7 +86,7 @@ func (r *ProjectRepository) GetBySlug(ctx context.Context, slug string) (*domain
 // GetByAPIKey retorna um projeto pela API key (usado para autenticação do SDK).
 func (r *ProjectRepository) GetByAPIKey(ctx context.Context, apiKey string) (*domain.Project, error) {
 	row := r.db.QueryRow(ctx, `
-		SELECT id, name, slug, api_key, COALESCE(description, ''), COALESCE(plan, 'free'), is_active, created_at, updated_at
+		SELECT id, name, slug, api_key, COALESCE(description, ''), COALESCE(plan, 'free'), COALESCE(data_retention_days, 90), is_active, created_at, updated_at
 		FROM projects WHERE api_key = $1 AND is_active = true
 	`, apiKey)
 	return scanProject(row)
@@ -81,7 +95,7 @@ func (r *ProjectRepository) GetByAPIKey(ctx context.Context, apiKey string) (*do
 // List retorna todos os projetos.
 func (r *ProjectRepository) List(ctx context.Context) ([]domain.Project, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT id, name, slug, api_key, COALESCE(description, ''), COALESCE(plan, 'free'), is_active, created_at, updated_at
+		SELECT id, name, slug, api_key, COALESCE(description, ''), COALESCE(plan, 'free'), COALESCE(data_retention_days, 90), is_active, created_at, updated_at
 		FROM projects ORDER BY name ASC
 	`)
 	if err != nil {
@@ -92,7 +106,7 @@ func (r *ProjectRepository) List(ctx context.Context) ([]domain.Project, error) 
 	var projects []domain.Project
 	for rows.Next() {
 		p := &domain.Project{}
-		if err := rows.Scan(&p.ID, &p.Name, &p.Slug, &p.APIKey, &p.Description, &p.Plan, &p.IsActive, &p.CreatedAt, &p.UpdatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.Name, &p.Slug, &p.APIKey, &p.Description, &p.Plan, &p.DataRetentionDays, &p.IsActive, &p.CreatedAt, &p.UpdatedAt); err != nil {
 			return nil, err
 		}
 		projects = append(projects, *p)
@@ -148,7 +162,7 @@ func (r *ProjectRepository) RegenerateAPIKey(ctx context.Context, slug string) (
 
 func scanProject(row pgx.Row) (*domain.Project, error) {
 	p := &domain.Project{}
-	err := row.Scan(&p.ID, &p.Name, &p.Slug, &p.APIKey, &p.Description, &p.Plan, &p.IsActive, &p.CreatedAt, &p.UpdatedAt)
+	err := row.Scan(&p.ID, &p.Name, &p.Slug, &p.APIKey, &p.Description, &p.Plan, &p.DataRetentionDays, &p.IsActive, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil

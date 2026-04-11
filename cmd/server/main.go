@@ -166,6 +166,10 @@ func main() {
 	// Register flag audit log routes (BKL-1074)
 	flagAuditHandler.RegisterRoutes(app)
 
+	// Register user data export/delete (BKL-1036 — LGPD portabilidade)
+	userExportHandler := handler.NewUserExportHandler(pool, cfg.ServiceToken)
+	userExportHandler.RegisterRoutes(app)
+
 	// Register cost tracking routes
 	costHandler.RegisterRoutes(app)
 

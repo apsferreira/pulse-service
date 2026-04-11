@@ -141,18 +141,40 @@ export default function FlagTable({ flags, onEdit, onDelete, onToggle, loading }
   }
 
   if (flags.length === 0) {
+    // BKL-1051: empty state com CTA e instruções de instalação do SDK
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-slate-400 gap-2">
-        <svg className="w-10 h-10 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={1.5}
-            d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2 9m13-9l2 9M9 21h6"
-          />
-        </svg>
-        <p className="text-sm">Nenhuma feature flag encontrada</p>
-        <p className="text-xs">Crie a primeira flag usando o botao acima.</p>
+      <div className="rounded-xl border border-dashed border-violet-300 dark:border-violet-700 bg-violet-50/50 dark:bg-violet-950/20 p-10 flex flex-col items-center text-center gap-6">
+        <div className="w-16 h-16 rounded-2xl bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center">
+          <svg className="w-8 h-8 text-violet-500 dark:text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
+          </svg>
+        </div>
+        <div className="space-y-1">
+          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">Nenhuma feature flag criada</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md">
+            Crie sua primeira flag acima e use o SDK para consultá-la nas suas aplicações.
+          </p>
+        </div>
+        <div className="w-full max-w-xl text-left space-y-3">
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Instalação rápida</p>
+          <div className="rounded-lg bg-slate-900 text-slate-100 p-4 text-xs font-mono space-y-1 overflow-x-auto">
+            <p className="text-slate-400"># npm</p>
+            <p>npm install @iit/pulse-sdk</p>
+          </div>
+          <div className="rounded-lg bg-slate-900 text-slate-100 p-4 text-xs font-mono space-y-1 overflow-x-auto">
+            <p className="text-slate-400">// Uso</p>
+            <p>{'import PulseClient from "@iit/pulse-sdk";'}</p>
+            <p>{''}</p>
+            <p>{'const pulse = new PulseClient({'}</p>
+            <p>{'  baseURL: "https://pulse-api.institutoitinerante.com.br",'}</p>
+            <p>{'});'}</p>
+            <p>{''}</p>
+            <p>{'const flags = await pulse.getFlags();'}</p>
+            <p>{'if (flags["minha-nova-flag"]) {'}</p>
+            <p>{'  // mostrar nova experiência'}</p>
+            <p>{'}'}</p>
+          </div>
+        </div>
       </div>
     )
   }

@@ -95,6 +95,10 @@ func main() {
 	environmentRepo := repository.NewEnvironmentRepository(pool)
 	environmentHandler := handler.NewEnvironmentHandler(environmentRepo, cfg.ServiceToken)
 
+	// Wire up layers — flag audit log (BKL-1074)
+	flagEvalRepo := repository.NewFlagEvaluationRepository(pool)
+	flagAuditHandler := handler.NewFlagAuditHandler(flagEvalRepo, cfg.ServiceToken)
+
 	// Wire up layers — cost tracking
 	costRepo := repository.NewCostRepository(pool)
 	costHandler := handler.NewCostHandler(costRepo, cfg.ServiceToken)
@@ -158,6 +162,9 @@ func main() {
 
 	// Register environment routes (BKL-1075)
 	environmentHandler.RegisterRoutes(app)
+
+	// Register flag audit log routes (BKL-1074)
+	flagAuditHandler.RegisterRoutes(app)
 
 	// Register cost tracking routes
 	costHandler.RegisterRoutes(app)

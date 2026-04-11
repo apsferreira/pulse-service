@@ -1,7 +1,10 @@
 import axios from 'axios'
 
 const API_BASE_URL = (import.meta.env?.VITE_API_URL as string) ?? ''
+// SERVICE_TOKEN mantido apenas para endpoints admin que exigem X-Service-Token
 const SERVICE_TOKEN = (import.meta.env?.VITE_SERVICE_TOKEN as string) ?? ''
+
+const JWT_STORAGE_KEY = 'pulse_auth_token'
 
 export const api = axios.create({
   baseURL: `${API_BASE_URL}/api/v1`,
@@ -11,10 +14,15 @@ export const api = axios.create({
   },
 })
 
-// Attach X-Service-Token on every request
+// Attach Authorization Bearer (JWT) em toda request.
+// X-Service-Token mantido como fallback para endpoints admin internos.
 api.interceptors.request.use(
   (config) => {
-    if (SERVICE_TOKEN) {
+    const jwtToken = localStorage.getItem(JWT_STORAGE_KEY)
+    if (jwtToken) {
+      config.headers['Authorization'] = `Bearer ${jwtToken}`
+    } else if (SERVICE_TOKEN) {
+      // fallback: service token para ambientes sem autenticação JWT (ex: CI/seed scripts)
       config.headers['X-Service-Token'] = SERVICE_TOKEN
     }
     if ((import.meta.env?.DEV as boolean) || (import.meta.env?.MODE as string) === 'development') {
@@ -22,7 +30,7 @@ api.interceptors.request.use(
     }
     return config
   },
-  (error) => {
+  (error: unknown) => {
     console.error('[Pulse API] Request error:', error)
     return Promise.reject(error)
   }
@@ -30,13 +38,20 @@ api.interceptors.request.use(
 
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response) {
-      console.error('[Pulse API] Response error:', error.response.status, error.response.data)
-    } else if (error.request) {
-      console.error('[Pulse API] No response received')
-    } else {
-      console.error('[Pulse API] Error:', error.message)
+  (error: unknown) => {
+    if (axios.isAxiosError(error)) {
+      if (error.response?.status === 401) {
+        // Token expirado ou inválido — limpar sessão e redirecionar para login
+        localStorage.removeItem(JWT_STORAGE_KEY)
+        localStorage.removeItem('pulse_auth_user')
+        window.location.replace('/login')
+      } else if (error.response) {
+        console.error('[Pulse API] Response error:', error.response.status, error.response.data)
+      } else if (error.request) {
+        console.error('[Pulse API] No response received')
+      } else {
+        console.error('[Pulse API] Error:', error.message)
+      }
     }
     return Promise.reject(error)
   }

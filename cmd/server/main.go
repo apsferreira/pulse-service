@@ -136,9 +136,11 @@ func main() {
 		Format: "[${time}] ${status} ${method} ${path} ${latency}\n",
 	}))
 
-	// CORS — allow all origins for SDK access on /flags
+	// CORS — SEC-005: configurável via PULSE_ALLOWED_ORIGINS.
+	// Default "*" mantido pois o SDK Pulse é embeddable em qualquer domínio de cliente externo.
+	// Para restringir, defina PULSE_ALLOWED_ORIGINS="https://a.com,https://b.com".
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "*",
+		AllowOrigins: cfg.AllowedOrigins,
 		AllowHeaders: "Origin, Content-Type, Accept, X-Service-Token",
 		AllowMethods: "GET, POST, PUT, DELETE, OPTIONS",
 	}))

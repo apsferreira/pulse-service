@@ -46,6 +46,48 @@ func (r *EventRepository) Insert(ctx context.Context, e *domain.Event) error {
 	return nil
 }
 
+// InsertBatch persiste múltiplos eventos em uma única operação usando pgx CopyFrom.
+// BKL-1041: substitui N INSERTs individuais por um COPY — throughput ~10x maior.
+// Máximo de 500 eventos por chamada (validado na camada de serviço).
+func (r *EventRepository) InsertBatch(ctx context.Context, events []*domain.Event) (int, error) {
+	if len(events) == 0 {
+		return 0, nil
+	}
+
+	now := time.Now().UTC()
+	rows := make([][]interface{}, 0, len(events))
+
+	for _, e := range events {
+		e.ID = uuid.New().String()
+		e.CreatedAt = now
+		if e.Environment == "" {
+			e.Environment = "production"
+		}
+
+		props, err := json.Marshal(e.Properties)
+		if err != nil {
+			props = []byte("{}")
+		}
+
+		rows = append(rows, []interface{}{
+			e.ID, e.Product, e.EventType, e.UserID, e.SessionID,
+			props, e.IPAddress, e.UserAgent, e.Environment, e.ProjectID, e.CreatedAt,
+		})
+	}
+
+	cols := []string{"id", "product", "event_type", "user_id", "session_id", "properties", "ip_address", "user_agent", "environment", "project_id", "created_at"}
+	n, err := r.db.CopyFrom(
+		ctx,
+		pgx.Identifier{"events"},
+		cols,
+		pgx.CopyFromRows(rows),
+	)
+	if err != nil {
+		return 0, fmt.Errorf("event_repository: InsertBatch: %w", err)
+	}
+	return int(n), nil
+}
+
 // MergeAnonymousUser atualiza todos os eventos de um anonymous_id para um user_id real.
 func (r *EventRepository) MergeAnonymousUser(ctx context.Context, anonymousID, userID string) (int, error) {
 	result, err := r.db.Exec(ctx,

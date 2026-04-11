@@ -60,6 +60,9 @@ func (h *EventHandler) RegisterRoutes(app *fiber.App) {
 	quotaMW := middleware.QuotaEnforcement(h.rdb)
 	api.Post("/events", quotaMW, h.IngestEvent)
 
+	// BKL-1041: batch ingest de até 500 eventos por chamada (SDK queue flush)
+	api.Post("/events/batch", quotaMW, h.BatchIngestEvents)
+
 	// Public endpoint — simplified event tracking
 	api.Post("/events/track", quotaMW, h.TrackEvent)
 
@@ -92,6 +95,32 @@ func (h *EventHandler) IngestEvent(c *fiber.Ctx) error {
 	go h.broadcastEvent(event)
 
 	return c.Status(fiber.StatusCreated).JSON(event)
+}
+
+// BatchIngestEvents godoc
+// POST /api/v1/events/batch
+// BKL-1041: persiste até 500 eventos em uma única operação (pgx CopyFrom).
+func (h *EventHandler) BatchIngestEvents(c *fiber.Ctx) error {
+	var req domain.BatchIngestRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(domain.ErrorResponse{Error: "invalid request body"})
+	}
+	if len(req.Events) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(domain.ErrorResponse{Error: "events array cannot be empty"})
+	}
+	if len(req.Events) > 500 {
+		return c.Status(fiber.StatusBadRequest).JSON(domain.ErrorResponse{Error: "batch too large: max 500 events per request"})
+	}
+
+	ipAddress := c.IP()
+	userAgent := c.Get("User-Agent")
+
+	result, err := h.svc.BatchIngest(c.Context(), req, ipAddress, userAgent)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(domain.ErrorResponse{Error: err.Error()})
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(result)
 }
 
 // GetSummary godoc

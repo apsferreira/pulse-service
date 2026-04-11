@@ -76,6 +76,19 @@ type EventListResponse struct {
 
 // ── Retention metrics ────────────────────────────────────────────
 
+// BatchIngestRequest is the payload for POST /api/v1/events/batch.
+// BKL-1041: até 500 eventos por chamada para reduzir round-trips do SDK.
+type BatchIngestRequest struct {
+	Events []IngestEventRequest `json:"events"`
+}
+
+// BatchIngestResponse descreve o resultado do batch INSERT.
+type BatchIngestResponse struct {
+	Accepted int    `json:"accepted"`
+	Rejected int    `json:"rejected,omitempty"`
+	Error    string `json:"error,omitempty"`
+}
+
 // ActiveUsersItem represents DAU/WAU/MAU for a specific date.
 type ActiveUsersItem struct {
 	Date string `json:"date"`

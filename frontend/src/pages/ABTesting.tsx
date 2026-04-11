@@ -1,9 +1,147 @@
 // BKL-124: Página de A/B Testing — visualização de flags com variantes e distribuição de tráfego
+// BKL-1049: Painel de análise estatística (p-value, CI, lift, badge significativo)
 
 import { useState, useEffect } from 'react'
-import { FlaskConical, ToggleLeft, TrendingUp, Users } from 'lucide-react'
-import { flagsApi } from '../services/api'
+import { FlaskConical, ToggleLeft, TrendingUp, Users, BarChart2, CheckCircle, Clock } from 'lucide-react'
+import { flagsApi, api } from '../services/api'
 import type { FeatureFlag, FlagVariant } from '../services/api'
+
+// --- BKL-1049: Stat Analyzer Component ---
+
+interface StatResult {
+  chi_squared: number
+  p_value: number
+  statistically_significant: boolean
+  control_rate: number
+  treatment_rate: number
+  lift_pct: number
+  confidence_interval: { lower: number; upper: number }
+  recommendation: string
+}
+
+function StatAnalyzer() {
+  const [form, setForm] = useState({
+    control_conversions: '',
+    control_total: '',
+    treatment_conversions: '',
+    treatment_total: '',
+  })
+  const [result, setResult] = useState<StatResult | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleAnalyze = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const { data } = await api.post<StatResult>('/experiments/analyze', {
+        control_conversions: Number(form.control_conversions),
+        control_total: Number(form.control_total),
+        treatment_conversions: Number(form.treatment_conversions),
+        treatment_total: Number(form.treatment_total),
+      })
+      setResult(data)
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { error?: string } }; message?: string }
+      setError(e?.response?.data?.error ?? e?.message ?? 'Erro ao analisar')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const isValid = ['control_conversions', 'control_total', 'treatment_conversions', 'treatment_total']
+    .every((k) => Number(form[k as keyof typeof form]) > 0)
+
+  return (
+    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
+      <h2 className="text-base font-semibold flex items-center gap-2 mb-4">
+        <BarChart2 className="w-4 h-4 text-violet-500" />
+        Analisador Estatístico — Chi-squared Test
+      </h2>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        {[
+          { key: 'control_conversions', label: 'Controle: conversões' },
+          { key: 'control_total', label: 'Controle: total' },
+          { key: 'treatment_conversions', label: 'Variante: conversões' },
+          { key: 'treatment_total', label: 'Variante: total' },
+        ].map(({ key, label }) => (
+          <div key={key}>
+            <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">{label}</label>
+            <input
+              type="number"
+              min={0}
+              value={form[key as keyof typeof form]}
+              onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+              className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+              placeholder="0"
+            />
+          </div>
+        ))}
+      </div>
+
+      <button
+        onClick={handleAnalyze}
+        disabled={!isValid || loading}
+        className="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white text-sm font-medium transition-colors"
+      >
+        {loading ? 'Analisando...' : 'Analisar experimento'}
+      </button>
+
+      {error && (
+        <p className="mt-3 text-sm text-red-500 dark:text-red-400">{error}</p>
+      )}
+
+      {result && (
+        <div className="mt-4 space-y-3">
+          {/* Badge de significância */}
+          <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold ${
+            result.statistically_significant
+              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+              : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+          }`}>
+            {result.statistically_significant
+              ? <><CheckCircle className="w-4 h-4" /> Resultado significativo (p &lt; 0,05)</>
+              : <><Clock className="w-4 h-4" /> Em coleta (p ≥ 0,05)</>
+            }
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { label: 'p-value', value: result.p_value.toFixed(4) },
+              { label: 'Chi-squared', value: result.chi_squared.toFixed(4) },
+              { label: 'Lift', value: `${result.lift_pct > 0 ? '+' : ''}${result.lift_pct.toFixed(1)}%` },
+              { label: 'IC 95%', value: `[${result.confidence_interval.lower.toFixed(3)}, ${result.confidence_interval.upper.toFixed(3)}]` },
+            ].map(({ label, value }) => (
+              <div key={label} className="bg-slate-50 dark:bg-slate-800 rounded-lg p-3">
+                <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
+                <p className="text-sm font-bold text-slate-900 dark:text-slate-100 mt-0.5">{value}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: 'Taxa controle', value: `${(result.control_rate * 100).toFixed(2)}%` },
+              { label: 'Taxa variante', value: `${(result.treatment_rate * 100).toFixed(2)}%` },
+            ].map(({ label, value }) => (
+              <div key={label} className="bg-slate-50 dark:bg-slate-800 rounded-lg p-3">
+                <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
+                <p className="text-sm font-bold text-slate-900 dark:text-slate-100 mt-0.5">{value}</p>
+              </div>
+            ))}
+          </div>
+
+          {result.recommendation && (
+            <p className="text-sm text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 rounded-lg p-3">
+              💡 {result.recommendation}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
 
 const VARIANT_COLORS = [
   'bg-violet-500',
@@ -208,6 +346,9 @@ export default function ABTesting() {
           </button>
         ))}
       </div>
+
+      {/* BKL-1049: Painel de análise estatística */}
+      <StatAnalyzer />
 
       {/* Content */}
       {loading && (

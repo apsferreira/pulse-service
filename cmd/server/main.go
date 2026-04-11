@@ -17,6 +17,7 @@ import (
 	custommw "github.com/institutoitinerante/pulse-service/internal/middleware"
 	"github.com/institutoitinerante/pulse-service/internal/pkg/config"
 	"github.com/institutoitinerante/pulse-service/internal/pkg/flagscheduler"
+	"github.com/institutoitinerante/pulse-service/internal/pkg/retentionpurge"
 	"github.com/institutoitinerante/pulse-service/internal/pkg/wshub"
 	"github.com/institutoitinerante/pulse-service/internal/repository"
 	"github.com/institutoitinerante/pulse-service/internal/service"
@@ -210,6 +211,9 @@ func main() {
 
 	// BKL-1040: Flag scheduler — ativa/desativa flags agendadas (starts_at/ends_at) a cada 60s
 	go flagscheduler.Start(jobCtx, flagRepo, 60*time.Second)
+
+	// BKL-1037: Retention purge — deleta eventos mais antigos que data_retention_days de cada projeto (1x/dia)
+	go retentionpurge.Start(jobCtx, pool, 24*time.Hour)
 
 	// BKL-1082: Email sequence de onboarding — processa 1x/dia
 	emailSeqSvc := service.NewEmailSequenceService(pool)

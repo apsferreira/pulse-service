@@ -234,6 +234,11 @@ func main() {
 	// BKL-1037: Retention purge — deleta eventos mais antigos que data_retention_days de cada projeto (1x/dia)
 	go retentionpurge.Start(jobCtx, pool, 24*time.Hour)
 
+	// BKL-763: mapeamento cross-produto de identidade de usuário
+	userIdentityRepo := repository.NewUserIdentityRepository(pool)
+	userIdentityHandler := handler.NewUserIdentityHandler(userIdentityRepo, cfg.ServiceToken)
+	userIdentityHandler.RegisterRoutes(app)
+
 	// BKL-864: Weekly insight narrativo — gera toda segunda-feira via Haiku
 	weeklyInsightSvc := service.NewWeeklyInsightService(pool)
 	insightHandler := handler.NewInsightHandler(weeklyInsightSvc, cfg.ServiceToken)

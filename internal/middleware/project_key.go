@@ -67,10 +67,10 @@ func newProjectKeyRepo(db *pgxpool.Pool) *projectKeyRepo {
 func (r *projectKeyRepo) GetByAPIKey(ctx context.Context, apiKey string) (*domain.Project, error) {
 	var p domain.Project
 	err := r.db.QueryRow(ctx,
-		`SELECT id, name, slug, api_key, COALESCE(description, ''), COALESCE(plan, 'free'), is_active, created_at, updated_at
+		`SELECT id, name, slug, api_key, COALESCE(description, ''), COALESCE(plan, 'free'), COALESCE(data_retention_days, 90), is_active, created_at, updated_at
 		 FROM projects WHERE api_key = $1 AND is_active = true`,
 		apiKey,
-	).Scan(&p.ID, &p.Name, &p.Slug, &p.APIKey, &p.Description, &p.Plan, &p.IsActive, &p.CreatedAt, &p.UpdatedAt)
+	).Scan(&p.ID, &p.Name, &p.Slug, &p.APIKey, &p.Description, &p.Plan, &p.DataRetentionDays, &p.IsActive, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		if isNoRows(err) {
 			return nil, nil

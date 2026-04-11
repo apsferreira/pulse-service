@@ -161,12 +161,21 @@ func main() {
 	// Register health score routes (BKL-801)
 	healthScoreHandler.RegisterRoutes(app)
 
+	// BKL-1043 + BKL-1073: Análise estatística de experimentos A/B (chi-squared, p-value, CI)
+	experimentHandler := handler.NewExperimentHandler()
+	experimentHandler.RegisterRoutes(app)
+
 	// BKL-150: Register WebSocket routes
 	wsHandler.RegisterRoutes(app)
 
 	// BKL-344: Servir arquivos estáticos do widget CSAT embeddable.
 	// Qualquer site pode embedar com: <script src=".../static/csat/widget.js" data-survey-id="..."></script>
 	app.Static("/static", "./frontend/public")
+
+	// BKL-1072: SDK IIFE via CDN — sem bundler necessário.
+	// Uso: <script src="https://pulse-api.institutoitinerante.com.br/sdk/pulse.js"></script>
+	// ou:  <script src=".../sdk/pulse.min.js"></script>
+	app.Static("/sdk", "./frontend/public/sdk")
 
 	// Start uptime monitor background checker
 	monitorSvc.StartBackgroundChecker()

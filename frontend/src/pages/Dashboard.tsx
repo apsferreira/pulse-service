@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Plus, RefreshCw, Search } from 'lucide-react'
+import { Plus, RefreshCw, Search, Lightbulb, AlertTriangle, CheckCircle, ArrowRight } from 'lucide-react'
 import toast from 'react-hot-toast'
 import FlagTable from '../components/FlagTable'
 import FlagModal from '../components/FlagModal'
@@ -93,9 +93,142 @@ export default function Dashboard() {
   })
 
   const enabledCount = flags.filter((f) => f.enabled).length
+  const disabledCount = flags.length - enabledCount
+  const activePercent = Math.round((enabledCount / Math.max(flags.length, 1)) * 100)
+
+  type RecommendedAction = {
+    id: string
+    icon: 'lightbulb' | 'alert' | 'check'
+    title: string
+    description: string
+    href: string
+    linkLabel: string
+    priority: number
+  }
+
+  const recommendedActions: RecommendedAction[] = []
+
+  if (flags.length === 0) {
+    recommendedActions.push({
+      id: 'no-flags',
+      icon: 'lightbulb',
+      title: 'Crie sua primeira feature flag',
+      description: 'Comece adicionando uma flag para controlar funcionalidades do seu produto com segurança.',
+      href: '#',
+      linkLabel: 'Criar flag agora',
+      priority: 1,
+    })
+  } else if (disabledCount > flags.length / 2) {
+    recommendedActions.push({
+      id: 'many-disabled',
+      icon: 'alert',
+      title: `${disabledCount} flags desabilitadas acumuladas`,
+      description: 'Você tem mais flags desabilitadas do que ativas. Ative ou arquive as que não usa para manter o projeto limpo.',
+      href: '#',
+      linkLabel: 'Ver flags desabilitadas',
+      priority: 1,
+    })
+  }
+
+  const hasAnyRollout = flags.some((f) => f.rollout_percentage > 0)
+
+  if (flags.length > 0 && !hasAnyRollout) {
+    recommendedActions.push({
+      id: 'no-rollout',
+      icon: 'lightbulb',
+      title: 'Configure rollout gradual',
+      description: 'Nenhuma flag usa rollout percentual. Releases graduais reduzem risco e permitem rollback instantâneo.',
+      href: '#',
+      linkLabel: 'Editar uma flag',
+      priority: 2,
+    })
+  }
+
+  recommendedActions.push({
+    id: 'health-scores',
+    icon: 'check',
+    title: 'Verifique o Health Score dos tenants',
+    description: 'Acompanhe a saúde de cada tenant e identifique problemas de adoção antes que virem suporte.',
+    href: '/health-scores',
+    linkLabel: 'Ver Health Scores',
+    priority: 3,
+  })
+
+  recommendedActions.push({
+    id: 'ab-testing',
+    icon: 'check',
+    title: 'Consulte seus experimentos A/B ativos',
+    description: 'Analise os resultados dos seus testes A/B em andamento e tome decisões baseadas em dados.',
+    href: '/ab-testing',
+    linkLabel: 'Ver experimentos',
+    priority: 4,
+  })
+
+  const topActions = recommendedActions
+    .sort((a, b) => a.priority - b.priority)
+    .slice(0, 3)
+
+  const ActionIcon = ({ type }: { type: RecommendedAction['icon'] }) => {
+    if (type === 'alert') return <AlertTriangle className="w-4 h-4 text-amber-500" />
+    if (type === 'check') return <CheckCircle className="w-4 h-4 text-emerald-500" />
+    return <Lightbulb className="w-4 h-4 text-violet-500" />
+  }
 
   return (
     <div className="space-y-5">
+      {/* BKL-1066: KPI overview — 4 cards */}
+      {!loading && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="rounded-xl border bg-gradient-to-br from-violet-50 to-violet-100 dark:from-violet-950/40 dark:to-violet-900/20 border-violet-200 dark:border-violet-800 p-4">
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Flags ativas</p>
+            <p className="text-2xl font-bold text-violet-700 dark:text-violet-300 mt-0.5">{enabledCount}</p>
+          </div>
+          <div className="rounded-xl border bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950/40 dark:to-emerald-900/20 border-emerald-200 dark:border-emerald-800 p-4">
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Total de flags</p>
+            <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300 mt-0.5">{flags.length}</p>
+          </div>
+          <div className="rounded-xl border bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950/40 dark:to-amber-900/20 border-amber-200 dark:border-amber-800 p-4">
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Desabilitadas</p>
+            <p className="text-2xl font-bold text-amber-700 dark:text-amber-300 mt-0.5">{disabledCount}</p>
+          </div>
+          <div className="rounded-xl border bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800/60 dark:to-slate-800/30 border-slate-200 dark:border-slate-700 p-4">
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">% Ativas</p>
+            <p className="text-2xl font-bold text-slate-700 dark:text-slate-200 mt-0.5">{activePercent}%</p>
+          </div>
+        </div>
+      )}
+
+      {/* BKL-1066: Ações recomendadas */}
+      {!loading && topActions.length > 0 && (
+        <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-3">Ações recomendadas</h2>
+          <ul className="space-y-2">
+            {topActions.map((action) => (
+              <li
+                key={action.id}
+                className="flex items-start gap-3 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-3"
+              >
+                <span className="mt-0.5 shrink-0">
+                  <ActionIcon type={action.icon} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{action.title}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{action.description}</p>
+                </div>
+                <a
+                  href={action.href}
+                  className="shrink-0 flex items-center gap-1 text-xs font-medium text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-200 transition-colors"
+                  aria-label={action.linkLabel}
+                >
+                  {action.linkLabel}
+                  <ArrowRight className="w-3 h-3" aria-hidden="true" />
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* BKL-1050: Onboarding wizard — visível apenas quando não há flags */}
       <OnboardingWizard flagsCount={flags.length} />
 
@@ -137,18 +270,6 @@ export default function Dashboard() {
             placeholder="Buscar por key ou descricao..."
             className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent placeholder:text-slate-400 dark:placeholder:text-slate-500"
           />
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-xl border bg-gradient-to-br from-violet-50 to-violet-100 dark:from-violet-950/40 dark:to-violet-900/20 border-violet-200 dark:border-violet-800 p-3">
-          <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Total</p>
-          <p className="text-2xl font-bold text-slate-800 dark:text-slate-200 mt-0.5">{flags.length}</p>
-        </div>
-        <div className="rounded-xl border bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950/40 dark:to-emerald-900/20 border-emerald-200 dark:border-emerald-800 p-3">
-          <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Ativas</p>
-          <p className="text-2xl font-bold text-slate-800 dark:text-slate-200 mt-0.5">{enabledCount}</p>
         </div>
       </div>
 

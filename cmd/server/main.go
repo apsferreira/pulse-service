@@ -91,6 +91,10 @@ func main() {
 	projectRepo := repository.NewProjectRepository(pool)
 	projectHandler := handler.NewProjectHandler(projectRepo, cfg.ServiceToken)
 
+	// Wire up layers — environments (BKL-1075)
+	environmentRepo := repository.NewEnvironmentRepository(pool)
+	environmentHandler := handler.NewEnvironmentHandler(environmentRepo, cfg.ServiceToken)
+
 	// Wire up layers — cost tracking
 	costRepo := repository.NewCostRepository(pool)
 	costHandler := handler.NewCostHandler(costRepo, cfg.ServiceToken)
@@ -151,6 +155,9 @@ func main() {
 
 	// Register project routes (BKL-099)
 	projectHandler.RegisterRoutes(app)
+
+	// Register environment routes (BKL-1075)
+	environmentHandler.RegisterRoutes(app)
 
 	// Register cost tracking routes
 	costHandler.RegisterRoutes(app)

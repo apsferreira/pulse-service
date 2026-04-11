@@ -1,16 +1,58 @@
 /**
  * @iit/pulse-sdk — SDK JS/TS para pulse-service
  * Feature Flags + Event Tracking
+ *
+ * BKL-258: fail-open — retorna defaults quando backend indisponível.
+ *   - Timeout de 2s para fetch de flags (não bloqueia a aplicação)
+ *   - failOpen: true como padrão nas opções de inicialização
+ *   - defaults por flag: pulse.init({ apiKey: '...', defaults: { 'nova-feature': false } })
  */
 
 // --- Types ---
 
+/** BKL-258: defaults por flag — usados quando fail-open ativa */
+export type DefaultsMap = Record<string, boolean>;
+
 export interface PulseClientOptions {
   /** Base URL do pulse-service (ex: "https://pulse.institutoitinerante.com.br") */
   baseURL: string;
-  /** Timeout em ms (default: 10000) */
+  /**
+   * Timeout em ms para fetch de flags (default: 2000).
+   * BKL-258: 2s para não bloquear a aplicação — eventos usam timeout maior.
+   */
   timeout?: number;
   /** Custom fetch implementation (default: globalThis.fetch) */
+  fetch?: typeof globalThis.fetch;
+  /**
+   * BKL-258: comportamento fail-open.
+   * Quando true (default), retorna defaults em vez de lançar erro
+   * se o backend estiver indisponível ou timeout expirar.
+   */
+  failOpen?: boolean;
+  /**
+   * BKL-258: valores default por flag.
+   * Usados quando fail-open ativa ou SDK não foi inicializado.
+   * Ex: { 'nova-feature': false, 'dark-mode': true }
+   */
+  defaults?: DefaultsMap;
+}
+
+/**
+ * BKL-258: opções de inicialização via pulse.init().
+ * Alias conveniente para PulseClientOptions usando `apiKey` em vez de `baseURL`.
+ */
+export interface PulseInitOptions {
+  /** API key do projeto (equivale a baseURL — usado como identificador) */
+  apiKey: string;
+  /** Base URL do pulse-service (ex: "https://pulse-api.institutoitinerante.com.br") */
+  baseURL?: string;
+  /** BKL-258: valores default por flag */
+  defaults?: DefaultsMap;
+  /** BKL-258: fail-open ativo (default: true) */
+  failOpen?: boolean;
+  /** Timeout em ms para fetch de flags (default: 2000) */
+  timeout?: number;
+  /** Custom fetch implementation */
   fetch?: typeof globalThis.fetch;
 }
 
@@ -94,6 +136,9 @@ export class PulseClient {
   private readonly timeout: number;
   private readonly fetchFn: typeof globalThis.fetch;
   private cachedFlags: FlagsMap | null = null;
+  // BKL-258: fail-open config
+  private readonly failOpen: boolean;
+  private readonly defaults: DefaultsMap;
 
   // BKL-1047: batch queue
   private eventQueue: TrackEventRequest[] = [];
@@ -106,7 +151,11 @@ export class PulseClient {
       throw new PulseError("baseURL is required");
     }
     this.baseURL = options.baseURL.replace(/\/+$/, "");
-    this.timeout = options.timeout ?? 10000;
+    // BKL-258: timeout padrão reduzido para 2s em flags para não bloquear a app
+    this.timeout = options.timeout ?? 2000;
+    // BKL-258: fail-open e defaults
+    this.failOpen = options.failOpen ?? true;
+    this.defaults = options.defaults ?? {};
     // BKL-1047: batch queue config
     this.flushInterval = options.flushInterval ?? 5000;
     this.maxBatchSize = options.maxBatchSize ?? 25;
@@ -129,6 +178,8 @@ export class PulseClient {
   /**
    * GET /flags — retorna mapa de flags públicas {key: enabled}.
    * BKL-1054: em caso de erro, usa fallback de localStorage (TTL 5min).
+   * BKL-258: se failOpen=true e nenhum fallback disponível, retorna defaults
+   * em vez de lançar erro.
    */
   async getFlags(): Promise<FlagsMap> {
     try {
@@ -138,11 +189,16 @@ export class PulseClient {
       this.saveFallback(flags); // BKL-1054: persiste para fallback
       return flags;
     } catch (err) {
-      // Tenta fallback antes de propagar o erro
+      // BKL-1054: tenta fallback de localStorage primeiro
       const fallback = this.loadFallback();
       if (fallback !== null) {
         this.cachedFlags = fallback;
         return fallback;
+      }
+      // BKL-258: fail-open — retorna defaults em vez de propagar o erro
+      if (this.failOpen) {
+        this.cachedFlags = { ...this.defaults };
+        return this.cachedFlags;
       }
       throw err;
     }
@@ -198,14 +254,31 @@ export class PulseClient {
   /**
    * Verifica se uma flag está ativa usando o endpoint público GET /flags.
    * Usa cache local se getFlags() já foi chamado.
-   * Retorna false se a flag não existe.
+   * BKL-258: se failOpen=true, retorna o default definido no init (ou false)
+   * quando o backend estiver indisponível.
    */
-  async isEnabled(key: string): Promise<boolean> {
+  async isEnabled(key: string, defaultValue?: boolean): Promise<boolean> {
     validateKey(key);
     if (this.cachedFlags === null) {
       await this.getFlags();
     }
-    return this.cachedFlags?.[key] === true;
+    if (this.cachedFlags === null) {
+      // Nenhum cache disponível mesmo após getFlags — retorna default
+      return defaultValue ?? this.defaults[key] ?? false;
+    }
+    // Se a flag não existe no mapa, usa default do caller ou do init
+    if (!(key in this.cachedFlags)) {
+      return defaultValue ?? this.defaults[key] ?? false;
+    }
+    return this.cachedFlags[key] === true;
+  }
+
+  /**
+   * BKL-258: retorna o default configurado para uma flag específica.
+   * Útil para leitura síncrona antes do carregamento das flags.
+   */
+  getDefault(key: string): boolean {
+    return this.defaults[key] ?? false;
   }
 
   /**
@@ -328,3 +401,85 @@ export class PulseClient {
 }
 
 export default PulseClient;
+
+// ─── BKL-258: Singleton com API pulse.init() ──────────────────────────────
+
+/**
+ * Singleton de conveniência para uso sem instanciação explícita.
+ *
+ * @example
+ * import pulse from '@iit/pulse-sdk'
+ *
+ * pulse.init({
+ *   apiKey: 'proj_xxx',
+ *   baseURL: 'https://pulse-api.institutoitinerante.com.br',
+ *   failOpen: true,
+ *   defaults: { 'nova-feature': false, 'dark-mode': true },
+ * })
+ *
+ * const enabled = await pulse.isEnabled('nova-feature')
+ */
+class PulseSingleton {
+  private client: PulseClient | null = null;
+
+  /**
+   * Inicializa o SDK com as opções fornecidas.
+   * BKL-258: failOpen=true e timeout=2000ms são os defaults.
+   */
+  init(options: PulseInitOptions): this {
+    const baseURL = options.baseURL ?? `https://pulse-api.institutoitinerante.com.br`;
+    this.client = new PulseClient({
+      baseURL,
+      timeout: options.timeout ?? 2000,
+      failOpen: options.failOpen ?? true,
+      defaults: options.defaults ?? {},
+      fetch: options.fetch,
+    });
+    return this;
+  }
+
+  private requireClient(): PulseClient {
+    if (!this.client) {
+      throw new PulseError("pulse.init() must be called before using the SDK");
+    }
+    return this.client;
+  }
+
+  async getFlags(): Promise<FlagsMap> {
+    return this.requireClient().getFlags();
+  }
+
+  async isEnabled(key: string, defaultValue?: boolean): Promise<boolean> {
+    if (!this.client) {
+      // BKL-258: fail-open antes mesmo do init
+      return defaultValue ?? false;
+    }
+    return this.client.isEnabled(key, defaultValue);
+  }
+
+  getDefault(key: string): boolean {
+    return this.client?.getDefault(key) ?? false;
+  }
+
+  async getFlag(key: string): Promise<FeatureFlag | null> {
+    return this.requireClient().getFlag(key);
+  }
+
+  async trackEvent(event: TrackEventRequest): Promise<TrackEventResponse> {
+    return this.requireClient().trackEvent(event);
+  }
+
+  queue(event: TrackEventRequest): void {
+    this.requireClient().queue(event);
+  }
+
+  flush(): void {
+    this.requireClient().flush();
+  }
+
+  invalidateCache(): void {
+    this.requireClient().invalidateCache();
+  }
+}
+
+export const pulse = new PulseSingleton();

@@ -76,10 +76,11 @@ func (s *FlagService) Create(ctx context.Context, req domain.CreateFlagRequest) 
 		Enabled:           req.Enabled,
 		RolloutPercentage: req.RolloutPercentage,
 		Targeting:         req.Targeting,
-		Variants:          req.Variants,  // BKL-094
-		ProjectID:         req.ProjectID, // BKL-323
-		StartsAt:          req.StartsAt,  // BKL-1040
-		EndsAt:            req.EndsAt,    // BKL-1040
+		Variants:          req.Variants,      // BKL-094
+		Prerequisites:     req.Prerequisites, // BKL-1039
+		ProjectID:         req.ProjectID,     // BKL-323
+		StartsAt:          req.StartsAt,      // BKL-1040
+		EndsAt:            req.EndsAt,        // BKL-1040
 	}
 
 	if err := s.repo.Create(ctx, flag); err != nil {
@@ -169,12 +170,14 @@ func (s *FlagService) GetFlagsMap(ctx context.Context, projectID string) (domain
 
 // EvaluateFlags avalia flags com contexto de user_id, tenant_id e project_id.
 // BKL-1027: project_id obrigatório para isolar flags por tenant — evita cross-tenant leak.
+// BKL-1039: prerequisites são verificados antes da avaliação principal.
 // Lógica de avaliação (em ordem de prioridade):
 // 1. Se flag.Enabled = false → false (kill switch)
-// 2. Se targeting tem user_ids e user_id está na lista → true
-// 3. Se targeting tem tenant_ids e tenant_id está na lista → true
-// 4. Se rollout_percentage > 0 → hash(user_id + flag_key) % 100 < rollout_percentage
-// 5. Se rollout_percentage = 0 e targeting vazio → enabled (comportamento legado)
+// 2. Se flag tem prerequisites e algum não está satisfeito → false
+// 3. Se targeting tem user_ids e user_id está na lista → true
+// 4. Se targeting tem tenant_ids e tenant_id está na lista → true
+// 5. Se rollout_percentage > 0 → hash(user_id + flag_key) % 100 < rollout_percentage
+// 6. Se rollout_percentage = 0 e targeting vazio → enabled (comportamento legado)
 func (s *FlagService) EvaluateFlags(ctx context.Context, userID, tenantID, projectID string) (domain.FlagsMapResponse, error) {
 	var flags []domain.FeatureFlag
 	var err error
@@ -187,12 +190,38 @@ func (s *FlagService) EvaluateFlags(ctx context.Context, userID, tenantID, proje
 		return domain.FlagsMapResponse{}, fmt.Errorf("service: EvaluateFlags: %w", err)
 	}
 
+	// Monta mapa de flags para consulta rápida de prerequisites (BKL-1039)
+	flagMap := make(map[string]domain.FeatureFlag, len(flags))
+	for _, f := range flags {
+		flagMap[f.Key] = f
+	}
+
 	result := make(map[string]bool, len(flags))
 	for _, f := range flags {
-		result[f.Key] = evaluateFlag(f, userID, tenantID)
+		result[f.Key] = evaluateFlagWithPrereqs(f, userID, tenantID, flagMap)
 	}
 
 	return domain.FlagsMapResponse{Flags: result}, nil
+}
+
+// evaluateFlagWithPrereqs verifica prerequisites antes da avaliação principal. BKL-1039.
+// Recebe um mapa de todas as flags do projeto para verificação de dependências.
+func evaluateFlagWithPrereqs(f domain.FeatureFlag, userID, tenantID string, allFlags map[string]domain.FeatureFlag) bool {
+	// Verifica prerequisites (cada um deve estar ativo com a variante correta)
+	for _, prereq := range f.Prerequisites {
+		dep, ok := allFlags[prereq.FlagKey]
+		if !ok || !dep.Enabled {
+			return false // flag prerequisito não existe ou está desabilitada
+		}
+		// Se exige variante específica, verifica
+		if prereq.RequiredVariant != "" {
+			selected := selectVariant(dep.Variants, userID, dep.Key)
+			if selected != prereq.RequiredVariant {
+				return false
+			}
+		}
+	}
+	return evaluateFlag(f, userID, tenantID)
 }
 
 // evaluateFlag determina se uma flag está ativa para um dado contexto.
@@ -252,6 +281,7 @@ func hashBucket(userID, flagKey string) int {
 
 // GetVariants retorna a variante A/B selecionada para cada flag com variantes configuradas. BKL-094.
 // BKL-1027: filtra por projectID para isolar variantes por tenant.
+// BKL-1039: verifica prerequisites antes de incluir a variante.
 // A seleção é determinística: mesmo userID+flagKey sempre retorna a mesma variante.
 // Flags sem variantes ou desabilitadas não aparecem na resposta.
 func (s *FlagService) GetVariants(ctx context.Context, userID, tenantID, projectID string) (domain.VariantResponse, error) {
@@ -266,13 +296,19 @@ func (s *FlagService) GetVariants(ctx context.Context, userID, tenantID, project
 		return domain.VariantResponse{}, fmt.Errorf("service: GetVariants: %w", err)
 	}
 
+	// Monta mapa para verificação de prerequisites (BKL-1039)
+	flagMap := make(map[string]domain.FeatureFlag, len(flags))
+	for _, f := range flags {
+		flagMap[f.Key] = f
+	}
+
 	variants := make(map[string]string)
 	for _, f := range flags {
 		if !f.Enabled || len(f.Variants) == 0 {
 			continue
 		}
-		// Só inclui se o usuário está no rollout (ou sem rollout configurado)
-		if !evaluateFlag(f, userID, tenantID) {
+		// Só inclui se o usuário está no rollout E prerequisites satisfeitos
+		if !evaluateFlagWithPrereqs(f, userID, tenantID, flagMap) {
 			continue
 		}
 		variant := selectVariant(f.Variants, userID, f.Key)

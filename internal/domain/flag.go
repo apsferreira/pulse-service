@@ -6,6 +6,14 @@ import (
 	"github.com/google/uuid"
 )
 
+// FlagPrerequisite define uma dependência entre flags.
+// BKL-1039: flag só é avaliada como ativa se a flag prerequisito estiver ativa
+// (e com a variante específica, se required_variant for informado).
+type FlagPrerequisite struct {
+	FlagKey         string `json:"flag_key"`                    // chave da flag da qual esta depende
+	RequiredVariant string `json:"required_variant,omitempty"`  // variante obrigatória (vazio = só precisa estar enabled)
+}
+
 // FlagTargeting define regras de targeting por lista de IDs.
 type FlagTargeting struct {
 	UserIDs   []string `json:"user_ids,omitempty"`
@@ -20,18 +28,19 @@ type FlagVariant struct {
 
 // FeatureFlag represents a feature flag stored in the database.
 type FeatureFlag struct {
-	ID                string        `json:"id"`
-	Key               string        `json:"key"`
-	Description       string        `json:"description"`
-	Enabled           bool          `json:"enabled"`
-	RolloutPercentage int           `json:"rollout_percentage"` // 0-100: % do tráfego que vê a flag ativa
-	Targeting         FlagTargeting `json:"targeting"`          // lista de user_ids/tenant_ids com acesso direto
-	Variants          []FlagVariant `json:"variants,omitempty"` // BKL-094: variantes A/B (vazio = on/off normal)
-	ProjectID         *uuid.UUID    `json:"project_id,omitempty"` // BKL-323: scope por projeto (nullable)
-	StartsAt          *time.Time    `json:"starts_at,omitempty"`  // BKL-1040: ativação agendada (nil = imediato)
-	EndsAt            *time.Time    `json:"ends_at,omitempty"`    // BKL-1040: desativação agendada (nil = sem expiração)
-	CreatedAt         time.Time     `json:"created_at"`
-	UpdatedAt         time.Time     `json:"updated_at"`
+	ID                string             `json:"id"`
+	Key               string             `json:"key"`
+	Description       string             `json:"description"`
+	Enabled           bool               `json:"enabled"`
+	RolloutPercentage int                `json:"rollout_percentage"` // 0-100: % do tráfego que vê a flag ativa
+	Targeting         FlagTargeting      `json:"targeting"`          // lista de user_ids/tenant_ids com acesso direto
+	Variants          []FlagVariant      `json:"variants,omitempty"` // BKL-094: variantes A/B (vazio = on/off normal)
+	Prerequisites     []FlagPrerequisite `json:"prerequisites,omitempty"` // BKL-1039: flags das quais esta depende
+	ProjectID         *uuid.UUID         `json:"project_id,omitempty"` // BKL-323: scope por projeto (nullable)
+	StartsAt          *time.Time         `json:"starts_at,omitempty"`  // BKL-1040: ativação agendada (nil = imediato)
+	EndsAt            *time.Time         `json:"ends_at,omitempty"`    // BKL-1040: desativação agendada (nil = sem expiração)
+	CreatedAt         time.Time          `json:"created_at"`
+	UpdatedAt         time.Time          `json:"updated_at"`
 }
 
 // FlagsMapResponse is the public response for GET /flags — a simple key:enabled map.
@@ -42,26 +51,28 @@ type FlagsMapResponse struct {
 
 // CreateFlagRequest is the payload for POST /api/v1/flags.
 type CreateFlagRequest struct {
-	Key               string        `json:"key"`
-	Description       string        `json:"description"`
-	Enabled           bool          `json:"enabled"`
-	RolloutPercentage int           `json:"rollout_percentage,omitempty"`
-	Targeting         FlagTargeting `json:"targeting,omitempty"`
-	Variants          []FlagVariant `json:"variants,omitempty"` // BKL-094
-	ProjectID         *uuid.UUID    `json:"project_id,omitempty"` // BKL-323
-	StartsAt          *time.Time    `json:"starts_at,omitempty"`  // BKL-1040
-	EndsAt            *time.Time    `json:"ends_at,omitempty"`    // BKL-1040
+	Key               string             `json:"key"`
+	Description       string             `json:"description"`
+	Enabled           bool               `json:"enabled"`
+	RolloutPercentage int                `json:"rollout_percentage,omitempty"`
+	Targeting         FlagTargeting      `json:"targeting,omitempty"`
+	Variants          []FlagVariant      `json:"variants,omitempty"`      // BKL-094
+	Prerequisites     []FlagPrerequisite `json:"prerequisites,omitempty"` // BKL-1039
+	ProjectID         *uuid.UUID         `json:"project_id,omitempty"`    // BKL-323
+	StartsAt          *time.Time         `json:"starts_at,omitempty"`     // BKL-1040
+	EndsAt            *time.Time         `json:"ends_at,omitempty"`       // BKL-1040
 }
 
 // UpdateFlagRequest is the payload for PUT /api/v1/flags/:key.
 type UpdateFlagRequest struct {
-	Description       *string        `json:"description"`
-	Enabled           *bool          `json:"enabled"`
-	RolloutPercentage *int           `json:"rollout_percentage"`
-	Targeting         *FlagTargeting `json:"targeting"`
-	Variants          []FlagVariant  `json:"variants"` // BKL-094 (nil = não alterar, [] = remover variantes)
-	StartsAt          *time.Time     `json:"starts_at,omitempty"` // BKL-1040
-	EndsAt            *time.Time     `json:"ends_at,omitempty"`   // BKL-1040
+	Description       *string            `json:"description"`
+	Enabled           *bool              `json:"enabled"`
+	RolloutPercentage *int               `json:"rollout_percentage"`
+	Targeting         *FlagTargeting     `json:"targeting"`
+	Variants          []FlagVariant      `json:"variants"`                    // BKL-094 (nil = não alterar, [] = remover)
+	Prerequisites     []FlagPrerequisite `json:"prerequisites,omitempty"`     // BKL-1039
+	StartsAt          *time.Time         `json:"starts_at,omitempty"`         // BKL-1040
+	EndsAt            *time.Time         `json:"ends_at,omitempty"`           // BKL-1040
 }
 
 // VariantResponse é retornada pelo endpoint GET /flags/variants. BKL-094.

@@ -1,18 +1,18 @@
 {
-  "name": "@pulse/react-native",
-  "version": "1.0.0",
-  "description": "Pulse SDK para React Native / Expo — Feature Flags + A/B Testing + Event Tracking",
-  "main": "src/index.tsx",
-  "types": "src/index.tsx",
+  "name": "@pulse-iit/react-native",
+  "version": "0.1.0",
+  "description": "Pulse SDK para React Native e Expo — Feature Flags, A/B Testing e Event Tracking",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
   "files": ["src"],
   "scripts": {
     "typecheck": "tsc --noEmit"
   },
-  "keywords": ["pulse", "feature-flags", "ab-testing", "react-native", "expo", "iit"],
+  "keywords": ["pulse", "feature-flags", "ab-testing", "analytics", "react-native", "expo", "iit"],
   "license": "MIT",
   "peerDependencies": {
     "@react-native-async-storage/async-storage": ">=1.0.0",
-    "react": ">=17.0.0",
+    "react": ">=18.0.0",
     "react-native": ">=0.70.0"
   },
   "devDependencies": {

@@ -8,6 +8,7 @@ import ABTesting from './pages/ABTesting'
 import Costs from './pages/Costs'
 import CSAT from './pages/CSAT'
 import LandingPage from './pages/LandingPage'
+import FlagAudit from './pages/FlagAudit'
 
 function App() {
   return (
@@ -29,6 +30,7 @@ function App() {
                 <Route path="/ab-testing" element={<ABTesting />} />
                 <Route path="/costs" element={<Costs />} />
                 <Route path="/csat" element={<CSAT />} />
+                <Route path="/flags/audit" element={<FlagAudit />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </Layout>

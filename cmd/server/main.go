@@ -224,6 +224,10 @@ func main() {
 	llmObsHandler := handler.NewLLMObservabilityHandler(pool, cfg.ServiceToken)
 	llmObsHandler.RegisterRoutes(app)
 
+	// BKL-1071: Overage billing — cobrança por eventos acima da quota (R$0,02/1k)
+	overageHandler := handler.NewOverageHandler(pool, redisClient, cfg.ServiceToken)
+	overageHandler.RegisterRoutes(app)
+
 	// BKL-150: Register WebSocket routes
 	wsHandler.RegisterRoutes(app)
 

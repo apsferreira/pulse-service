@@ -204,6 +204,10 @@ func main() {
 	experimentHandler := handler.NewExperimentHandler()
 	experimentHandler.RegisterRoutes(app)
 
+	// BKL-1086: Upgrade recommender inteligente — recomenda plano baseado em comportamento
+	upgradeHandler := handler.NewUpgradeHandler(pool, cfg.ServiceToken)
+	upgradeHandler.RegisterRoutes(app)
+
 	// BKL-150: Register WebSocket routes
 	wsHandler.RegisterRoutes(app)
 

@@ -80,6 +80,36 @@ type VariantResponse struct {
 	Variants map[string]string `json:"variants"` // flag_key → variant_key (ex: "pricing-test" → "challenger")
 }
 
+// FlagMetric vincula uma feature flag a um evento de negócio para cálculo de lift. BKL-1044.
+type FlagMetric struct {
+	ID          string    `json:"id"`
+	FlagKey     string    `json:"flag_key"`
+	ProjectID   string    `json:"project_id"`
+	MetricName  string    `json:"metric_name"`  // nome do event_type em events
+	Description string    `json:"description"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+// CreateFlagMetricRequest é o payload para POST /api/v1/flags/:key/metrics.
+type CreateFlagMetricRequest struct {
+	MetricName  string `json:"metric_name"`
+	Description string `json:"description"`
+}
+
+// FlagMetricLift representa o lift calculado de uma flag/variante sobre uma métrica. BKL-1044.
+type FlagMetricLift struct {
+	FlagKey        string  `json:"flag_key"`
+	MetricName     string  `json:"metric_name"`
+	ControlCount   int64   `json:"control_count"`    // usuários expostos ao controle (flag=false)
+	TreatmentCount int64   `json:"treatment_count"`  // usuários expostos ao tratamento (flag=true)
+	ControlConv    int64   `json:"control_conv"`     // conversões no grupo controle
+	TreatmentConv  int64   `json:"treatment_conv"`   // conversões no grupo tratamento
+	ControlRate    float64 `json:"control_rate"`     // taxa controle (0.0-1.0)
+	TreatmentRate  float64 `json:"treatment_rate"`   // taxa tratamento (0.0-1.0)
+	LiftPct        float64 `json:"lift_pct"`         // lift relativo em %
+}
+
 // ErrorResponse is used for JSON error responses.
 type ErrorResponse struct {
 	Error string `json:"error"`

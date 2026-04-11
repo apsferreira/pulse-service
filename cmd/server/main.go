@@ -212,6 +212,10 @@ func main() {
 	webhookHandler := handler.NewWebhookHandler(pool, cfg.ServiceToken)
 	webhookHandler.RegisterRoutes(app)
 
+	// BKL-1058: Funis de conversão server-side (POST /api/v1/funnels/analyze)
+	funnelHandler := handler.NewFunnelHandler(pool, cfg.ServiceToken)
+	funnelHandler.RegisterRoutes(app)
+
 	// BKL-150: Register WebSocket routes
 	wsHandler.RegisterRoutes(app)
 

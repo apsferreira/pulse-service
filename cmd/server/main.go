@@ -68,7 +68,7 @@ func main() {
 	// Wire up layers — feature flags
 	flagRepo := repository.NewFlagRepository(pool)
 	flagSvc := service.NewFlagService(flagRepo, redisClient)
-	flagHandler := handler.NewFlagHandler(flagSvc, cfg.ServiceToken)
+	flagHandler := handler.NewFlagHandler(flagSvc, cfg.ServiceToken).WithFlagRepo(flagRepo) // BKL-1002: prompt_variant
 
 	// BKL-991: SSE broker para flag updates em tempo real
 	sseBroker := handler.NewFlagSSEBroker()
@@ -212,6 +212,18 @@ func main() {
 	// BKL-1043 + BKL-1073: Análise estatística de experimentos A/B (chi-squared, p-value, CI)
 	experimentHandler := handler.NewExperimentHandler()
 	experimentHandler.RegisterRoutes(app)
+
+	// BKL-1001: Análise Bayesiana (Beta distribution + Monte Carlo P(B > A))
+	bayesianHandler := handler.NewBayesianHandler()
+	bayesianHandler.RegisterRoutes(app)
+
+	// BKL-993: SQL Explorer — query builder para eventos brutos
+	queryExplorerHandler := handler.NewQueryExplorerHandler(pool, cfg.ServiceToken)
+	queryExplorerHandler.RegisterRoutes(app)
+
+	// BKL-1065: Churn prediction com regressão logística simplificada
+	churnPredHandler := handler.NewChurnPredictionHandler(pool, cfg.ServiceToken)
+	churnPredHandler.RegisterRoutes(app)
 
 	// BKL-1086: Upgrade recommender inteligente — recomenda plano baseado em comportamento
 	upgradeHandler := handler.NewUpgradeHandler(pool, cfg.ServiceToken)

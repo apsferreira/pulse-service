@@ -1,9 +1,145 @@
 // BKL-095: Página de Cohort Analysis e DAU/WAU/MAU
+// BKL-1065: Card de Churn Risk com ML (regressão logística simplificada)
 
 import { useState, useEffect } from 'react'
-import { Users, TrendingUp, Calendar } from 'lucide-react'
-import { metricsApi } from '../services/api'
+import { Users, TrendingUp, Calendar, AlertTriangle, CheckCircle, ShieldAlert } from 'lucide-react'
+import { metricsApi, api } from '../services/api'
 import type { ActiveUsersResponse, CohortsResponse } from '../services/api'
+
+// --- BKL-1065: Churn Risk Card ---
+
+interface ChurnFactor {
+  name: string
+  weight: number
+  value: number
+  score: number
+}
+
+interface ChurnRiskResponse {
+  project_id: string
+  score: number
+  risk: 'low' | 'medium' | 'high'
+  factors: ChurnFactor[]
+  period: string
+  computed_at: string
+}
+
+function ChurnRiskCard({ projectID }: { projectID: string }) {
+  const [data, setData] = useState<ChurnRiskResponse | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!projectID) return
+    setLoading(true)
+    api
+      .get<ChurnRiskResponse>(`/projects/${projectID}/churn-risk`)
+      .then((r) => setData(r.data))
+      .catch((err: unknown) => {
+        const e = err as { response?: { data?: { error?: string } }; message?: string }
+        setError(e?.response?.data?.error ?? e?.message ?? 'Erro ao carregar churn risk')
+      })
+      .finally(() => setLoading(false))
+  }, [projectID])
+
+  const riskConfig = {
+    low: {
+      label: 'Risco Baixo',
+      icon: CheckCircle,
+      color: 'text-emerald-600 dark:text-emerald-400',
+      bg: 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800',
+      bar: 'bg-emerald-500',
+    },
+    medium: {
+      label: 'Risco Médio',
+      icon: AlertTriangle,
+      color: 'text-amber-600 dark:text-amber-400',
+      bg: 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800',
+      bar: 'bg-amber-500',
+    },
+    high: {
+      label: 'Risco Alto',
+      icon: ShieldAlert,
+      color: 'text-red-600 dark:text-red-400',
+      bg: 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800',
+      bar: 'bg-red-500',
+    },
+  }
+
+  if (!projectID) return null
+
+  return (
+    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
+      <h2 className="text-sm font-semibold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+        <ShieldAlert className="w-4 h-4 text-violet-500" />
+        Churn Risk
+        <span className="text-xs font-normal text-slate-400 ml-1">BKL-1065</span>
+      </h2>
+
+      {loading && (
+        <div className="flex items-center gap-2 text-sm text-slate-400 py-4">
+          <div className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+          Calculando score...
+        </div>
+      )}
+
+      {error && (
+        <p className="text-sm text-red-500 dark:text-red-400">{error}</p>
+      )}
+
+      {data && (() => {
+        const cfg = riskConfig[data.risk]
+        const Icon = cfg.icon
+        const scorePct = Math.round(data.score * 100)
+        return (
+          <div className="space-y-4">
+            {/* Score principal */}
+            <div className={`rounded-lg border px-4 py-3 flex items-center gap-3 ${cfg.bg}`}>
+              <Icon className={`w-5 h-5 shrink-0 ${cfg.color}`} />
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-semibold ${cfg.color}`}>{cfg.label}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{data.period}</p>
+              </div>
+              <span className={`text-2xl font-bold ${cfg.color}`}>{scorePct}%</span>
+            </div>
+
+            {/* Barra de score */}
+            <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${cfg.bar}`}
+                style={{ width: `${scorePct}%` }}
+              />
+            </div>
+
+            {/* Fatores */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                Fatores contribuintes
+              </p>
+              {data.factors.map((f) => (
+                <div key={f.name} className="flex items-center gap-3 text-sm">
+                  <span className="w-20 text-slate-600 dark:text-slate-300 capitalize text-xs">{f.name}</span>
+                  <div className="flex-1 h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-violet-500"
+                      style={{ width: `${Math.round(f.value * 100)}%` }}
+                    />
+                  </div>
+                  <span className="text-xs text-slate-400 w-10 text-right">
+                    {Math.round(f.value * 100)}%
+                  </span>
+                  <span className="text-xs text-slate-400 w-12 text-right">
+                    ×{f.weight}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })()}
+    </div>
+  )
+}
 
 function StatCard({ label, value, sublabel }: { label: string; value: string | number; sublabel?: string }) {
   return (
@@ -253,6 +389,12 @@ export default function Retention() {
           {error}
         </div>
       )}
+
+      {/* BKL-1065: Churn Risk card — usa project_id do localStorage se disponível */}
+      {(() => {
+        const projectID = localStorage.getItem('pulse_project_id') ?? ''
+        return projectID ? <ChurnRiskCard projectID={projectID} /> : null
+      })()}
 
       {loading ? (
         <div className="flex items-center justify-center py-20 text-slate-400">

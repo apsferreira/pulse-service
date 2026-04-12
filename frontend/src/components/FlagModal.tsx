@@ -1,12 +1,14 @@
 // BKL-123: Formulário de feature flag com rollout % e targeting por user_id/tenant_id
 // BKL-124: Suporte a variantes A/B testing
+// BKL-989: Visual rule builder para targeting avançado (substitui campos user_ids/tenant_ids)
 
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { X, Plus, Trash2, FlaskConical } from 'lucide-react'
+import { X, Plus, Trash2, FlaskConical, SlidersHorizontal } from 'lucide-react'
 import type { FeatureFlag, CreateFlagPayload, UpdateFlagPayload, FlagVariant } from '../services/api'
+import RuleBuilder, { type RuleGroup, ruleGroupsToBackend, backendToRuleGroups } from './RuleBuilder'
 
 const createSchema = z.object({
   key: z
@@ -38,11 +40,14 @@ interface FlagModalProps {
 export default function FlagModal({ flag, onClose, onSubmit, loading }: FlagModalProps) {
   const isEdit = !!flag
 
-  // Targeting state — listas de IDs gerenciadas separadamente por ser multi-valor
-  const [userIDs, setUserIDs] = useState<string[]>(flag?.targeting?.user_ids ?? [])
-  const [tenantIDs, setTenantIDs] = useState<string[]>(flag?.targeting?.tenant_ids ?? [])
-  const [userIDInput, setUserIDInput] = useState('')
-  const [tenantIDInput, setTenantIDInput] = useState('')
+  // BKL-989: Rule builder state — substitui campos user_ids/tenant_ids por regras visuais
+  const [ruleGroups, setRuleGroups] = useState<RuleGroup[]>(
+    backendToRuleGroups(flag?.targeting as Record<string, unknown> | null | undefined)
+  )
+  const [showRuleBuilder, setShowRuleBuilder] = useState(
+    // Abrir automaticamente se já houver regras salvas no formato v2
+    !!(flag?.targeting && (flag.targeting as Record<string, unknown>).version === 2)
+  )
 
   // BKL-124: Variantes A/B
   const [variants, setVariants] = useState<FlagVariant[]>(flag?.variants ?? [])
@@ -76,29 +81,18 @@ export default function FlagModal({ flag, onClose, onSubmit, loading }: FlagModa
         enabled: flag.enabled,
         rollout_percentage: flag.rollout_percentage ?? 100,
       })
-      setUserIDs(flag.targeting?.user_ids ?? [])
-      setTenantIDs(flag.targeting?.tenant_ids ?? [])
+      setRuleGroups(backendToRuleGroups(flag.targeting as Record<string, unknown> | null | undefined))
+      setShowRuleBuilder(!!(flag.targeting && (flag.targeting as Record<string, unknown>).version === 2))
       setVariants(flag.variants ?? [])
     }
   }, [flag, editForm])
 
-  const addID = (list: string[], setList: (v: string[]) => void, input: string, setInput: (v: string) => void) => {
-    const val = input.trim()
-    if (val && !list.includes(val)) {
-      setList([...list, val])
-    }
-    setInput('')
-  }
-
-  const removeID = (list: string[], setList: (v: string[]) => void, id: string) => {
-    setList(list.filter(v => v !== id))
-  }
-
+  // BKL-989: buildTargeting serializa as RuleGroups no formato v2 para o backend
   const buildTargeting = () => {
-    const t: { user_ids?: string[]; tenant_ids?: string[] } = {}
-    if (userIDs.length > 0) t.user_ids = userIDs
-    if (tenantIDs.length > 0) t.tenant_ids = tenantIDs
-    return Object.keys(t).length > 0 ? t : undefined
+    if (!showRuleBuilder) return undefined
+    const backend = ruleGroupsToBackend(ruleGroups) as { groups?: unknown[] }
+    if (!backend.groups || backend.groups.length === 0) return undefined
+    return backend
   }
 
   const addVariant = () => {
@@ -252,77 +246,31 @@ export default function FlagModal({ flag, onClose, onSubmit, loading }: FlagModa
             </div>
           </div>
 
-          {/* BKL-123: Targeting por user_ids */}
+          {/* BKL-989: Visual Rule Builder para targeting avançado */}
           <div>
-            <label className={labelClass}>
-              Targeting por User ID
-              <span className="ml-1 text-xs text-slate-400 font-normal">(acesso direto, ignora rollout)</span>
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={userIDInput}
-                onChange={e => setUserIDInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addID(userIDs, setUserIDs, userIDInput, setUserIDInput))}
-                placeholder="UUID do usuario..."
-                className={inputClass}
-              />
+            <div className="flex items-center justify-between mb-1">
+              <label className={labelClass}>
+                <span className="flex items-center gap-1.5">
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-indigo-500" />
+                  Targeting por regras
+                </span>
+                <span className="ml-1 text-xs text-slate-400 font-normal">(opcional — acesso direto, ignora rollout%)</span>
+              </label>
               <button
                 type="button"
-                onClick={() => addID(userIDs, setUserIDs, userIDInput, setUserIDInput)}
-                className="p-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                onClick={() => setShowRuleBuilder(v => !v)}
+                className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
               >
-                <Plus className="w-4 h-4" />
+                {showRuleBuilder ? 'remover targeting' : '+ adicionar regras'}
               </button>
             </div>
-            {userIDs.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {userIDs.map(id => (
-                  <span key={id} className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 text-xs font-mono">
-                    {id.slice(0, 8)}…
-                    <button type="button" onClick={() => removeID(userIDs, setUserIDs, id)} className="hover:text-red-500">
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
 
-          {/* BKL-123: Targeting por tenant_ids */}
-          <div>
-            <label className={labelClass}>
-              Targeting por Tenant ID
-              <span className="ml-1 text-xs text-slate-400 font-normal">(acesso direto, ignora rollout)</span>
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={tenantIDInput}
-                onChange={e => setTenantIDInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addID(tenantIDs, setTenantIDs, tenantIDInput, setTenantIDInput))}
-                placeholder="UUID do tenant..."
-                className={inputClass}
+            {showRuleBuilder && (
+              <RuleBuilder
+                groups={ruleGroups}
+                onChange={setRuleGroups}
+                disabled={loading}
               />
-              <button
-                type="button"
-                onClick={() => addID(tenantIDs, setTenantIDs, tenantIDInput, setTenantIDInput)}
-                className="p-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
-            </div>
-            {tenantIDs.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {tenantIDs.map(id => (
-                  <span key={id} className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-mono">
-                    {id.slice(0, 8)}…
-                    <button type="button" onClick={() => removeID(tenantIDs, setTenantIDs, id)} className="hover:text-red-500">
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
             )}
           </div>
 

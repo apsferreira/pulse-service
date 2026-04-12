@@ -221,9 +221,13 @@ func main() {
 	queryExplorerHandler := handler.NewQueryExplorerHandler(pool, cfg.ServiceToken)
 	queryExplorerHandler.RegisterRoutes(app)
 
-	// BKL-1065: Churn prediction com regressão logística simplificada
+	// BKL-1065: Churn prediction com regressão logística simplificada (heurística por projeto)
 	churnPredHandler := handler.NewChurnPredictionHandler(pool, cfg.ServiceToken)
 	churnPredHandler.RegisterRoutes(app)
+
+	// BKL-999: Churn ML — regressão logística treinável por usuário (gradient descent, Go puro)
+	churnModelHandler := handler.NewChurnModelHandler(pool, cfg.ServiceToken)
+	churnModelHandler.RegisterRoutes(app)
 
 	// BKL-1086: Upgrade recommender inteligente — recomenda plano baseado em comportamento
 	upgradeHandler := handler.NewUpgradeHandler(pool, cfg.ServiceToken)

@@ -26,13 +26,30 @@ func flagCacheKeyForProject(projectID string) string {
 	return "pulse:flags:" + projectID + ":map"
 }
 
+// ErrApprovalRequired é retornado pelo Update quando a flag requer aprovação. BKL-990.
+// O caller (handler) deve inspecionar esse erro para retornar HTTP 202 com o approval criado.
+type ErrApprovalRequired struct {
+	Approval *domain.FlagApproval
+}
+
+func (e *ErrApprovalRequired) Error() string {
+	return "flag requires approval before applying changes"
+}
+
 type FlagService struct {
-	repo  *repository.FlagRepository
-	redis *redis.Client
+	repo         *repository.FlagRepository
+	redis        *redis.Client
+	approvalRepo *repository.FlagApprovalRepository // BKL-990: nil-safe
 }
 
 func NewFlagService(repo *repository.FlagRepository, redis *redis.Client) *FlagService {
 	return &FlagService{repo: repo, redis: redis}
+}
+
+// WithApprovalRepo injeta o repositório de approvals para o fluxo BKL-990.
+func (s *FlagService) WithApprovalRepo(approvalRepo *repository.FlagApprovalRepository) *FlagService {
+	s.approvalRepo = approvalRepo
+	return s
 }
 
 // List returns all feature flags (sem filtro de projeto).
@@ -78,11 +95,12 @@ func (s *FlagService) Create(ctx context.Context, req domain.CreateFlagRequest) 
 		Enabled:           req.Enabled,
 		RolloutPercentage: req.RolloutPercentage,
 		Targeting:         req.Targeting,
-		Variants:          req.Variants,      // BKL-094
-		Prerequisites:     req.Prerequisites, // BKL-1039
-		ProjectID:         req.ProjectID,     // BKL-323
-		StartsAt:          req.StartsAt,      // BKL-1040
-		EndsAt:            req.EndsAt,        // BKL-1040
+		Variants:          req.Variants,         // BKL-094
+		Prerequisites:     req.Prerequisites,    // BKL-1039
+		ProjectID:         req.ProjectID,        // BKL-323
+		RequireApproval:   req.RequireApproval,  // BKL-990
+		StartsAt:          req.StartsAt,         // BKL-1040
+		EndsAt:            req.EndsAt,           // BKL-1040
 	}
 
 	if err := s.repo.Create(ctx, flag); err != nil {
@@ -94,7 +112,44 @@ func (s *FlagService) Create(ctx context.Context, req domain.CreateFlagRequest) 
 }
 
 // Update applies partial updates to an existing flag by key.
+// BKL-990: se a flag tem require_approval=true e approvalRepo está configurado,
+// cria um FlagApproval ao invés de aplicar direto e retorna ErrApprovalRequired.
 func (s *FlagService) Update(ctx context.Context, key string, req domain.UpdateFlagRequest) (*domain.FeatureFlag, error) {
+	// BKL-990: verifica se a flag requer approval antes de aplicar mudança
+	if s.approvalRepo != nil {
+		existing, err := s.repo.GetByKey(ctx, key)
+		if err != nil {
+			return nil, fmt.Errorf("service: Update check approval: %w", err)
+		}
+		if existing != nil && existing.RequireApproval {
+			// Serializa o UpdateFlagRequest como payload do approval
+			payloadMap := map[string]any{
+				"description":        req.Description,
+				"enabled":            req.Enabled,
+				"rollout_percentage": req.RolloutPercentage,
+				"targeting":          req.Targeting,
+				"variants":           req.Variants,
+				"prerequisites":      req.Prerequisites,
+				"starts_at":          req.StartsAt,
+				"ends_at":            req.EndsAt,
+			}
+			projectID := uuidPtrToStr(existing.ProjectID)
+			requestedBy := req.RequestedBy
+			if requestedBy == "" {
+				requestedBy = "system"
+			}
+			approval, createErr := s.approvalRepo.Create(ctx, key, projectID, domain.CreateApprovalRequest{
+				RequestedBy: requestedBy,
+				Notes:       "mudança interceptada por require_approval=true",
+				Payload:     payloadMap,
+			})
+			if createErr != nil {
+				return nil, fmt.Errorf("service: Update: criar approval: %w", createErr)
+			}
+			return nil, &ErrApprovalRequired{Approval: approval}
+		}
+	}
+
 	updated, err := s.repo.Update(ctx, key, req)
 	if err != nil {
 		return nil, fmt.Errorf("service: Update: %w", err)

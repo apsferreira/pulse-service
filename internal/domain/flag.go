@@ -37,6 +37,7 @@ type FeatureFlag struct {
 	Variants          []FlagVariant      `json:"variants,omitempty"` // BKL-094: variantes A/B (vazio = on/off normal)
 	Prerequisites     []FlagPrerequisite `json:"prerequisites,omitempty"` // BKL-1039: flags das quais esta depende
 	ProjectID         *uuid.UUID         `json:"project_id,omitempty"` // BKL-323: scope por projeto (nullable)
+	RequireApproval   bool               `json:"require_approval"`     // BKL-990: mudanças requerem aprovação
 	StartsAt          *time.Time         `json:"starts_at,omitempty"`  // BKL-1040: ativação agendada (nil = imediato)
 	EndsAt            *time.Time         `json:"ends_at,omitempty"`    // BKL-1040: desativação agendada (nil = sem expiração)
 	CreatedAt         time.Time          `json:"created_at"`
@@ -59,6 +60,7 @@ type CreateFlagRequest struct {
 	Variants          []FlagVariant      `json:"variants,omitempty"`      // BKL-094
 	Prerequisites     []FlagPrerequisite `json:"prerequisites,omitempty"` // BKL-1039
 	ProjectID         *uuid.UUID         `json:"project_id,omitempty"`    // BKL-323
+	RequireApproval   bool               `json:"require_approval,omitempty"` // BKL-990
 	StartsAt          *time.Time         `json:"starts_at,omitempty"`     // BKL-1040
 	EndsAt            *time.Time         `json:"ends_at,omitempty"`       // BKL-1040
 }
@@ -71,6 +73,8 @@ type UpdateFlagRequest struct {
 	Targeting         *FlagTargeting     `json:"targeting"`
 	Variants          []FlagVariant      `json:"variants"`                    // BKL-094 (nil = não alterar, [] = remover)
 	Prerequisites     []FlagPrerequisite `json:"prerequisites,omitempty"`     // BKL-1039
+	RequireApproval   *bool              `json:"require_approval,omitempty"`  // BKL-990
+	RequestedBy       string             `json:"requested_by,omitempty"`      // BKL-990: obrigatório quando flag.RequireApproval=true
 	StartsAt          *time.Time         `json:"starts_at,omitempty"`         // BKL-1040
 	EndsAt            *time.Time         `json:"ends_at,omitempty"`           // BKL-1040
 }

@@ -90,6 +90,30 @@ func (r *FlagRepository) GetByKey(ctx context.Context, key string) (*domain.Feat
 	return &f, nil
 }
 
+// GetByKeyWithPrompt busca uma flag pelo key incluindo o campo prompt_variant. BKL-1002.
+// Usado pelo endpoint GET /api/v1/flags/:key/evaluate para expor a config de LLM.
+func (r *FlagRepository) GetByKeyWithPrompt(ctx context.Context, key string) (*domain.FeatureFlag, error) {
+	f, err := r.GetByKey(ctx, key)
+	if err != nil || f == nil {
+		return f, err
+	}
+
+	// Busca prompt_variant separadamente para não quebrar scanFlag existente
+	var promptBytes []byte
+	_ = r.db.QueryRow(ctx,
+		`SELECT prompt_variant FROM feature_flags WHERE key = $1`,
+		key,
+	).Scan(&promptBytes)
+
+	if len(promptBytes) > 0 {
+		var pv domain.PromptVariant
+		if err := json.Unmarshal(promptBytes, &pv); err == nil {
+			f.PromptVariant = &pv
+		}
+	}
+	return f, nil
+}
+
 // GetByKeys returns multiple feature flags by their keys (used by evaluate-batch and variants). BKL-094.
 func (r *FlagRepository) GetByKeys(ctx context.Context, keys []string) ([]domain.FeatureFlag, error) {
 	rows, err := r.db.Query(ctx,

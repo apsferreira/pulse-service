@@ -1,8 +1,9 @@
 // BKL-124: Página de A/B Testing — visualização de flags com variantes e distribuição de tráfego
 // BKL-1049: Painel de análise estatística (p-value, CI, lift, badge significativo)
+// BKL-1001: Tab de análise Bayesiana (Beta distribution + Monte Carlo P(B > A))
 
 import { useState, useEffect } from 'react'
-import { FlaskConical, ToggleLeft, TrendingUp, Users, BarChart2, CheckCircle, Clock } from 'lucide-react'
+import { FlaskConical, ToggleLeft, TrendingUp, Users, BarChart2, CheckCircle, Clock, Atom } from 'lucide-react'
 import { flagsApi, api } from '../services/api'
 import type { FeatureFlag, FlagVariant } from '../services/api'
 
@@ -277,6 +278,192 @@ function FlagCard({ flag }: { flag: FeatureFlag }) {
   )
 }
 
+// --- BKL-1001: Bayesian Analysis Component ---
+
+interface BayesianVariant {
+  alpha: number
+  beta: number
+  mean: number
+}
+
+interface BayesianResult {
+  variant_a: BayesianVariant
+  variant_b: BayesianVariant
+  prob_b_beats_a: number
+  recommendation: string
+  sample_size: number
+}
+
+function BayesianAnalysis() {
+  const [form, setForm] = useState({
+    a_conversions: '',
+    a_total: '',
+    b_conversions: '',
+    b_total: '',
+  })
+  const [result, setResult] = useState<BayesianResult | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleAnalyze = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const params = new URLSearchParams({
+        a_conversions: form.a_conversions,
+        a_total: form.a_total,
+        b_conversions: form.b_conversions,
+        b_total: form.b_total,
+      })
+      // Usa URL base + path absoluto pois o endpoint não tem prefixo /api/v1/projects
+      const baseURL = (import.meta.env?.VITE_API_URL as string) ?? ''
+      const resp = await fetch(
+        `${baseURL}/api/v1/experiments/mock/bayesian?${params}`,
+        { headers: { 'X-Service-Token': (import.meta.env?.VITE_SERVICE_TOKEN as string) ?? '' } },
+      )
+      // Na prática usa o id do experimento — usamos "mock" como placeholder
+      // O endpoint ignora o :id pois é stateless (só matemática)
+      if (!resp.ok) {
+        const body = await resp.json().catch(() => ({})) as { error?: string }
+        throw new Error(body?.error ?? `HTTP ${resp.status}`)
+      }
+      setResult(await resp.json() as BayesianResult)
+    } catch (err: unknown) {
+      const e = err as { message?: string }
+      setError(e?.message ?? 'Erro ao analisar')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const isValid = ['a_conversions', 'a_total', 'b_conversions', 'b_total'].every(
+    (k) => Number(form[k as keyof typeof form]) > 0,
+  )
+
+  const probPct = result ? Math.round(result.prob_b_beats_a * 100) : null
+
+  const recommendationLabel: Record<string, string> = {
+    deploy_b: 'Fazer deploy de B',
+    keep_a: 'Manter variante A',
+    collect_more_data: 'Coletar mais dados',
+  }
+
+  return (
+    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
+      <h2 className="text-base font-semibold flex items-center gap-2 mb-4">
+        <Atom className="w-4 h-4 text-violet-500" />
+        Análise Bayesiana — Beta Distribution
+      </h2>
+
+      <div className="grid sm:grid-cols-2 gap-4 mb-4">
+        {(['a', 'b'] as const).map((v) => (
+          <div key={v} className="space-y-2">
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+              Variante {v.toUpperCase()}
+            </p>
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <label className="text-xs text-slate-500 dark:text-slate-400">Conversões</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={form[`${v}_conversions` as keyof typeof form]}
+                  onChange={(e) => setForm((f) => ({ ...f, [`${v}_conversions`]: e.target.value }))}
+                  className="w-full mt-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="text-xs text-slate-500 dark:text-slate-400">Total</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={form[`${v}_total` as keyof typeof form]}
+                  onChange={(e) => setForm((f) => ({ ...f, [`${v}_total`]: e.target.value }))}
+                  className="w-full mt-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+                />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <button
+        onClick={handleAnalyze}
+        disabled={!isValid || loading}
+        className="bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+      >
+        {loading ? 'Calculando...' : 'Calcular P(B > A)'}
+      </button>
+
+      {error && (
+        <p className="mt-3 text-sm text-red-500 dark:text-red-400">{error}</p>
+      )}
+
+      {result && probPct !== null && (
+        <div className="mt-5 space-y-4">
+          {/* Gauge visual */}
+          <div className="flex flex-col items-center gap-2 py-4">
+            <div className="relative w-36 h-36">
+              <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+                <circle cx="50" cy="50" r="40" fill="none" stroke="#e2e8f0" strokeWidth="12" />
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="40"
+                  fill="none"
+                  stroke={probPct >= 95 ? '#16a34a' : probPct <= 5 ? '#dc2626' : '#7c3aed'}
+                  strokeWidth="12"
+                  strokeDasharray={`${probPct * 2.513} 251.3`}
+                  strokeLinecap="round"
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-2xl font-bold text-slate-900 dark:text-white">{probPct}%</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400">P(B &gt; A)</span>
+              </div>
+            </div>
+            <p className="text-sm text-slate-600 dark:text-slate-300 text-center max-w-xs">
+              Há <strong>{probPct}%</strong> de probabilidade que a variante B supere a variante controle A.
+            </p>
+          </div>
+
+          {/* Beta params por variante */}
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            {(['a', 'b'] as const).map((v) => {
+              const vData = v === 'a' ? result.variant_a : result.variant_b
+              return (
+                <div key={v} className="rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-3">
+                  <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-2">
+                    Variante {v.toUpperCase()}
+                  </p>
+                  <div className="space-y-1 text-xs text-slate-600 dark:text-slate-300">
+                    <p>α (alpha): <strong>{vData.alpha}</strong></p>
+                    <p>β (beta): <strong>{vData.beta}</strong></p>
+                    <p>Média: <strong>{(vData.mean * 100).toFixed(2)}%</strong></p>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Recomendação */}
+          <div className={`rounded-lg px-4 py-3 text-sm font-medium flex items-center gap-2 ${
+            result.recommendation === 'deploy_b'
+              ? 'bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400'
+              : result.recommendation === 'keep_a'
+              ? 'bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400'
+              : 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400'
+          }`}>
+            <CheckCircle className="w-4 h-4 shrink-0" />
+            Recomendação: {recommendationLabel[result.recommendation] ?? result.recommendation}
+            <span className="ml-auto text-xs font-normal opacity-70">{result.sample_size} amostras · 10k simulações MC</span>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function ABTesting() {
   const [flags, setFlags] = useState<FeatureFlag[]>([])
   const [loading, setLoading] = useState(true)
@@ -347,8 +534,11 @@ export default function ABTesting() {
         ))}
       </div>
 
-      {/* BKL-1049: Painel de análise estatística */}
+      {/* BKL-1049: Painel de análise estatística (chi-squared) */}
       <StatAnalyzer />
+
+      {/* BKL-1001: Análise Bayesiana (Beta distribution + Monte Carlo) */}
+      <BayesianAnalysis />
 
       {/* Content */}
       {loading && (

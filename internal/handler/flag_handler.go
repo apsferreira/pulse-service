@@ -7,6 +7,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/institutoitinerante/pulse-service/internal/domain"
 	"github.com/institutoitinerante/pulse-service/internal/middleware"
+	"github.com/institutoitinerante/pulse-service/internal/repository"
 	"github.com/institutoitinerante/pulse-service/internal/service"
 )
 
@@ -15,12 +16,19 @@ var validKeyPattern = regexp.MustCompile(`^[a-zA-Z0-9_\-\.]{2,100}$`)
 
 type FlagHandler struct {
 	svc          service.FlagServicer
+	flagRepo     *repository.FlagRepository // BKL-1002: acesso direto para GetByKeyWithPrompt
 	serviceToken string
 	sseBroker    *FlagSSEBroker // BKL-991: notifica subscribers SSE após updates
 }
 
 func NewFlagHandler(svc service.FlagServicer, serviceToken string) *FlagHandler {
 	return &FlagHandler{svc: svc, serviceToken: serviceToken}
+}
+
+// WithFlagRepo injeta o FlagRepository para operações que precisam de acesso direto. BKL-1002.
+func (h *FlagHandler) WithFlagRepo(repo *repository.FlagRepository) *FlagHandler {
+	h.flagRepo = repo
+	return h
 }
 
 // WithSSEBroker injeta o broker SSE para notificações em tempo real. BKL-991.
@@ -40,6 +48,7 @@ func (h *FlagHandler) RegisterRoutes(app *fiber.App) {
 	api := app.Group("/api/v1/flags", middleware.ServiceTokenMiddleware(h.serviceToken))
 	api.Post("/", h.CreateFlag)
 	api.Get("/", h.ListFlags)
+	api.Get("/:key/evaluate", h.EvaluateFlag) // BKL-1002: evaluate com prompt_variant
 	api.Get("/:key", h.GetFlagByKey)
 	api.Put("/:key", h.UpdateFlag)
 	api.Delete("/:key", h.DeleteFlag)
@@ -226,6 +235,54 @@ func (h *FlagHandler) EvaluateBatch(c *fiber.Ctx) error {
 		result[k] = allFlags.Flags[k]
 	}
 	return c.JSON(domain.FlagsMapResponse{Flags: result})
+}
+
+// EvaluateFlag godoc
+// GET /api/v1/flags/:key/evaluate
+// Retorna a flag com campos de avaliação incluindo prompt_variant quando presente. BKL-1002.
+// Query params opcionais: user_id, tenant_id — para avaliação de rollout/targeting.
+// Response: {enabled, variant, prompt_variant}
+func (h *FlagHandler) EvaluateFlag(c *fiber.Ctx) error {
+	key := c.Params("key")
+	if !validKeyPattern.MatchString(key) {
+		return c.Status(fiber.StatusBadRequest).JSON(domain.ErrorResponse{Error: "invalid flag key"})
+	}
+
+	// Busca flag com prompt_variant se o repo estiver disponível
+	var flag *domain.FeatureFlag
+	var err error
+	if h.flagRepo != nil {
+		flag, err = h.flagRepo.GetByKeyWithPrompt(c.Context(), key)
+	} else {
+		flag, err = h.svc.GetByKey(c.Context(), key)
+	}
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: "failed to evaluate flag"})
+	}
+	if flag == nil {
+		return c.Status(fiber.StatusNotFound).JSON(domain.ErrorResponse{Error: "flag not found"})
+	}
+
+	// Determina variante para o user_id fornecido (se houver variantes configuradas)
+	variant := ""
+	userID := c.Query("user_id")
+	if userID != "" && len(flag.Variants) > 0 {
+		// Avaliação determinística de variante pelo user_id
+		variantResp, verr := h.svc.GetVariants(c.Context(), userID, c.Query("tenant_id"), "")
+		if verr == nil {
+			variant = variantResp.Variants[key]
+		}
+	}
+
+	resp := fiber.Map{
+		"enabled": flag.Enabled,
+		"variant": variant,
+	}
+	if flag.PromptVariant != nil {
+		resp["prompt_variant"] = flag.PromptVariant
+	}
+
+	return c.JSON(resp)
 }
 
 // GetVariants godoc

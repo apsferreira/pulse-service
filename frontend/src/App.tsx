@@ -16,6 +16,7 @@ import StatusPage from './pages/StatusPage'
 import LoginPage from './pages/LoginPage'
 import AuthCallbackPage from './pages/AuthCallbackPage'
 import NorthStarPage from './pages/NorthStarPage'
+import QueryExplorer from './pages/QueryExplorer'
 
 function App() {
   return (
@@ -46,6 +47,7 @@ function App() {
                     <Route path="/csat" element={<CSAT />} />
                     <Route path="/flags/audit" element={<FlagAudit />} />
                     <Route path="/north-star" element={<NorthStarPage />} />
+                    <Route path="/query-explorer" element={<QueryExplorer />} />
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
                 </Layout>

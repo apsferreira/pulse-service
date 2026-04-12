@@ -26,6 +26,14 @@ type FlagVariant struct {
 	Weight int    `json:"weight"` // percentual (0-100); soma dos pesos deve ser 100
 }
 
+// PromptVariant define a configuração de LLM para A/B test de prompts. BKL-1002.
+type PromptVariant struct {
+	SystemPrompt string `json:"system_prompt,omitempty"` // prompt de sistema do LLM
+	Model        string `json:"model,omitempty"`         // ex: "gemini-2.5-flash-preview-04-17"
+	Temperature  *float64 `json:"temperature,omitempty"` // opcional: 0.0-2.0
+	MaxTokens    *int     `json:"max_tokens,omitempty"`  // opcional: limite de tokens
+}
+
 // FeatureFlag represents a feature flag stored in the database.
 type FeatureFlag struct {
 	ID                string             `json:"id"`
@@ -40,6 +48,7 @@ type FeatureFlag struct {
 	RequireApproval   bool               `json:"require_approval"`     // BKL-990: mudanças requerem aprovação
 	StartsAt          *time.Time         `json:"starts_at,omitempty"`  // BKL-1040: ativação agendada (nil = imediato)
 	EndsAt            *time.Time         `json:"ends_at,omitempty"`    // BKL-1040: desativação agendada (nil = sem expiração)
+	PromptVariant     *PromptVariant     `json:"prompt_variant,omitempty"` // BKL-1002: config de LLM para A/B test de prompts
 	CreatedAt         time.Time          `json:"created_at"`
 	UpdatedAt         time.Time          `json:"updated_at"`
 }

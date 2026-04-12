@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"regexp"
 
 	"github.com/gofiber/fiber/v2"
@@ -15,10 +16,17 @@ var validKeyPattern = regexp.MustCompile(`^[a-zA-Z0-9_\-\.]{2,100}$`)
 type FlagHandler struct {
 	svc          service.FlagServicer
 	serviceToken string
+	sseBroker    *FlagSSEBroker // BKL-991: notifica subscribers SSE após updates
 }
 
 func NewFlagHandler(svc service.FlagServicer, serviceToken string) *FlagHandler {
 	return &FlagHandler{svc: svc, serviceToken: serviceToken}
+}
+
+// WithSSEBroker injeta o broker SSE para notificações em tempo real. BKL-991.
+func (h *FlagHandler) WithSSEBroker(broker *FlagSSEBroker) *FlagHandler {
+	h.sseBroker = broker
+	return h
 }
 
 // RegisterRoutes mounts all flag routes onto the given Fiber app.
@@ -139,11 +147,29 @@ func (h *FlagHandler) UpdateFlag(c *fiber.Ctx) error {
 
 	flag, err := h.svc.Update(c.Context(), key, req)
 	if err != nil {
+		// BKL-990: flag requer aprovação — retorna 202 com o approval criado
+		var approvalErr *service.ErrApprovalRequired
+		if errors.As(err, &approvalErr) {
+			return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
+				"message":  "mudança pendente de aprovação",
+				"approval": approvalErr.Approval,
+			})
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: "failed to update flag"})
 	}
 	if flag == nil {
 		return c.Status(fiber.StatusNotFound).JSON(domain.ErrorResponse{Error: "flag not found"})
 	}
+
+	// BKL-991: notifica subscribers SSE sobre a atualização da flag
+	if h.sseBroker != nil && flag.ProjectID != nil {
+		h.sseBroker.Notify(flag.ProjectID.String(), FlagUpdateEvent{
+			FlagKey:   flag.Key,
+			Enabled:   flag.Enabled,
+			UpdatedAt: flag.UpdatedAt,
+		})
+	}
+
 	return c.JSON(flag)
 }
 

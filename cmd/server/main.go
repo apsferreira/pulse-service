@@ -273,6 +273,11 @@ func main() {
 	userIdentityHandler := handler.NewUserIdentityHandler(userIdentityRepo, cfg.ServiceToken)
 	userIdentityHandler.RegisterRoutes(app)
 
+	// BKL-865: Anomaly detection em métricas de eventos
+	anomalySvc := service.NewAnomalyService(pool)
+	anomalyHandler := handler.NewAnomalyHandler(anomalySvc, cfg.ServiceToken)
+	anomalyHandler.RegisterRoutes(app)
+
 	// BKL-864: Weekly insight narrativo — gera toda segunda-feira via Haiku
 	weeklyInsightSvc := service.NewWeeklyInsightService(pool)
 	insightHandler := handler.NewInsightHandler(weeklyInsightSvc, cfg.ServiceToken)

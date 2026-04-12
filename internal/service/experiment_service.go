@@ -29,10 +29,12 @@ type ExperimentResult struct {
 	TreatmentRate        float64 `json:"treatment_rate"`
 
 	// Estatística
-	ChiSquared          float64 `json:"chi_squared"`
-	PValue              float64 `json:"p_value"`
-	StatisticallySignificant bool `json:"statistically_significant"` // p < 0.05
-	ConfidenceLevel     float64 `json:"confidence_level"` // 1 - p_value (ex: 0.95)
+	ChiSquared               float64 `json:"chi_squared"`
+	PValue                   float64 `json:"p_value"`
+	StatisticallySignificant bool    `json:"statistically_significant"` // p < 0.05
+	ConfidenceLevel          float64 `json:"confidence_level"`          // 1 - p_value (ex: 0.95)
+	// BKL-419: campo legível de significância estatística
+	Confidence string `json:"confidence"` // "90%", "95%", "99%" ou "not_significant"
 
 	// Lift relativo entre tratamento e controle
 	RelativeLift    float64 `json:"relative_lift"` // ex: +12.5 (%)
@@ -100,6 +102,20 @@ func AnalyzeExperiment(input ExperimentInput) ExperimentResult {
 	significant := pValue < 0.05
 	confidence := 1.0 - pValue
 
+	// BKL-419: nível de confiança legível via lookup de chi-squared (df=1)
+	// Thresholds: p=0.001 → χ²≥10.83 (99.9%), p=0.01 → χ²≥6.63 (99%), p=0.05 → χ²≥3.84 (95%), p=0.10 → χ²≥2.71 (90%)
+	confidenceLabel := "not_significant"
+	switch {
+	case chiSq >= 10.83:
+		confidenceLabel = "99.9%"
+	case chiSq >= 6.63:
+		confidenceLabel = "99%"
+	case chiSq >= 3.84:
+		confidenceLabel = "95%"
+	case chiSq >= 2.71:
+		confidenceLabel = "90%"
+	}
+
 	// Lift
 	absoluteLift := tRate - cRate
 	relativeLift := 0.0
@@ -118,20 +134,21 @@ func AnalyzeExperiment(input ExperimentInput) ExperimentResult {
 	}
 
 	return ExperimentResult{
-		ControlConversions:   cConv,
-		ControlTotal:         cTotal,
-		ControlRate:          cRate,
-		TreatmentConversions: tConv,
-		TreatmentTotal:       tTotal,
-		TreatmentRate:        tRate,
-		ChiSquared:           math.Round(chiSq*10000) / 10000,
-		PValue:               math.Round(pValue*10000) / 10000,
+		ControlConversions:       cConv,
+		ControlTotal:             cTotal,
+		ControlRate:              cRate,
+		TreatmentConversions:     tConv,
+		TreatmentTotal:           tTotal,
+		TreatmentRate:            tRate,
+		ChiSquared:               math.Round(chiSq*10000) / 10000,
+		PValue:                   math.Round(pValue*10000) / 10000,
 		StatisticallySignificant: significant,
-		ConfidenceLevel:      math.Round(confidence*10000) / 10000,
-		AbsoluteLift:         math.Round(absoluteLift*10000) / 10000,
-		RelativeLift:         math.Round(relativeLift*100) / 100,
-		Recommendation:       recommendation,
-		SampleSize:           cTotal + tTotal,
+		ConfidenceLevel:          math.Round(confidence*10000) / 10000,
+		Confidence:               confidenceLabel,
+		AbsoluteLift:             math.Round(absoluteLift*10000) / 10000,
+		RelativeLift:             math.Round(relativeLift*100) / 100,
+		Recommendation:           recommendation,
+		SampleSize:               cTotal + tTotal,
 	}
 }
 

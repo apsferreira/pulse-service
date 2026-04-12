@@ -15,6 +15,7 @@ import Pricing from './pages/Pricing'
 import StatusPage from './pages/StatusPage'
 import LoginPage from './pages/LoginPage'
 import AuthCallbackPage from './pages/AuthCallbackPage'
+import NorthStarPage from './pages/NorthStarPage'
 
 function App() {
   return (
@@ -44,6 +45,7 @@ function App() {
                     <Route path="/costs" element={<Costs />} />
                     <Route path="/csat" element={<CSAT />} />
                     <Route path="/flags/audit" element={<FlagAudit />} />
+                    <Route path="/north-star" element={<NorthStarPage />} />
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
                 </Layout>

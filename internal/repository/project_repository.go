@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -158,6 +159,92 @@ func (r *ProjectRepository) RegenerateAPIKey(ctx context.Context, slug string) (
 		return nil, fmt.Errorf("repository: RegenerateAPIKey: %w", err)
 	}
 	return r.GetBySlug(ctx, slug)
+}
+
+// GetByID retorna um projeto pelo UUID (necessário para endpoints /api/v1/projects/:id). BKL-998.
+func (r *ProjectRepository) GetByID(ctx context.Context, id string) (*domain.Project, error) {
+	row := r.db.QueryRow(ctx, `
+		SELECT id, name, slug, api_key, COALESCE(description, ''), COALESCE(plan, 'free'), COALESCE(data_retention_days, 90), is_active, created_at, updated_at
+		FROM projects WHERE id = $1
+	`, id)
+	return scanProject(row)
+}
+
+// GetHealthConfig lê a configuração de health score de um projeto. BKL-998.
+// Retorna a configuração default se a coluna ainda não tiver sido setada.
+func (r *ProjectRepository) GetHealthConfig(ctx context.Context, projectID string) (domain.ProjectHealthConfig, error) {
+	var raw []byte
+	err := r.db.QueryRow(ctx, `
+		SELECT COALESCE(health_config, '{}'::jsonb) FROM projects WHERE id = $1
+	`, projectID).Scan(&raw)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return defaultHealthConfig(), nil
+		}
+		return domain.ProjectHealthConfig{}, fmt.Errorf("project_repository: GetHealthConfig: %w", err)
+	}
+	var cfg domain.ProjectHealthConfig
+	if err := json.Unmarshal(raw, &cfg); err != nil {
+		return defaultHealthConfig(), nil
+	}
+	// Aplica defaults para campos zerados
+	applyHealthConfigDefaults(&cfg)
+	return cfg, nil
+}
+
+// UpdateHealthConfig persiste a configuração de health score de um projeto. BKL-998.
+func (r *ProjectRepository) UpdateHealthConfig(ctx context.Context, projectID string, cfg domain.ProjectHealthConfig) error {
+	applyHealthConfigDefaults(&cfg)
+	raw, err := json.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("project_repository: UpdateHealthConfig marshal: %w", err)
+	}
+	result, err := r.db.Exec(ctx, `
+		UPDATE projects SET health_config = $1, updated_at = NOW() WHERE id = $2
+	`, raw, projectID)
+	if err != nil {
+		return fmt.Errorf("project_repository: UpdateHealthConfig: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("project_repository: UpdateHealthConfig: projeto não encontrado")
+	}
+	return nil
+}
+
+// defaultHealthConfig retorna a configuração padrão de health score.
+func defaultHealthConfig() domain.ProjectHealthConfig {
+	return domain.ProjectHealthConfig{
+		Weights: domain.HealthConfigWeights{
+			FlagsWithAudit:     0.3,
+			ExperimentsRunning: 0.3,
+			EventsTracked24h:   0.2,
+			ErrorRate:          0.2,
+		},
+		Thresholds: domain.HealthConfigThresholds{
+			Green:  80,
+			Yellow: 60,
+		},
+	}
+}
+
+// applyHealthConfigDefaults preenche zeros com valores padrão.
+func applyHealthConfigDefaults(cfg *domain.ProjectHealthConfig) {
+	if cfg.Thresholds.Green == 0 {
+		cfg.Thresholds.Green = 80
+	}
+	if cfg.Thresholds.Yellow == 0 {
+		cfg.Thresholds.Yellow = 60
+	}
+	total := cfg.Weights.FlagsWithAudit + cfg.Weights.ExperimentsRunning +
+		cfg.Weights.EventsTracked24h + cfg.Weights.ErrorRate
+	if total == 0 {
+		cfg.Weights = domain.HealthConfigWeights{
+			FlagsWithAudit:     0.3,
+			ExperimentsRunning: 0.3,
+			EventsTracked24h:   0.2,
+			ErrorRate:          0.2,
+		}
+	}
 }
 
 func scanProject(row pgx.Row) (*domain.Project, error) {

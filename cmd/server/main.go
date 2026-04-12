@@ -70,6 +70,11 @@ func main() {
 	flagSvc := service.NewFlagService(flagRepo, redisClient)
 	flagHandler := handler.NewFlagHandler(flagSvc, cfg.ServiceToken)
 
+	// BKL-991: SSE broker para flag updates em tempo real
+	sseBroker := handler.NewFlagSSEBroker()
+	flagSSEHandler := handler.NewFlagSSEHandler(sseBroker, cfg.ServiceToken)
+	flagHandler.WithSSEBroker(sseBroker) // injeta broker para notificações em UpdateFlag
+
 	// Wire up layers — uptime monitors
 	monitorRepo := repository.NewMonitorRepository(pool)
 	monitorSvc := service.NewMonitorService(monitorRepo)
@@ -193,7 +198,9 @@ func main() {
 	flagMetricHandler.RegisterRoutes(app)
 
 	// BKL-1079: Approval workflow para feature flags
+	// BKL-990: injeta approvalRepo no flagSvc para intercepção de require_approval=true
 	flagApprovalRepo := repository.NewFlagApprovalRepository(pool)
+	flagSvc.WithApprovalRepo(flagApprovalRepo)
 	flagApprovalHandler := handler.NewFlagApprovalHandler(flagApprovalRepo, cfg.ServiceToken)
 	flagApprovalHandler.RegisterRoutes(app)
 
@@ -217,6 +224,17 @@ func main() {
 	// BKL-1058: Funis de conversão server-side (POST /api/v1/funnels/analyze)
 	funnelHandler := handler.NewFunnelHandler(pool, cfg.ServiceToken)
 	funnelHandler.RegisterRoutes(app)
+
+	// BKL-997: Funil flag→conversão (GET /api/v1/projects/:project_id/funnel/:flag_key)
+	flagFunnelHandler := handler.NewFlagFunnelHandler(pool, cfg.ServiceToken)
+	flagFunnelHandler.RegisterRoutes(app)
+
+	// BKL-998: Health score configurável por projeto
+	projectHealthHandler := handler.NewProjectHealthHandler(projectRepo, pool, cfg.ServiceToken)
+	projectHealthHandler.RegisterRoutes(app)
+
+	// BKL-991: SSE de flag updates em tempo real
+	flagSSEHandler.RegisterRoutes(app)
 
 	// BKL-1064: AI Configs — feature flags para prompts e parâmetros de LLM
 	aiConfigHandler := handler.NewAIConfigHandler(pool, cfg.ServiceToken)

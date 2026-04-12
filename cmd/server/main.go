@@ -268,6 +268,10 @@ func main() {
 	iitDashboardHandler := handler.NewIITDashboardHandler(pool, cfg.ServiceToken)
 	iitDashboardHandler.RegisterRoutes(app)
 
+	// BKL-769: North Star Metrics — dados reais por produto IIT (sem service token, dados agregados)
+	northStarHandler := handler.NewNorthStarHandler(pool)
+	northStarHandler.RegisterRoutes(app)
+
 	// BKL-150: Register WebSocket routes
 	wsHandler.RegisterRoutes(app)
 

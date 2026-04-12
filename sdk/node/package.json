@@ -1,0 +1,45 @@
+{
+  "name": "@pulse-iit/node",
+  "version": "0.1.0",
+  "description": "Pulse IIT Node.js SDK — server-side event tracking com buffering e batch flush",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test dist/index.test.js"
+  },
+  "keywords": [
+    "pulse",
+    "analytics",
+    "event-tracking",
+    "iit",
+    "node"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/apsferreira/pulse-service.git",
+    "directory": "sdk/node"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}

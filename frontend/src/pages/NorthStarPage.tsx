@@ -1,4 +1,5 @@
-// BKL-767: Dashboard de North Star Metrics — 6 produtos IIT
+// BKL-769: North Star Metrics — dados reais via GET /api/v1/north-star
+import { useEffect, useState } from 'react'
 import {
   Share2,
   Timer,
@@ -10,6 +11,8 @@ import {
   TrendingDown,
   Minus,
 } from 'lucide-react'
+
+// ─── Sparkline ───────────────────────────────────────────────────────────────
 
 interface SparklineProps {
   data: number[]
@@ -48,7 +51,6 @@ function Sparkline({ data, color }: SparklineProps) {
         strokeLinecap="round"
         points={points}
       />
-      {/* Ponto final destacado */}
       {data.length > 0 && (
         <circle
           cx={(data.length - 1) * step}
@@ -61,113 +63,67 @@ function Sparkline({ data, color }: SparklineProps) {
   )
 }
 
+// ─── Tipos ───────────────────────────────────────────────────────────────────
+
 type BadgeStatus = 'green' | 'yellow' | 'red'
 
-interface NorthStarProduct {
-  name: string
-  icon: React.ElementType
-  nsm: string
+interface ApiMetric {
+  product: string
+  metric_name: string
   unit: string
+  current_value: number
+  previous_value: number
+  sparkline: number[]
+  updated_at: string
+}
+
+interface ProductConfig {
+  product: string
+  icon: React.ElementType
   colorClass: string
   sparkColor: string
-  badgeBg: string
-  currentValue: number
-  prevValue: number
-  sparkData: number[]
-  status: BadgeStatus
 }
 
-function generateSparkline(base: number): number[] {
-  return Array.from({ length: 8 }, () =>
-    Math.round(base * (0.85 + Math.random() * 0.3))
-  )
-}
-
-const PRODUCTS: NorthStarProduct[] = [
-  {
-    name: 'SocialMake',
+const PRODUCT_CONFIG: Record<string, ProductConfig> = {
+  socialmake: {
+    product: 'SocialMake',
     icon: Share2,
-    nsm: 'Posts publicados',
-    unit: 'por semana',
     colorClass: 'text-amber-600 dark:text-amber-400',
     sparkColor: '#d97706',
-    badgeBg: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
-    currentValue: 47,
-    prevValue: 38,
-    sparkData: generateSparkline(45),
-    status: 'green',
   },
-  {
-    name: 'Nitro',
+  nitro: {
+    product: 'Nitro',
     icon: Timer,
-    nsm: 'Sessões de foco completadas',
-    unit: 'por semana',
     colorClass: 'text-indigo-600 dark:text-indigo-400',
     sparkColor: '#4f46e5',
-    badgeBg: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300',
-    currentValue: 312,
-    prevValue: 298,
-    sparkData: generateSparkline(305),
-    status: 'green',
   },
-  {
-    name: 'Libri',
+  libri: {
+    product: 'Libri',
     icon: BookOpen,
-    nsm: 'Livros concluídos',
-    unit: 'no mês',
     colorClass: 'text-emerald-600 dark:text-emerald-400',
     sparkColor: '#059669',
-    badgeBg: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
-    currentValue: 84,
-    prevValue: 91,
-    sparkData: generateSparkline(87),
-    status: 'yellow',
   },
-  {
-    name: 'MeuIngresso',
+  meuingresso: {
+    product: 'MeuIngresso',
     icon: Ticket,
-    nsm: 'Ingressos vendidos',
-    unit: 'por evento',
     colorClass: 'text-sky-600 dark:text-sky-400',
     sparkColor: '#0284c7',
-    badgeBg: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300',
-    currentValue: 215,
-    prevValue: 180,
-    sparkData: generateSparkline(200),
-    status: 'green',
   },
-  {
-    name: 'Brio',
+  brio: {
+    product: 'Brio',
     icon: MessageSquare,
-    nsm: 'Conversas resolvidas pelo agente',
-    unit: '% do total',
     colorClass: 'text-violet-600 dark:text-violet-400',
     sparkColor: '#7c3aed',
-    badgeBg: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300',
-    currentValue: 68,
-    prevValue: 72,
-    sparkData: generateSparkline(70),
-    status: 'yellow',
   },
-  {
-    name: 'Pulse',
+  pulse: {
+    product: 'Pulse',
     icon: Zap,
-    nsm: 'Projetos com flag tracked',
-    unit: 'ativos',
     colorClass: 'text-orange-600 dark:text-orange-400',
     sparkColor: '#ea580c',
-    badgeBg: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',
-    currentValue: 9,
-    prevValue: 6,
-    sparkData: generateSparkline(8),
-    status: 'green',
   },
-]
+}
 
-const STATUS_CONFIG: Record<
-  BadgeStatus,
-  { label: string; className: string }
-> = {
+const STATUS_CONFIG: Record<BadgeStatus, { label: string; className: string }> = {
   green: {
     label: 'No alvo',
     className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
@@ -181,6 +137,16 @@ const STATUS_CONFIG: Record<
     className: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
   },
 }
+
+function deriveStatus(current: number, previous: number): BadgeStatus {
+  if (previous === 0) return 'green'
+  const pct = ((current - previous) / previous) * 100
+  if (pct >= -5) return 'green'
+  if (pct >= -20) return 'yellow'
+  return 'red'
+}
+
+// ─── DeltaBadge ──────────────────────────────────────────────────────────────
 
 function DeltaBadge({ current, prev }: { current: number; prev: number }) {
   if (prev === 0) return null
@@ -205,61 +171,141 @@ function DeltaBadge({ current, prev }: { current: number; prev: number }) {
   )
 }
 
-interface NorthStarCardProps {
-  product: NorthStarProduct
-}
+// ─── Skeleton card ───────────────────────────────────────────────────────────
 
-function NorthStarCard({ product }: NorthStarCardProps) {
-  const Icon = product.icon
-  const status = STATUS_CONFIG[product.status]
-
+function SkeletonCard() {
   return (
-    <article
-      className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 flex flex-col gap-4 shadow-sm hover:shadow-md transition-shadow"
-      aria-label={`North Star — ${product.name}`}
-    >
-      {/* Header */}
+    <article className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 flex flex-col gap-4 shadow-sm animate-pulse">
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2">
-          <div className={`p-2 rounded-lg bg-slate-100 dark:bg-slate-800 ${product.colorClass}`}>
-            <Icon className="w-4 h-4" aria-hidden="true" />
-          </div>
-          <span className="font-semibold text-slate-900 dark:text-slate-100 text-sm">
-            {product.name}
-          </span>
+          <div className="w-8 h-8 rounded-lg bg-slate-200 dark:bg-slate-700" />
+          <div className="w-20 h-4 rounded bg-slate-200 dark:bg-slate-700" />
         </div>
-        <span
-          className={`text-xs font-medium px-2 py-0.5 rounded-full ${status.className}`}
-          aria-label={`Status: ${status.label}`}
-        >
-          {status.label}
-        </span>
+        <div className="w-14 h-5 rounded-full bg-slate-200 dark:bg-slate-700" />
       </div>
-
-      {/* NSM label */}
-      <div>
-        <p className="text-xs text-slate-500 dark:text-slate-400 leading-tight">{product.nsm}</p>
-        <p className="text-xs text-slate-400 dark:text-slate-500">{product.unit}</p>
+      <div className="space-y-1">
+        <div className="w-36 h-3 rounded bg-slate-200 dark:bg-slate-700" />
+        <div className="w-16 h-3 rounded bg-slate-200 dark:bg-slate-700" />
       </div>
-
-      {/* Value + sparkline */}
       <div className="flex items-end justify-between gap-3">
-        <div>
-          <p className={`text-3xl font-black tabular-nums ${product.colorClass}`}>
-            {product.currentValue.toLocaleString('pt-BR')}
-            {product.unit === '% do total' && (
-              <span className="text-lg font-semibold">%</span>
-            )}
-          </p>
-          <DeltaBadge current={product.currentValue} prev={product.prevValue} />
+        <div className="space-y-1">
+          <div className="w-20 h-9 rounded bg-slate-200 dark:bg-slate-700" />
+          <div className="w-28 h-3 rounded bg-slate-200 dark:bg-slate-700" />
         </div>
-        <Sparkline data={product.sparkData} color={product.sparkColor} />
+        <div className="w-24 h-8 rounded bg-slate-200 dark:bg-slate-700" />
       </div>
     </article>
   )
 }
 
+// ─── NorthStarCard ───────────────────────────────────────────────────────────
+
+interface NorthStarCardProps {
+  metric: ApiMetric
+}
+
+function NorthStarCard({ metric }: NorthStarCardProps) {
+  const cfg = PRODUCT_CONFIG[metric.product]
+  const Icon = cfg?.icon ?? Zap
+  const status = deriveStatus(metric.current_value, metric.previous_value)
+  const statusCfg = STATUS_CONFIG[status]
+
+  const displayName = cfg?.product ?? metric.product
+  const colorClass = cfg?.colorClass ?? 'text-slate-600 dark:text-slate-400'
+  const sparkColor = cfg?.sparkColor ?? '#64748b'
+
+  return (
+    <article
+      className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 flex flex-col gap-4 shadow-sm hover:shadow-md transition-shadow"
+      aria-label={`North Star — ${displayName}`}
+    >
+      {/* Header */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <div className={`p-2 rounded-lg bg-slate-100 dark:bg-slate-800 ${colorClass}`}>
+            <Icon className="w-4 h-4" aria-hidden="true" />
+          </div>
+          <span className="font-semibold text-slate-900 dark:text-slate-100 text-sm">
+            {displayName}
+          </span>
+        </div>
+        <span
+          className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusCfg.className}`}
+          aria-label={`Status: ${statusCfg.label}`}
+        >
+          {statusCfg.label}
+        </span>
+      </div>
+
+      {/* NSM label */}
+      <div>
+        <p className="text-xs text-slate-500 dark:text-slate-400 leading-tight">{metric.metric_name}</p>
+        <p className="text-xs text-slate-400 dark:text-slate-500">{metric.unit}</p>
+      </div>
+
+      {/* Value + sparkline */}
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <p className={`text-3xl font-black tabular-nums ${colorClass}`}>
+            {metric.current_value.toLocaleString('pt-BR')}
+            {metric.unit === '% do total' && (
+              <span className="text-lg font-semibold">%</span>
+            )}
+          </p>
+          <DeltaBadge current={metric.current_value} prev={metric.previous_value} />
+        </div>
+        <Sparkline data={metric.sparkline} color={sparkColor} />
+      </div>
+    </article>
+  )
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+const PULSE_API_URL = import.meta.env.VITE_PULSE_API_URL ?? ''
+
 export default function NorthStarPage() {
+  const [metrics, setMetrics] = useState<ApiMetric[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [generatedAt, setGeneratedAt] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+
+    fetch(`${PULSE_API_URL}/api/v1/north-star`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        return res.json()
+      })
+      .then((data: { metrics: ApiMetric[]; generated_at: string }) => {
+        if (cancelled) return
+        setMetrics(data.metrics ?? [])
+        setGeneratedAt(data.generated_at ?? null)
+        setLoading(false)
+      })
+      .catch((err: Error) => {
+        if (cancelled) return
+        setError(err.message)
+        setLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const formattedAt = generatedAt
+    ? new Date(generatedAt).toLocaleString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : null
+
   return (
     <div className="space-y-6">
       {/* Page header */}
@@ -269,7 +315,7 @@ export default function NorthStarPage() {
             North Star Metrics
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-            Indicadores principais dos 6 produtos IIT — dados placeholder, backend em breve
+            Indicadores principais dos 6 produtos IIT — dados reais de eventos
           </p>
         </div>
         <span className="text-xs text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg">
@@ -277,23 +323,41 @@ export default function NorthStarPage() {
         </span>
       </div>
 
+      {/* Error banner */}
+      {error && (
+        <div
+          role="alert"
+          className="rounded-xl border border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-400"
+        >
+          Erro ao carregar métricas: {error}. Os valores exibidos podem estar desatualizados.
+        </div>
+      )}
+
       {/* Grid: 3 colunas desktop / 2 tablet / 1 mobile */}
       <div
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
         role="list"
         aria-label="North Star Metrics por produto"
       >
-        {PRODUCTS.map((product) => (
-          <div key={product.name} role="listitem">
-            <NorthStarCard product={product} />
-          </div>
-        ))}
+        {loading
+          ? Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} role="listitem">
+                <SkeletonCard />
+              </div>
+            ))
+          : metrics.map((metric) => (
+              <div key={metric.product} role="listitem">
+                <NorthStarCard metric={metric} />
+              </div>
+            ))}
       </div>
 
-      {/* Disclaimer */}
-      <p className="text-xs text-slate-400 dark:text-slate-500 text-center pt-2">
-        Os sparklines exibem dados de placeholder (8 semanas simuladas). A integração com a API de eventos está prevista no backlog.
-      </p>
+      {/* Footer */}
+      {!loading && !error && formattedAt && (
+        <p className="text-xs text-slate-400 dark:text-slate-500 text-center pt-2">
+          Dados reais de eventos. Atualizado em {formattedAt}.
+        </p>
+      )}
     </div>
   )
 }

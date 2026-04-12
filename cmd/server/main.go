@@ -272,6 +272,10 @@ func main() {
 	northStarHandler := handler.NewNorthStarHandler(pool)
 	northStarHandler.RegisterRoutes(app)
 
+	// BKL-420: Session Replay — ingest + playback endpoints
+	replayHandler := handler.NewReplayHandler(pool, cfg.ServiceToken)
+	replayHandler.RegisterRoutes(app)
+
 	// BKL-150: Register WebSocket routes
 	wsHandler.RegisterRoutes(app)
 

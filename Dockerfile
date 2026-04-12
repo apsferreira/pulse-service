@@ -21,7 +21,7 @@ RUN go mod tidy && go mod download
 RUN go build -ldflags="-s -w" -o /app/pulse-service ./cmd/server
 
 # ---- Runtime stage ----
-FROM alpine:3.20
+FROM alpine:3.21
 
 WORKDIR /app
 

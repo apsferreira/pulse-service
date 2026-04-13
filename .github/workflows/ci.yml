@@ -119,6 +119,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=registry,ref=ghcr.io/${{ env.IMAGE_NAME }}:main-latest
+          cache-to: type=inline
           build-args: |
             BUILDKIT_INLINE_CACHE=1
 
@@ -167,6 +169,8 @@ jobs:
           push: true
           tags: ${{ steps.meta-frontend.outputs.tags }}
           labels: ${{ steps.meta-frontend.outputs.labels }}
+          cache-from: type=registry,ref=ghcr.io/apsferreira/pulse-service-frontend:latest
+          cache-to: type=inline
           build-args: |
             VITE_SERVICE_TOKEN=${{ secrets.PULSE_SERVICE_TOKEN }}
             BUILDKIT_INLINE_CACHE=1

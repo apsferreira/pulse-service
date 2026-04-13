@@ -211,7 +211,7 @@ export default function LandingPage() {
         </h1>
 
         <p className="text-xl text-gray-400 max-w-2xl mx-auto mb-10">
-          Pulse reúne feature flags, A/B testing, session replay, heatmaps, funis de conversão
+          Pulse reúne feature flags, A/B testing, session replay, funis de conversão
           e cohorts em uma plataforma só. Self-hosted ou cloud, pricing em BRL, dados no Brasil.
           40-60% mais barato que LaunchDarkly e VWO.
         </p>
@@ -240,7 +240,7 @@ export default function LandingPage() {
       <section id="features" className="max-w-6xl mx-auto px-6 py-20">
         <h2 className="text-3xl font-bold text-center mb-4">Tudo que você precisa, em um lugar</h2>
         <p className="text-gray-400 text-center mb-16 max-w-xl mx-auto">
-          Não é só feature flags. É feature flags + A/B testing + session replay + heatmaps + funis + cohorts — tudo integrado, sem juntar cinco ferramentas.
+          Não é só feature flags. É feature flags + A/B testing + session replay + funis + cohorts — tudo integrado, sem juntar cinco ferramentas.
         </p>
         <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-6">
           {FEATURES.map((f) => (
@@ -449,7 +449,7 @@ function HomeScreen() {
               </li>
             </ul>
             <a
-              href="https://github.com/institutoitinerante/pulse-service/blob/main/docs/self-hosted.md"
+              href="https://github.com/apsferreira/pulse-service/blob/main/docs/self-hosted.md"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white font-semibold px-6 py-3 rounded-lg transition-colors text-sm"
@@ -479,7 +479,7 @@ function HomeScreen() {
           Pronto para parar de pagar em dólar?
         </h2>
         <p className="text-gray-400 mb-8">
-          Feature flags + A/B testing + session replay + heatmaps + cohorts. Self-hosted ou cloud. Dados no Brasil.
+          Feature flags + A/B testing + session replay + funis + cohorts. Self-hosted ou cloud. Dados no Brasil.
         </p>
         <a
           href="#pricing"
@@ -499,7 +499,7 @@ function HomeScreen() {
             <a href="#" className="hover:text-white transition-colors">Privacidade</a>
             <a href="#" className="hover:text-white transition-colors">Termos</a>
             <a
-              href="https://github.com/institutoitinerante/pulse-service/blob/main/docs/self-hosted.md"
+              href="https://github.com/apsferreira/pulse-service/blob/main/docs/self-hosted.md"
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-white transition-colors"

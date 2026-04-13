@@ -20,10 +20,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install psql
-        run: |
-          which psql || (apt-get update -qq && apt-get install -y -qq postgresql-client)
-
       - name: Start Postgres + Redis via Docker
         run: |
           docker run -d --name pg_test \
@@ -31,14 +27,14 @@ jobs:
             -e POSTGRES_PASSWORD=postgres \
             -e POSTGRES_DB=pulse_test \
             -p 5432:5432 \
-            --health-cmd="pg_isready -U postgres" \
             postgres:15
           docker run -d --name redis_test \
             -p 6379:6379 \
             redis:7-alpine
-          # Aguarda Postgres ficar pronto
-          for i in $(seq 1 20); do
-            docker exec pg_test pg_isready -U postgres && break || sleep 2
+          # Aguarda Postgres ficar pronto (sem psql no host — usa docker exec)
+          for i in $(seq 1 30); do
+            docker exec pg_test pg_isready -U postgres 2>/dev/null && echo "postgres pronto" && break
+            sleep 2
           done
 
       - name: Set up Go
@@ -53,12 +49,11 @@ jobs:
         run: go mod download
 
       - name: Apply migrations
-        env:
-          PGPASSWORD: postgres
         run: |
+          # Aplica via docker exec — sem precisar de psql no host
           for f in $(ls migrations/*.sql | sort); do
             echo "Applying $f..."
-            psql -h localhost -U postgres -d pulse_test -f "$f"
+            docker exec -i pg_test psql -U postgres -d pulse_test < "$f"
           done
 
       - name: Run tests
@@ -92,17 +87,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure Docker mirror (Docker Hub TLS workaround)
-        run: |
-          mkdir -p /etc/docker
-          cat > /etc/docker/daemon.json <<'EOF'
-          {
-            "registry-mirrors": ["https://mirror.gcr.io"],
-            "insecure-registries": []
-          }
-          EOF
-          systemctl reload docker 2>/dev/null || pkill -HUP dockerd 2>/dev/null || true
-
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -119,6 +103,14 @@ jobs:
             type=raw,value=main-latest
             type=sha,prefix=sha-
 
+      - name: Pre-pull base images
+        run: |
+          for img in golang:1.24-alpine alpine:3.21; do
+            for i in 1 2 3; do
+              docker pull "$img" && break || sleep 10
+            done
+          done
+
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
@@ -127,6 +119,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            BUILDKIT_INLINE_CACHE=1
 
   # ── Build frontend ───────────────────────────────────────────────────────────
   build-and-push-frontend:
@@ -140,17 +134,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Configure Docker mirror (Docker Hub TLS workaround)
-        run: |
-          mkdir -p /etc/docker
-          cat > /etc/docker/daemon.json <<'EOF'
-          {
-            "registry-mirrors": ["https://mirror.gcr.io"],
-            "insecure-registries": []
-          }
-          EOF
-          systemctl reload docker 2>/dev/null || pkill -HUP dockerd 2>/dev/null || true
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -168,6 +151,14 @@ jobs:
             type=raw,value=latest
             type=sha,prefix=sha-
 
+      - name: Pre-pull base images
+        run: |
+          for img in node:22-alpine nginx:alpine; do
+            for i in 1 2 3; do
+              docker pull "$img" && break || sleep 10
+            done
+          done
+
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
@@ -178,6 +169,7 @@ jobs:
           labels: ${{ steps.meta-frontend.outputs.labels }}
           build-args: |
             VITE_SERVICE_TOKEN=${{ secrets.PULSE_SERVICE_TOKEN }}
+            BUILDKIT_INLINE_CACHE=1
 
   # ── Atualiza manifests K8s ───────────────────────────────────────────────────
   update-manifest:

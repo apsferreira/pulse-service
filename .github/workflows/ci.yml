@@ -103,14 +103,17 @@ jobs:
             type=raw,value=main-latest
             type=sha,prefix=sha-
 
-      - name: Pre-pull base images via mirror local
-        run: |
-          # Mirror pull-through em <REDACTED-INTERNAL-REGISTRY> — rede local, sem TLS timeout
-          for img in golang:1.24-alpine alpine:3.21; do
-            docker pull <REDACTED-INTERNAL-REGISTRY>/$img 2>/dev/null \
-              && docker tag <REDACTED-INTERNAL-REGISTRY>/$img $img \
-              || docker pull $img
-          done
+      - name: Setup Buildx com mirror local
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: |
+            network=host
+          buildkitd-config-inline: |
+            [registry."<REDACTED-INTERNAL-REGISTRY>"]
+              http = true
+              insecure = true
+            [registry."docker.io"]
+              mirrors = ["<REDACTED-INTERNAL-REGISTRY>"]
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -154,13 +157,17 @@ jobs:
             type=raw,value=latest
             type=sha,prefix=sha-
 
-      - name: Pre-pull base images via mirror local
-        run: |
-          for img in node:22-alpine nginx:alpine; do
-            docker pull <REDACTED-INTERNAL-REGISTRY>/$img 2>/dev/null \
-              && docker tag <REDACTED-INTERNAL-REGISTRY>/$img $img \
-              || docker pull $img
-          done
+      - name: Setup Buildx com mirror local
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: |
+            network=host
+          buildkitd-config-inline: |
+            [registry."<REDACTED-INTERNAL-REGISTRY>"]
+              http = true
+              insecure = true
+            [registry."docker.io"]
+              mirrors = ["<REDACTED-INTERNAL-REGISTRY>"]
 
       - name: Build and push
         uses: docker/build-push-action@v6

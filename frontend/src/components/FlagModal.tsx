@@ -88,11 +88,11 @@ export default function FlagModal({ flag, onClose, onSubmit, loading }: FlagModa
   }, [flag, editForm])
 
   // BKL-989: buildTargeting serializa as RuleGroups no formato v2 para o backend
-  const buildTargeting = () => {
+  const buildTargeting = (): import('../services/api').FlagTargeting | undefined => {
     if (!showRuleBuilder) return undefined
     const backend = ruleGroupsToBackend(ruleGroups) as { groups?: unknown[] }
     if (!backend.groups || backend.groups.length === 0) return undefined
-    return backend
+    return backend as import('../services/api').FlagTargeting
   }
 
   const addVariant = () => {

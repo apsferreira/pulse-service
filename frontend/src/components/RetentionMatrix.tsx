@@ -83,7 +83,7 @@ const calculateMetrics = (data: RetentionData[]) => {
       avgW0W4 += row.weeks[4]
       cohortCount++
     }
-    const lastNonNull = row.weeks.filter((w) => w !== null).pop()
+    const lastNonNull = row.weeks.filter((w) => w !== null).pop() ?? null
     if (lastNonNull !== null && lastNonNull !== 100) {
       avgLatest += lastNonNull
     }

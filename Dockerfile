@@ -3,9 +3,6 @@ FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
-# Dependências do sistema — layer separada, muda raramente
-RUN apk add --no-cache git ca-certificates
-
 # Copiar go.mod e go.sum ANTES do código fonte
 # Isso garante que o cache de dependências só é invalidado quando mudam as deps
 COPY go.mod go.sum ./

@@ -29,6 +29,18 @@
   background: #64748b;
 }
 
+@layer components {
+  .btn-primary {
+    @apply px-4 py-2 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 active:bg-violet-800 transition-colors disabled:opacity-60 disabled:cursor-not-allowed;
+  }
+  .btn-ghost {
+    @apply px-4 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors;
+  }
+  .input-base {
+    @apply w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all;
+  }
+}
+
 @layer base {
   :root {
     --toast-bg: #ffffff;

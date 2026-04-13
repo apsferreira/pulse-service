@@ -18,6 +18,8 @@ import AuthCallbackPage from './pages/AuthCallbackPage'
 import NorthStarPage from './pages/NorthStarPage'
 import QueryExplorer from './pages/QueryExplorer'
 import Projects from './pages/Projects'
+import Replay from './pages/Replay'
+import Approvals from './pages/Approvals'
 
 function App() {
   return (
@@ -50,6 +52,8 @@ function App() {
                     <Route path="/north-star" element={<NorthStarPage />} />
                     <Route path="/query-explorer" element={<QueryExplorer />} />
                     <Route path="/projects" element={<Projects />} />
+                    <Route path="/replay" element={<Replay />} />
+                    <Route path="/approvals" element={<Approvals />} />
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
                 </Layout>

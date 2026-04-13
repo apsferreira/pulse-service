@@ -103,12 +103,13 @@ jobs:
             type=raw,value=main-latest
             type=sha,prefix=sha-
 
-      - name: Pre-pull base images
+      - name: Pre-pull base images via mirror local
         run: |
+          # Mirror pull-through em <REDACTED-INTERNAL-REGISTRY> — rede local, sem TLS timeout
           for img in golang:1.24-alpine alpine:3.21; do
-            for i in 1 2 3; do
-              docker pull "$img" && break || sleep 10
-            done
+            docker pull <REDACTED-INTERNAL-REGISTRY>/$img 2>/dev/null \
+              && docker tag <REDACTED-INTERNAL-REGISTRY>/$img $img \
+              || docker pull $img
           done
 
       - name: Build and push
@@ -153,12 +154,12 @@ jobs:
             type=raw,value=latest
             type=sha,prefix=sha-
 
-      - name: Pre-pull base images
+      - name: Pre-pull base images via mirror local
         run: |
           for img in node:22-alpine nginx:alpine; do
-            for i in 1 2 3; do
-              docker pull "$img" && break || sleep 10
-            done
+            docker pull <REDACTED-INTERNAL-REGISTRY>/$img 2>/dev/null \
+              && docker tag <REDACTED-INTERNAL-REGISTRY>/$img $img \
+              || docker pull $img
           done
 
       - name: Build and push

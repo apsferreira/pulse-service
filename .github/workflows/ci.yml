@@ -15,7 +15,7 @@ jobs:
   # Resultado visível no PR como check separado, mas o pipeline avança.
   test:
     name: Test
-    runs-on: ubuntu-latest
+    runs-on: iit-pulse
     continue-on-error: true
     services:
       postgres:
@@ -83,7 +83,7 @@ jobs:
   # ── Build backend — roda sempre no main, independente dos testes ─────────────
   build-and-push:
     name: Build & Push Backend
-    runs-on: ubuntu-latest
+    runs-on: iit-pulse
     if: github.ref == 'refs/heads/main'
     permissions:
       contents: read
@@ -129,7 +129,7 @@ jobs:
   # ── Build frontend — roda sempre no main, independente dos testes ────────────
   build-and-push-frontend:
     name: Build & Push Frontend
-    runs-on: ubuntu-latest
+    runs-on: iit-pulse
     if: github.ref == 'refs/heads/main'
     permissions:
       contents: read
@@ -177,7 +177,7 @@ jobs:
   # ── Atualiza manifests K8s — só roda após ambos os builds passarem ───────────
   update-manifest:
     name: Update K8s Manifest
-    runs-on: ubuntu-latest
+    runs-on: iit-pulse
     needs: [build-and-push, build-and-push-frontend]
     if: github.ref == 'refs/heads/main'
     permissions:

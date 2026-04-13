@@ -184,6 +184,7 @@ export default function LandingPage() {
           <a href="#compare" className="hover:text-white transition-colors">Comparativo</a>
           <a href="#pricing" className="hover:text-white transition-colors">Preços</a>
           <a href="#sdk" className="hover:text-white transition-colors">SDKs</a>
+          <a href="#self-hosted" className="hover:text-white transition-colors">Self-Hosted</a>
         </div>
         <div className="flex items-center gap-3">
           <a href="/login" className="text-sm text-gray-400 hover:text-white transition-colors">Entrar</a>
@@ -420,6 +421,58 @@ function HomeScreen() {
         </div>
       </section>
 
+      {/* ── Self-Hosted ─────────────────────────────────── */}
+      <section id="self-hosted" className="max-w-4xl mx-auto px-6 py-20">
+        <div className="bg-gray-900 border border-white/10 rounded-2xl p-10 flex flex-col md:flex-row gap-8 items-center">
+          <div className="flex-1">
+            <div className="text-xs text-emerald-400 font-semibold mb-3 uppercase tracking-wide">Self-Hosted</div>
+            <h2 className="text-2xl font-black mb-3">Prefere rodar na sua infra?</h2>
+            <p className="text-gray-400 text-sm leading-relaxed mb-4">
+              O Pulse foi projetado para ser self-hostable desde o dia um. Docker Compose, Kubernetes, VPC privada — você escolhe onde os dados ficam. Ideal para requisitos de LGPD, compliance setorial ou simplesmente preferência por controle total.
+            </p>
+            <ul className="space-y-2 text-sm text-gray-300 mb-6">
+              <li className="flex items-center gap-2">
+                <CheckIcon />
+                Deploy em minutos com Docker Compose
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckIcon />
+                Dados 100% na sua infraestrutura
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckIcon />
+                SDKs idênticos à versão cloud
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckIcon />
+                Guia completo de instalação, migrations e segurança
+              </li>
+            </ul>
+            <a
+              href="https://github.com/institutoitinerante/pulse-service/blob/main/docs/self-hosted.md"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white font-semibold px-6 py-3 rounded-lg transition-colors text-sm"
+            >
+              Ver documentacao self-hosted
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            </a>
+          </div>
+          <div className="flex-shrink-0 bg-black/40 rounded-xl p-6 font-mono text-xs text-gray-300 w-full md:w-80">
+            <div className="text-emerald-400 mb-2"># instalacao em 3 passos</div>
+            <div className="text-gray-500 mb-1">$ cat .env</div>
+            <div className="mb-3">SERVICE_TOKEN=<span className="text-yellow-400">seu-token</span></div>
+            <div className="text-gray-500 mb-1">$ docker compose \</div>
+            <div className="text-gray-500 mb-1 pl-4">-f docker-compose.selfhosted.yml \</div>
+            <div className="text-gray-500 mb-3 pl-4">up -d</div>
+            <div className="text-gray-500 mb-1">$ curl localhost:3015/health</div>
+            <div className="text-emerald-400">{'{"status":"ok"}'}</div>
+          </div>
+        </div>
+      </section>
+
       {/* ── CTA final ───────────────────────────────────── */}
       <section className="max-w-3xl mx-auto px-6 py-20 text-center">
         <h2 className="text-4xl font-black mb-4">
@@ -445,6 +498,14 @@ function HomeScreen() {
           <div className="flex gap-6">
             <a href="#" className="hover:text-white transition-colors">Privacidade</a>
             <a href="#" className="hover:text-white transition-colors">Termos</a>
+            <a
+              href="https://github.com/institutoitinerante/pulse-service/blob/main/docs/self-hosted.md"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-white transition-colors"
+            >
+              Self-Hosted
+            </a>
             <a href="#" className="hover:text-white transition-colors">Documentação</a>
           </div>
         </div>

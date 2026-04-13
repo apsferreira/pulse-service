@@ -1,37 +1,32 @@
 // BKL-1076: Hook para carregar lista de projetos do Pulse (admin).
-import { useState, useEffect } from 'react'
-import { api } from '../services/api'
+import { useState, useEffect, useCallback } from 'react'
+import { projectsApi } from '../services/projectsApi'
+import type { Project } from '../services/projectsApi'
 
-export interface Project {
-  id: string
-  name: string
-  slug: string
-  api_key: string
-  plan: string
-  is_active: boolean
-  created_at: string
-}
-
-interface ProjectListResponse {
-  projects: Project[]
-  total: number
-}
+export type { Project }
 
 export function useProjects() {
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    api.get<ProjectListResponse>('/projects')
-      .then((res) => {
-        setProjects(res.data.projects ?? [])
-      })
-      .catch((err) => {
-        setError(err?.response?.data?.error ?? err.message)
-      })
-      .finally(() => setLoading(false))
+  const fetchProjects = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await projectsApi.list()
+      setProjects(data.projects ?? [])
+    } catch (err) {
+      const e = err as { response?: { data?: { error?: string } }; message?: string }
+      setError(e?.response?.data?.error ?? e?.message ?? 'Erro ao carregar projetos')
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
-  return { projects, loading, error }
+  useEffect(() => {
+    void fetchProjects()
+  }, [fetchProjects])
+
+  return { projects, loading, error, refetch: fetchProjects }
 }

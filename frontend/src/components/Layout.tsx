@@ -1,6 +1,6 @@
 import React, { useState, createContext, useContext } from 'react'
-import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Activity, Zap, Moon, Sun, HeartPulse, Users, FlaskConical, DollarSign, Star, ChevronDown, History, LogOut, Target } from 'lucide-react'
+import { NavLink, useNavigate } from 'react-router-dom'
+import { LayoutDashboard, Activity, Zap, Moon, Sun, HeartPulse, Users, FlaskConical, DollarSign, Star, ChevronDown, History, LogOut, Target, FolderOpen, Plus } from 'lucide-react'
 import { useProjects } from '../hooks/useProjects'
 import { useProjectContext } from '../hooks/useProjectContext'
 import { useAuth } from '../context/AuthContext'
@@ -52,6 +52,7 @@ export default function Layout({ children }: LayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const { projects } = useProjects()
   const { projectId, setProjectId } = useProjectContext()
+  const navigate = useNavigate()
   const [selectorOpen, setSelectorOpen] = useState(false)
   const { user, logout } = useAuth()
 
@@ -68,6 +69,7 @@ export default function Layout({ children }: LayoutProps) {
     { to: '/csat', label: 'CSAT', icon: Star },
     { to: '/flags/audit', label: 'Audit Log', icon: History },
     { to: '/north-star', label: 'North Star', icon: Target },
+    { to: '/projects', label: 'Projetos', icon: FolderOpen },
   ]
 
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -152,6 +154,15 @@ export default function Layout({ children }: LayoutProps) {
                             <span className="text-xs text-slate-400 dark:text-slate-500">{p.plan}</span>
                           </button>
                         ))}
+                        <div className="border-t border-slate-100 dark:border-slate-800 mt-1 pt-1">
+                          <button
+                            onClick={() => { setSelectorOpen(false); navigate('/projects') }}
+                            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
+                          >
+                            <Plus className="w-3.5 h-3.5" aria-hidden="true" />
+                            Gerenciar projetos
+                          </button>
+                        </div>
                       </div>
                     </div>
                   )}

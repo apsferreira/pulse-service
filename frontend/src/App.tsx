@@ -17,6 +17,7 @@ import LoginPage from './pages/LoginPage'
 import AuthCallbackPage from './pages/AuthCallbackPage'
 import NorthStarPage from './pages/NorthStarPage'
 import QueryExplorer from './pages/QueryExplorer'
+import Projects from './pages/Projects'
 
 function App() {
   return (
@@ -48,6 +49,7 @@ function App() {
                     <Route path="/flags/audit" element={<FlagAudit />} />
                     <Route path="/north-star" element={<NorthStarPage />} />
                     <Route path="/query-explorer" element={<QueryExplorer />} />
+                    <Route path="/projects" element={<Projects />} />
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
                 </Layout>

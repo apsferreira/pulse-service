@@ -1,9 +1,10 @@
-import React, { useState, createContext, useContext } from 'react'
+import React, { useState, createContext, useContext, useEffect } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Activity, Zap, Moon, Sun, HeartPulse, Users, FlaskConical, DollarSign, Star, ChevronDown, History, LogOut, Target, FolderOpen, Plus } from 'lucide-react'
+import { LayoutDashboard, Activity, Zap, Moon, Sun, HeartPulse, Users, FlaskConical, DollarSign, Star, ChevronDown, History, LogOut, Target, FolderOpen, Plus, Video, CheckSquare } from 'lucide-react'
 import { useProjects } from '../hooks/useProjects'
 import { useProjectContext } from '../hooks/useProjectContext'
 import { useAuth } from '../context/AuthContext'
+import { approvalsApi } from '../services/pulseApi'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -55,9 +56,29 @@ export default function Layout({ children }: LayoutProps) {
   const navigate = useNavigate()
   const [selectorOpen, setSelectorOpen] = useState(false)
   const { user, logout } = useAuth()
+  const [pendingApprovals, setPendingApprovals] = useState(0)
 
   const selectedProject = projects.find((p) => p.id === projectId)
   const projectSlug = selectedProject?.slug ?? null
+
+  // Busca count de aprovações pendentes em background (sem bloquear render)
+  useEffect(() => {
+    let cancelled = false
+    approvalsApi
+      .listAll('pending')
+      .then((res) => {
+        if (!cancelled) {
+          const data = res.data
+          setPendingApprovals(Array.isArray(data) ? data.length : 0)
+        }
+      })
+      .catch(() => {
+        // silencia erro — badge é best-effort
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const navItems = [
     { to: '/', label: 'Feature Flags', icon: LayoutDashboard, end: true },
@@ -70,6 +91,8 @@ export default function Layout({ children }: LayoutProps) {
     { to: '/flags/audit', label: 'Audit Log', icon: History },
     { to: '/north-star', label: 'North Star', icon: Target },
     { to: '/projects', label: 'Projetos', icon: FolderOpen },
+    { to: '/replay', label: 'Session Replay', icon: Video },
+    { to: '/approvals', label: 'Aprovações', icon: CheckSquare },
   ]
 
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -104,8 +127,16 @@ export default function Layout({ children }: LayoutProps) {
             <nav className="hidden md:flex items-center gap-1">
               {navItems.map(({ to, label, icon: Icon, end }) => (
                 <NavLink key={to} to={to} end={end} className={navLinkClass}>
-                  <Icon className="w-4 h-4" />
+                  <Icon className="w-4 h-4" aria-hidden="true" />
                   {label}
+                  {to === '/approvals' && pendingApprovals > 0 && (
+                    <span
+                      className="inline-flex items-center justify-center min-w-[1.125rem] h-[1.125rem] px-1 rounded-full text-[10px] font-bold bg-amber-500 text-white"
+                      aria-label={`${pendingApprovals} pendentes`}
+                    >
+                      {pendingApprovals}
+                    </span>
+                  )}
                 </NavLink>
               ))}
             </nav>
@@ -218,8 +249,16 @@ export default function Layout({ children }: LayoutProps) {
                 className={navLinkClass}
                 onClick={() => setMobileOpen(false)}
               >
-                <Icon className="w-4 h-4" />
+                <Icon className="w-4 h-4" aria-hidden="true" />
                 {label}
+                {to === '/approvals' && pendingApprovals > 0 && (
+                  <span
+                    className="inline-flex items-center justify-center min-w-[1.125rem] h-[1.125rem] px-1 rounded-full text-[10px] font-bold bg-amber-500 text-white ml-auto"
+                    aria-label={`${pendingApprovals} pendentes`}
+                  >
+                    {pendingApprovals}
+                  </span>
+                )}
               </NavLink>
             ))}
           </div>

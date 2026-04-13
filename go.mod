@@ -1,6 +1,6 @@
 module github.com/institutoitinerante/pulse-service
 
-go 1.25.0
+go 1.24.0
 
 require (
 	github.com/gofiber/contrib/websocket v1.3.4

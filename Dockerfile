@@ -10,7 +10,7 @@ RUN apk add --no-cache git ca-certificates
 # Isso garante que o cache de dependências só é invalidado quando mudam as deps
 COPY go.mod go.sum ./
 
-ENV GOTOOLCHAIN=local
+ENV GOTOOLCHAIN=auto
 ENV CGO_ENABLED=0
 ENV GOOS=linux
 

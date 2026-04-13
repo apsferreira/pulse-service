@@ -27,7 +27,6 @@ FROM alpine:3.21
 WORKDIR /app
 
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 COPY --from=builder /app/pulse-service .
 
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup

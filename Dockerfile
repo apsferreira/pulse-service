@@ -3,21 +3,24 @@ FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
-# Install build dependencies
+# Dependências do sistema — layer separada, muda raramente
 RUN apk add --no-cache git ca-certificates
 
-# Copy all source first (go mod tidy needs source to resolve imports)
-COPY . .
+# Copiar go.mod e go.sum ANTES do código fonte
+# Isso garante que o cache de dependências só é invalidado quando mudam as deps
+COPY go.mod go.sum ./
 
-# GOTOOLCHAIN=auto permite usar go 1.25+ quando exigido por dependências (pgx v5.9+)
-ENV GOTOOLCHAIN=auto
+ENV GOTOOLCHAIN=local
 ENV CGO_ENABLED=0
 ENV GOOS=linux
 
-# Generate go.sum and download dependencies
-RUN go mod tidy && go mod download
+# Download de dependências — layer cacheada enquanto go.mod/go.sum não mudarem
+RUN go mod download
 
-# Build the binary
+# Copiar o código fonte
+COPY . .
+
+# Build do binário
 RUN go build -ldflags="-s -w" -o /app/pulse-service ./cmd/server
 
 # ---- Runtime stage ----
@@ -25,13 +28,10 @@ FROM alpine:3.21
 
 WORKDIR /app
 
-# Install CA certs and timezone data
 RUN apk add --no-cache ca-certificates tzdata
 
-# Copy binary from builder
 COPY --from=builder /app/pulse-service .
 
-# Run as non-root user
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 USER appuser
 

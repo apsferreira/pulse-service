@@ -119,15 +119,14 @@ jobs:
 
       - name: Escrever resolv.conf com DNS externo
         run: |
-          echo "nameserver 1.1.1.1" | sudo tee /tmp/buildkit-resolv.conf
-          echo "nameserver 8.8.8.8" >> /tmp/buildkit-resolv.conf
+          printf "nameserver 1.1.1.1\nnameserver 8.8.8.8\n" > "$HOME/buildkit-resolv.conf"
 
       - name: Setup Buildx com mirror local
         uses: docker/setup-buildx-action@v3
         with:
           buildkitd-config-inline: |
             [worker.oci]
-              resolv-conf = "/tmp/buildkit-resolv.conf"
+              resolv-conf = "/home/runner/buildkit-resolv.conf"
             [registry."<REDACTED-INTERNAL-REGISTRY>"]
               http = true
               insecure = true
@@ -142,8 +141,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=local,src=/tmp/buildcache-backend
-          cache-to: type=local,dest=/tmp/buildcache-backend,mode=max
+          cache-from: type=local,src=/home/runner/buildcache-backend
+          cache-to: type=local,dest=/home/runner/buildcache-backend,mode=max
           build-args: |
             BUILDKIT_INLINE_CACHE=1
 
@@ -185,15 +184,14 @@ jobs:
 
       - name: Escrever resolv.conf com DNS externo
         run: |
-          echo "nameserver 1.1.1.1" | sudo tee /tmp/buildkit-resolv.conf
-          echo "nameserver 8.8.8.8" >> /tmp/buildkit-resolv.conf
+          printf "nameserver 1.1.1.1\nnameserver 8.8.8.8\n" > "$HOME/buildkit-resolv.conf"
 
       - name: Setup Buildx com mirror local
         uses: docker/setup-buildx-action@v3
         with:
           buildkitd-config-inline: |
             [worker.oci]
-              resolv-conf = "/tmp/buildkit-resolv.conf"
+              resolv-conf = "/home/runner/buildkit-resolv.conf"
             [registry."<REDACTED-INTERNAL-REGISTRY>"]
               http = true
               insecure = true
@@ -208,8 +206,8 @@ jobs:
           push: true
           tags: ${{ steps.meta-frontend.outputs.tags }}
           labels: ${{ steps.meta-frontend.outputs.labels }}
-          cache-from: type=local,src=/tmp/buildcache-frontend
-          cache-to: type=local,dest=/tmp/buildcache-frontend,mode=max
+          cache-from: type=local,src=/home/runner/buildcache-frontend
+          cache-to: type=local,dest=/home/runner/buildcache-frontend,mode=max
           build-args: |
             VITE_SERVICE_TOKEN=${{ secrets.PULSE_SERVICE_TOKEN }}
             BUILDKIT_INLINE_CACHE=1

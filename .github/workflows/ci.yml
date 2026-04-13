@@ -55,7 +55,10 @@ jobs:
         env:
           PGPASSWORD: postgres
         run: |
-          psql -h localhost -U postgres -d pulse_test -f migrations/001_create_feature_flags.sql
+          for f in $(ls migrations/*.sql | sort); do
+            echo "Applying $f..."
+            psql -h localhost -U postgres -d pulse_test -f "$f"
+          done
 
       - name: Run tests
         env:

@@ -117,12 +117,17 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Escrever resolv.conf com DNS externo
+        run: |
+          echo "nameserver 1.1.1.1" | sudo tee /tmp/buildkit-resolv.conf
+          echo "nameserver 8.8.8.8" >> /tmp/buildkit-resolv.conf
+
       - name: Setup Buildx com mirror local
         uses: docker/setup-buildx-action@v3
         with:
           buildkitd-config-inline: |
-            [dns]
-              nameservers = ["1.1.1.1", "8.8.8.8"]
+            [worker.oci]
+              resolv-conf = "/tmp/buildkit-resolv.conf"
             [registry."<REDACTED-INTERNAL-REGISTRY>"]
               http = true
               insecure = true
@@ -137,8 +142,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=registry,ref=ghcr.io/${{ env.IMAGE_NAME }}:main-latest
-          cache-to: type=inline
+          cache-from: type=local,src=/tmp/buildcache-backend
+          cache-to: type=local,dest=/tmp/buildcache-backend,mode=max
           build-args: |
             BUILDKIT_INLINE_CACHE=1
 
@@ -178,12 +183,17 @@ jobs:
             type=raw,value=latest
             type=sha,prefix=sha-
 
+      - name: Escrever resolv.conf com DNS externo
+        run: |
+          echo "nameserver 1.1.1.1" | sudo tee /tmp/buildkit-resolv.conf
+          echo "nameserver 8.8.8.8" >> /tmp/buildkit-resolv.conf
+
       - name: Setup Buildx com mirror local
         uses: docker/setup-buildx-action@v3
         with:
           buildkitd-config-inline: |
-            [dns]
-              nameservers = ["1.1.1.1", "8.8.8.8"]
+            [worker.oci]
+              resolv-conf = "/tmp/buildkit-resolv.conf"
             [registry."<REDACTED-INTERNAL-REGISTRY>"]
               http = true
               insecure = true
@@ -198,8 +208,8 @@ jobs:
           push: true
           tags: ${{ steps.meta-frontend.outputs.tags }}
           labels: ${{ steps.meta-frontend.outputs.labels }}
-          cache-from: type=registry,ref=ghcr.io/apsferreira/pulse-service-frontend:latest
-          cache-to: type=inline
+          cache-from: type=local,src=/tmp/buildcache-frontend
+          cache-to: type=local,dest=/tmp/buildcache-frontend,mode=max
           build-args: |
             VITE_SERVICE_TOKEN=${{ secrets.PULSE_SERVICE_TOKEN }}
             BUILDKIT_INLINE_CACHE=1

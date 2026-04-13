@@ -17,8 +17,28 @@ const FEATURES = [
   },
   {
     icon: '📊',
-    title: 'Event Tracking',
-    desc: 'Registre o comportamento real dos seus usuários. Funis, retenção, coortes — tudo em um lugar.',
+    title: 'Event Tracking & Funis',
+    desc: 'Registre eventos customizados, monte funis de conversão e visualize onde os usuários abandonam o fluxo.',
+  },
+  {
+    icon: '🎥',
+    title: 'Session Replay',
+    desc: 'Assista gravações de sessões reais de usuários. Veja cliques, scroll e interações — sem instalar nada extra.',
+  },
+  {
+    icon: '🔥',
+    title: 'Heatmaps',
+    desc: 'Mapas de calor de cliques e scroll gerados automaticamente. Saiba exatamente o que chama atenção na página.',
+  },
+  {
+    icon: '📈',
+    title: 'Retenção & Cohorts',
+    desc: 'Analise retenção por coorte de usuários. Descubra o que separa os que ficam dos que abandonam o produto.',
+  },
+  {
+    icon: '🖥️',
+    title: 'Dashboard Unificado',
+    desc: 'Flags, experimentos, replay, heatmaps e cohorts em um único painel. Sem alternar entre ferramentas.',
   },
   {
     icon: '🔒',
@@ -126,6 +146,11 @@ const COMPARE = [
   { feature: 'A/B testing', pulse: true, ld: true, vwo: true },
   { feature: 'Event tracking nativo', pulse: true, ld: false, vwo: false },
   { feature: 'Analytics de produto', pulse: true, ld: false, vwo: true },
+  { feature: 'Session Replay', pulse: true, ld: false, vwo: true },
+  { feature: 'Heatmaps', pulse: true, ld: false, vwo: true },
+  { feature: 'Funil de conversão', pulse: true, ld: false, vwo: true },
+  { feature: 'Retenção & Cohorts', pulse: true, ld: false, vwo: false },
+  { feature: 'Dashboard unificado', pulse: true, ld: false, vwo: false },
   { feature: 'Self-hosted', pulse: true, ld: false, vwo: false },
   { feature: 'Pricing em BRL', pulse: true, ld: false, vwo: false },
   { feature: 'SDK React / React Native', pulse: true, ld: true, vwo: false },
@@ -184,14 +209,14 @@ export default function LandingPage() {
         </div>
 
         <h1 className="text-5xl md:text-7xl font-black leading-tight mb-6">
-          Feature flags e<br />
-          <span className="text-emerald-400">A/B testing</span> sem<br />
+          Product analytics<br />
+          <span className="text-emerald-400">completo</span> sem<br />
           pagar em dólar
         </h1>
 
         <p className="text-xl text-gray-400 max-w-2xl mx-auto mb-10">
-          Pulse é uma plataforma de feature flags, A/B testing e analytics de produto.
-          Self-hosted ou cloud, pricing em BRL, dados no Brasil.
+          Pulse reúne feature flags, A/B testing, session replay, heatmaps, funis de conversão
+          e cohorts em uma plataforma só. Self-hosted ou cloud, pricing em BRL, dados no Brasil.
           40-60% mais barato que LaunchDarkly e VWO.
         </p>
 
@@ -219,9 +244,9 @@ export default function LandingPage() {
       <section id="features" className="max-w-6xl mx-auto px-6 py-20">
         <h2 className="text-3xl font-bold text-center mb-4">Tudo que você precisa, em um lugar</h2>
         <p className="text-gray-400 text-center mb-16 max-w-xl mx-auto">
-          Não é só feature flags. É feature flags + A/B testing + tracking de eventos + analytics — integrado.
+          Não é só feature flags. É feature flags + A/B testing + session replay + heatmaps + funis + cohorts — tudo integrado, sem juntar cinco ferramentas.
         </p>
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-6">
           {FEATURES.map((f) => (
             <div
               key={f.title}
@@ -406,7 +431,7 @@ function HomeScreen() {
           Pronto para parar de pagar em dólar?
         </h2>
         <p className="text-gray-400 mb-8">
-          Feature flags + A/B testing + analytics. Self-hosted ou cloud. Dados no Brasil.
+          Feature flags + A/B testing + session replay + heatmaps + cohorts. Self-hosted ou cloud. Dados no Brasil.
         </p>
         <a
           href="#pricing"

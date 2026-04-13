@@ -26,11 +26,6 @@ const FEATURES = [
     desc: 'Assista gravações de sessões reais de usuários. Veja cliques, scroll e interações — sem instalar nada extra.',
   },
   {
-    icon: '🔥',
-    title: 'Heatmaps',
-    desc: 'Mapas de calor de cliques e scroll gerados automaticamente. Saiba exatamente o que chama atenção na página.',
-  },
-  {
     icon: '📈',
     title: 'Retenção & Cohorts',
     desc: 'Analise retenção por coorte de usuários. Descubra o que separa os que ficam dos que abandonam o produto.',
@@ -38,7 +33,7 @@ const FEATURES = [
   {
     icon: '🖥️',
     title: 'Dashboard Unificado',
-    desc: 'Flags, experimentos, replay, heatmaps e cohorts em um único painel. Sem alternar entre ferramentas.',
+    desc: 'Flags, experimentos, session replay e cohorts em um único painel. Sem alternar entre ferramentas.',
   },
   {
     icon: '🔒',
@@ -147,7 +142,7 @@ const COMPARE = [
   { feature: 'Event tracking nativo', pulse: true, ld: false, vwo: false },
   { feature: 'Analytics de produto', pulse: true, ld: false, vwo: true },
   { feature: 'Session Replay', pulse: true, ld: false, vwo: true },
-  { feature: 'Heatmaps', pulse: true, ld: false, vwo: true },
+  { feature: 'Heatmaps', pulse: false, ld: false, vwo: true },
   { feature: 'Funil de conversão', pulse: true, ld: false, vwo: true },
   { feature: 'Retenção & Cohorts', pulse: true, ld: false, vwo: false },
   { feature: 'Dashboard unificado', pulse: true, ld: false, vwo: false },

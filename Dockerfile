@@ -11,14 +11,14 @@ ENV GOTOOLCHAIN=auto
 ENV CGO_ENABLED=0
 ENV GOOS=linux
 
-# Download de dependências — layer cacheada enquanto go.mod/go.sum não mudarem
-RUN go mod download
+# Copiar vendor/ — sem download de rede durante o build
+COPY vendor/ vendor/
 
 # Copiar o código fonte
 COPY . .
 
-# Build do binário
-RUN go build -ldflags="-s -w" -o /app/pulse-service ./cmd/server
+# Build do binário usando vendor
+RUN go build -mod=vendor -ldflags="-s -w" -o /app/pulse-service ./cmd/server
 
 # ---- Runtime stage ----
 # Sem apk add — copia certs e tzdata do builder para evitar DNS no build

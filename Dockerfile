@@ -24,12 +24,13 @@ COPY . .
 RUN go build -ldflags="-s -w" -o /app/pulse-service ./cmd/server
 
 # ---- Runtime stage ----
+# Sem apk add — copia certs e tzdata do builder para evitar DNS no build
 FROM alpine:3.21
 
 WORKDIR /app
 
-RUN apk add --no-cache ca-certificates tzdata
-
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 COPY --from=builder /app/pulse-service .
 
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup

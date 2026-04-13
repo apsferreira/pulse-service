@@ -198,42 +198,111 @@ export default function LandingPage() {
       </nav>
 
       {/* ── Hero ────────────────────────────────────────── */}
-      <section className="max-w-5xl mx-auto px-6 pt-24 pb-20 text-center">
-        <div className="inline-flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-4 py-1.5 text-sm text-emerald-400 mb-8">
-          <span>🇧🇷</span>
-          <span>Alternativa brasileira ao LaunchDarkly e VWO</span>
+      <section className="max-w-6xl mx-auto px-6 pt-24 pb-20">
+        <div className="text-center mb-16">
+          <div className="inline-flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-4 py-1.5 text-sm text-emerald-400 mb-8">
+            <span>🇧🇷</span>
+            <span>Controle total · Dados no seu servidor · Preço em BRL</span>
+          </div>
+
+          <h1 className="text-5xl md:text-7xl font-black leading-tight mb-6">
+            Lance com confiança.<br />
+            <span className="text-emerald-400">Reverta em segundos.</span>
+          </h1>
+
+          <p className="text-xl text-gray-400 max-w-2xl mx-auto mb-10">
+            Feature flags, A/B testing e session replay — tudo integrado, rodando na sua infraestrutura.
+            Seus dados nunca saem do seu servidor. Sem invoice surpresa por MAU.
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
+            <a
+              href="#pricing"
+              className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold px-8 py-4 rounded-xl text-lg transition-colors"
+            >
+              Começar grátis
+            </a>
+            <a
+              href="#self-hosted"
+              className="border border-white/20 hover:border-white/40 text-white font-semibold px-8 py-4 rounded-xl text-lg transition-colors"
+            >
+              Ver Self-Hosted
+            </a>
+          </div>
+
+          <p className="text-sm text-gray-500">
+            Sem cartão de crédito · 5k MAU grátis · Self-hosted em 3 comandos
+          </p>
         </div>
 
-        <h1 className="text-5xl md:text-7xl font-black leading-tight mb-6">
-          Product analytics<br />
-          <span className="text-emerald-400">completo</span> sem<br />
-          pagar em dólar
-        </h1>
+        {/* Hero code snippet */}
+        <div className="max-w-2xl mx-auto bg-gray-900 border border-white/10 rounded-2xl overflow-hidden">
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-white/10 bg-black/30">
+            <div className="w-3 h-3 rounded-full bg-red-500/60" />
+            <div className="w-3 h-3 rounded-full bg-yellow-500/60" />
+            <div className="w-3 h-3 rounded-full bg-emerald-500/60" />
+            <span className="ml-2 text-xs text-gray-500 font-mono">App.tsx</span>
+          </div>
+          <pre className="p-5 text-sm font-mono text-gray-300 overflow-x-auto leading-relaxed">{`import { PulseProvider, useFlag } from '@pulse/react'
 
-        <p className="text-xl text-gray-400 max-w-2xl mx-auto mb-10">
-          Pulse reúne feature flags, A/B testing, session replay, funis de conversão
-          e cohorts em uma plataforma só. Self-hosted ou cloud, pricing em BRL, dados no Brasil.
-          40-60% mais barato que LaunchDarkly e VWO.
-        </p>
+function App() {
+  return (
+    <PulseProvider projectKey="proj_xxxxx">
+      <Checkout />
+    </PulseProvider>
+  )
+}
 
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <a
-            href="#pricing"
-            className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold px-8 py-4 rounded-xl text-lg transition-colors"
-          >
-            Começar grátis
-          </a>
-          <a
-            href="#sdk"
-            className="border border-white/20 hover:border-white/40 text-white font-semibold px-8 py-4 rounded-xl text-lg transition-colors"
-          >
-            Ver SDKs
-          </a>
+function Checkout() {
+  const newFlow = useFlag('new-checkout-ui') // ← feature flag
+
+  return newFlow ? <NewCheckout /> : <OldCheckout />
+}`}</pre>
         </div>
+      </section>
 
-        <p className="text-sm text-gray-500 mt-6">
-          Sem cartão de crédito · Plano Free com 5k MAU · Self-hosted disponível
-        </p>
+      {/* ── 3 colunas por persona ───────────────────────── */}
+      <section className="max-w-6xl mx-auto px-6 py-20">
+        <div className="grid md:grid-cols-3 gap-8">
+          <div className="bg-gray-900 border border-white/10 rounded-2xl p-8">
+            <div className="text-xs text-emerald-400 font-semibold mb-4 uppercase tracking-widest">Para Devs</div>
+            <h3 className="text-xl font-black mb-3">Deploy sem medo.</h3>
+            <p className="text-gray-400 text-sm mb-5">
+              Feature flags com rollout gradual, targeting por usuário/tenant e rollback em 1 clique — direto do painel, sem tocar no código.
+            </p>
+            <ul className="space-y-2 text-sm text-gray-300">
+              <li className="flex items-center gap-2"><CheckIcon /> SDK React, React Native e CDN</li>
+              <li className="flex items-center gap-2"><CheckIcon /> Sub-100ms de latência por avaliação</li>
+              <li className="flex items-center gap-2"><CheckIcon /> Audit log de cada avaliação de flag</li>
+            </ul>
+          </div>
+
+          <div className="bg-gray-900 border border-white/10 rounded-2xl p-8">
+            <div className="text-xs text-violet-400 font-semibold mb-4 uppercase tracking-widest">Para PMs</div>
+            <h3 className="text-xl font-black mb-3">Experimentos sem ticket.</h3>
+            <p className="text-gray-400 text-sm mb-5">
+              Crie A/B tests, veja session replays de cada variante e meça funis de conversão — sem pedir para engenharia buildar nada.
+            </p>
+            <ul className="space-y-2 text-sm text-gray-300">
+              <li className="flex items-center gap-2"><CheckIcon /> A/B testing com análise bayesiana</li>
+              <li className="flex items-center gap-2"><CheckIcon /> Session replay correlacionado com variante</li>
+              <li className="flex items-center gap-2"><CheckIcon /> Funis, cohorts e retenção no mesmo painel</li>
+            </ul>
+          </div>
+
+          <div className="bg-gray-900 border border-white/10 rounded-2xl p-8">
+            <div className="text-xs text-amber-400 font-semibold mb-4 uppercase tracking-widest">Para CTOs</div>
+            <h3 className="text-xl font-black mb-3">Seus dados ficam no seu servidor. Sempre.</h3>
+            <p className="text-gray-400 text-sm mb-5">
+              Self-hosted total: nenhum dado de flag evaluation ou sessão de usuário sai do seu ambiente. LGPD nativo, custo fixo de infra.
+            </p>
+            <ul className="space-y-2 text-sm text-gray-300">
+              <li className="flex items-center gap-2"><CheckIcon /> Deploy K8s, Docker Compose ou VPC privada</li>
+              <li className="flex items-center gap-2"><CheckIcon /> Preço fixo — sem cobrança por MAU</li>
+              <li className="flex items-center gap-2"><CheckIcon /> LGPD compliant, dados 100% no Brasil</li>
+            </ul>
+          </div>
+        </div>
       </section>
 
       {/* ── Features ────────────────────────────────────── */}

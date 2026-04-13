@@ -3,6 +3,7 @@ import { AuthProvider } from './context/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
+import FeatureFlags from './pages/FeatureFlags'
 import Events from './pages/Events'
 import Uptime from './pages/Uptime'
 import Retention from './pages/Retention'
@@ -41,7 +42,8 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <Routes>
-                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/" element={<FeatureFlags />} />
+                    <Route path="/dashboard" element={<Dashboard />} />
                     <Route path="/uptime" element={<Uptime />} />
                     <Route path="/events" element={<Events />} />
                     <Route path="/retention" element={<Retention />} />

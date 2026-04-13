@@ -1,6 +1,6 @@
 import React, { useState, createContext, useContext, useEffect } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Activity, Zap, Moon, Sun, HeartPulse, Users, FlaskConical, DollarSign, Star, ChevronDown, History, LogOut, Target, FolderOpen, Plus, Video, CheckSquare } from 'lucide-react'
+import { LayoutDashboard, Activity, Zap, Moon, Sun, HeartPulse, Users, FlaskConical, DollarSign, Star, ChevronDown, History, LogOut, Target, FolderOpen, Plus, Video, CheckSquare, Flag } from 'lucide-react'
 import { useProjects } from '../hooks/useProjects'
 import { useProjectContext } from '../hooks/useProjectContext'
 import { useAuth } from '../context/AuthContext'
@@ -81,18 +81,19 @@ export default function Layout({ children }: LayoutProps) {
   }, [])
 
   const navItems = [
-    { to: '/', label: 'Feature Flags', icon: LayoutDashboard, end: true },
+    { to: '/', label: 'Feature Flags', icon: Flag, end: true },
+    { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/uptime', label: 'Uptime', icon: HeartPulse },
     { to: '/events', label: 'Eventos', icon: Activity },
-    { to: '/retention', label: 'Retencao', icon: Users }, // BKL-095
-    { to: '/ab-testing', label: 'A/B Testing', icon: FlaskConical }, // BKL-124
+    { to: '/retention', label: 'Retenção', icon: Users },
+    { to: '/ab-testing', label: 'A/B Testing', icon: FlaskConical },
     { to: '/costs', label: 'Custos', icon: DollarSign },
     { to: '/csat', label: 'CSAT', icon: Star },
-    { to: '/flags/audit', label: 'Audit Log', icon: History },
-    { to: '/north-star', label: 'North Star', icon: Target },
-    { to: '/projects', label: 'Projetos', icon: FolderOpen },
     { to: '/replay', label: 'Session Replay', icon: Video },
     { to: '/approvals', label: 'Aprovações', icon: CheckSquare },
+    { to: '/projects', label: 'Projetos', icon: FolderOpen },
+    { to: '/flags/audit', label: 'Audit Log', icon: History },
+    { to: '/north-star', label: 'North Star', icon: Target },
   ]
 
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>

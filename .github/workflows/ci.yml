@@ -15,6 +15,7 @@ jobs:
     name: Test
     runs-on: iit-pulse
     continue-on-error: true
+    timeout-minutes: 10
 
     steps:
       - name: Checkout
@@ -79,6 +80,7 @@ jobs:
     name: Build & Push Backend
     runs-on: iit-pulse
     if: github.ref == 'refs/heads/main'
+    timeout-minutes: 10
     permissions:
       contents: read
       packages: write
@@ -133,6 +135,7 @@ jobs:
     name: Build & Push Frontend
     runs-on: iit-pulse
     if: github.ref == 'refs/heads/main'
+    timeout-minutes: 10
     permissions:
       contents: read
       packages: write
@@ -189,6 +192,7 @@ jobs:
     runs-on: iit-pulse
     needs: [build-and-push, build-and-push-frontend]
     if: github.ref == 'refs/heads/main'
+    timeout-minutes: 5
     permissions:
       contents: write
 

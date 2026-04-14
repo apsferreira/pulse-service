@@ -12,7 +12,7 @@ ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_SERVICE_TOKEN=$VITE_SERVICE_TOKEN
 
 COPY package*.json .npmrc ./
-RUN --network=host npm ci
+COPY node_modules/ node_modules/
 
 COPY . .
 RUN npm run build

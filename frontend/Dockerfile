@@ -12,7 +12,7 @@ ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_SERVICE_TOKEN=$VITE_SERVICE_TOKEN
 
 COPY package*.json .npmrc ./
-RUN npm ci
+RUN NODE_OPTIONS=--dns-result-order=ipv4first npm ci
 
 COPY . .
 RUN npm run build

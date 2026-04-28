@@ -14,7 +14,7 @@ export const api = axios.create({
 // BKL-1115: enviar JWT do auth-service em todas as requests
 api.interceptors.request.use(
   (config) => {
-    const jwtToken = localStorage.getItem('access_token')
+    const jwtToken = sessionStorage.getItem('access_token')
     if (jwtToken) {
       config.headers['Authorization'] = `Bearer ${jwtToken}`
     } else if (SERVICE_TOKEN) {
@@ -37,9 +37,9 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       // Token expirado — limpar sessão e redirecionar para login
-      localStorage.removeItem('access_token')
-      localStorage.removeItem('refresh_token')
-      localStorage.removeItem('pulse_user')
+      sessionStorage.removeItem('access_token')
+      sessionStorage.removeItem('refresh_token')
+      sessionStorage.removeItem('pulse_user')
       window.location.replace('/login')
     } else if (error.response) {
       console.error('[Pulse API] Response error:', error.response.status, error.response.data)

@@ -183,6 +183,7 @@ jobs:
           cache-from: type=local,src=/home/runner/buildcache-frontend
           cache-to: type=local,dest=/home/runner/buildcache-frontend,mode=max
           build-args: |
+            VITE_AUTH_SERVICE_URL=https://auth.institutoitinerante.com.br
             VITE_SERVICE_TOKEN=${{ secrets.PULSE_SERVICE_TOKEN }}
             BUILDKIT_INLINE_CACHE=1
 

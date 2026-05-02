@@ -411,5 +411,21 @@
     _debug: function () { return { config: _config, state: _state } },
   }
 
+  // Auto-init via data-* attributes — zero config para sites HTML simples.
+  // <script src=".../sdk/pulse.js"
+  //         data-pulse-url="https://pulse-api.institutoitinerante.com.br"
+  //         data-pulse-product="meu-site"></script>
+  if (typeof document !== 'undefined') {
+    var _s = document.currentScript || (function () {
+      var scripts = document.getElementsByTagName('script')
+      return scripts[scripts.length - 1]
+    })()
+    if (_s && _s.getAttribute('data-pulse-url')) {
+      var _autoUrl     = _s.getAttribute('data-pulse-url')
+      var _autoProduct = _s.getAttribute('data-pulse-product') || 'default'
+      pulse.init({ apiUrl: _autoUrl, projectKey: _autoProduct, autoPageview: true })
+    }
+  }
+
   return pulse
 }))

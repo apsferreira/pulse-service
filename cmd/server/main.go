@@ -18,6 +18,7 @@ import (
 	"github.com/institutoitinerante/pulse-service/internal/pkg/config"
 	"github.com/institutoitinerante/pulse-service/internal/pkg/flagscheduler"
 	"github.com/institutoitinerante/pulse-service/internal/pkg/retentionpurge"
+	"github.com/institutoitinerante/pulse-service/internal/pkg/telemetry"
 	"github.com/institutoitinerante/pulse-service/internal/pkg/wshub"
 	"github.com/institutoitinerante/pulse-service/internal/repository"
 	"github.com/institutoitinerante/pulse-service/internal/service"
@@ -26,6 +27,10 @@ import (
 )
 
 func main() {
+	// Inicializar OpenTelemetry (tracing distribuído)
+	shutdownTelemetry := telemetry.Init("pulse-service")
+	defer shutdownTelemetry()
+
 	cfg := config.Load()
 
 	if cfg.DatabaseURL == "" {
@@ -128,6 +133,10 @@ func main() {
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	})
+
+	// OTel tracing middleware + /otel-metrics (antes de tudo para capturar todas as rotas)
+	// Nota: /metrics customizado (BKL-1053) continua ativo — /otel-metrics é o endpoint do fiberprometheus
+	telemetry.RegisterFiber(app, "pulse-service")
 
 	// BKL-1053: Prometheus metrics + instrumentação (antes de tudo para capturar todas as rotas)
 	metricsHandler := handler.NewMetricsHandler()

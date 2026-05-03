@@ -13,7 +13,9 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+	fiberSwagger "github.com/swaggo/fiber-swagger"
 	"github.com/institutoitinerante/pulse-service/internal/handler"
+	_ "github.com/institutoitinerante/pulse-service/docs/swagger"
 	custommw "github.com/institutoitinerante/pulse-service/internal/middleware"
 	"github.com/institutoitinerante/pulse-service/internal/pkg/config"
 	"github.com/institutoitinerante/pulse-service/internal/pkg/flagscheduler"
@@ -166,6 +168,9 @@ func main() {
 			"service": "pulse-service",
 		})
 	})
+
+	// Swagger UI — sem autenticação (documentação pública da API)
+	app.Get("/swagger/*", fiberSwagger.WrapHandler)
 
 	// Register feature flag routes
 	flagHandler.RegisterRoutes(app)

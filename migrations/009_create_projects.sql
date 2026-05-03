@@ -23,12 +23,5 @@ COMMENT ON TABLE projects IS 'Projetos que consomem o Pulse SDK. Cada projeto te
 COMMENT ON COLUMN projects.api_key IS 'API key do SDK: pulse_<hex32>. Enviada no header X-Pulse-Key.';
 COMMENT ON COLUMN feature_flags.project_id IS 'NULL = flag global (sem scoping). Quando definido, flag pertence ao projeto.';
 
--- Insere projeto padrão "iit" para flags legadas (globais)
-INSERT INTO projects (id, name, slug, api_key, description)
-VALUES (
-  'a0000000-0000-0000-0000-000000000001',
-  'Instituto Itinerante',
-  'iit',
-  'pulse_iit_default_key_00000000000000000000000000000000',
-  'Projeto padrão IIT — flags globais'
-) ON CONFLICT (slug) DO NOTHING;
+-- Seed do projeto padrão "iit" movido para migration 042
+-- (API key gerada dinamicamente via gen_random_bytes — sem valor hardcoded)

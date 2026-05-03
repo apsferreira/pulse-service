@@ -1,5 +1,5 @@
 # ---- Build stage ----
-FROM golang:1.25-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
@@ -7,7 +7,7 @@ WORKDIR /app
 # Isso garante que o cache de dependências só é invalidado quando mudam as deps
 COPY go.mod go.sum ./
 
-ENV GOTOOLCHAIN=local
+ENV GOTOOLCHAIN=auto
 ENV CGO_ENABLED=0
 ENV GOOS=linux
 

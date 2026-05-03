@@ -72,7 +72,19 @@ type AIConfigRequest struct {
 	ChangedBy          string  `json:"changed_by,omitempty"`
 }
 
-// List GET /api/v1/ai-configs?project_id=...
+// List godoc
+//
+//	@Summary		Lista AI Configs do projeto
+//	@Description	Retorna configs de IA (prompt, modelo, temperatura) — feature flags para LLMs
+//	@Tags			ai-configs
+//	@Produce		json
+//	@Security		ServiceToken
+//	@Param			project_id	query		string	true	"UUID do projeto"
+//	@Success		200			{array}		AIConfig
+//	@Failure		400			{object}	map[string]interface{}
+//	@Failure		401			{object}	map[string]interface{}
+//	@Failure		500			{object}	map[string]interface{}
+//	@Router			/ai-configs [get]
 func (h *AIConfigHandler) List(c *fiber.Ctx) error {
 	projectID := c.Query("project_id")
 	if projectID == "" {
@@ -111,8 +123,20 @@ func (h *AIConfigHandler) List(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"configs": configs, "total": len(configs)})
 }
 
-// GetByKey GET /api/v1/ai-configs/:key?project_id=...
-// Usado pelo SDK — retorna a config ativa para uso em runtime.
+// GetByKey godoc
+//
+//	@Summary		Obtém AI Config por chave
+//	@Description	Retorna a config ativa para uma key — usado pelo SDK em runtime
+//	@Tags			ai-configs
+//	@Produce		json
+//	@Security		ServiceToken
+//	@Param			key			path		string	true	"Chave da AI Config"
+//	@Param			project_id	query		string	true	"UUID do projeto"
+//	@Success		200			{object}	AIConfig
+//	@Failure		400			{object}	map[string]interface{}
+//	@Failure		401			{object}	map[string]interface{}
+//	@Failure		404			{object}	map[string]interface{}
+//	@Router			/ai-configs/{key} [get]
 func (h *AIConfigHandler) GetByKey(c *fiber.Ctx) error {
 	key := c.Params("key")
 	projectID := c.Query("project_id")
@@ -140,7 +164,21 @@ func (h *AIConfigHandler) GetByKey(c *fiber.Ctx) error {
 	return c.JSON(cfg)
 }
 
-// Create POST /api/v1/ai-configs
+// Create godoc
+//
+//	@Summary		Cria AI Config
+//	@Description	Cria nova configuração de IA com prompt, modelo, temperatura e max_tokens
+//	@Tags			ai-configs
+//	@Accept			json
+//	@Produce		json
+//	@Security		ServiceToken
+//	@Param			body	body		AIConfigRequest	true	"Dados da AI Config"
+//	@Success		201		{object}	map[string]interface{}
+//	@Failure		400		{object}	map[string]interface{}
+//	@Failure		401		{object}	map[string]interface{}
+//	@Failure		409		{object}	map[string]interface{}
+//	@Failure		500		{object}	map[string]interface{}
+//	@Router			/ai-configs [post]
 func (h *AIConfigHandler) Create(c *fiber.Ctx) error {
 	var req AIConfigRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -183,8 +221,23 @@ func (h *AIConfigHandler) Create(c *fiber.Ctx) error {
 	})
 }
 
-// Update PUT /api/v1/ai-configs/:key
-// Atualiza a config e salva versão anterior no histórico.
+// Update godoc
+//
+//	@Summary		Atualiza AI Config
+//	@Description	Atualiza prompt/modelo e salva versão anterior no histórico para rollback
+//	@Tags			ai-configs
+//	@Accept			json
+//	@Produce		json
+//	@Security		ServiceToken
+//	@Param			key			path		string				true	"Chave da AI Config"
+//	@Param			project_id	query		string				true	"UUID do projeto"
+//	@Param			body		body		map[string]interface{}	true	"Campos a atualizar"
+//	@Success		200			{object}	map[string]interface{}
+//	@Failure		400			{object}	map[string]interface{}
+//	@Failure		401			{object}	map[string]interface{}
+//	@Failure		404			{object}	map[string]interface{}
+//	@Failure		500			{object}	map[string]interface{}
+//	@Router			/ai-configs/{key} [put]
 func (h *AIConfigHandler) Update(c *fiber.Ctx) error {
 	key := c.Params("key")
 	var req AIConfigRequest
@@ -255,7 +308,20 @@ func (h *AIConfigHandler) Update(c *fiber.Ctx) error {
 	})
 }
 
-// Deactivate DELETE /api/v1/ai-configs/:key?project_id=...
+// Deactivate godoc
+//
+//	@Summary		Desativa AI Config
+//	@Description	Marca a config como inativa — rollback instantâneo sem redeploy
+//	@Tags			ai-configs
+//	@Produce		json
+//	@Security		ServiceToken
+//	@Param			key			path		string	true	"Chave da AI Config"
+//	@Param			project_id	query		string	true	"UUID do projeto"
+//	@Success		200			{object}	map[string]interface{}
+//	@Failure		400			{object}	map[string]interface{}
+//	@Failure		401			{object}	map[string]interface{}
+//	@Failure		404			{object}	map[string]interface{}
+//	@Router			/ai-configs/{key} [delete]
 func (h *AIConfigHandler) Deactivate(c *fiber.Ctx) error {
 	key := c.Params("key")
 	projectID := c.Query("project_id")
@@ -274,7 +340,20 @@ func (h *AIConfigHandler) Deactivate(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "AI Config desativada"})
 }
 
-// ListVersions GET /api/v1/ai-configs/:key/versions?project_id=...
+// ListVersions godoc
+//
+//	@Summary		Histórico de versões da AI Config
+//	@Description	Retorna todas as versões anteriores da config — útil para auditoria e rollback
+//	@Tags			ai-configs
+//	@Produce		json
+//	@Security		ServiceToken
+//	@Param			key			path		string	true	"Chave da AI Config"
+//	@Param			project_id	query		string	true	"UUID do projeto"
+//	@Success		200			{object}	map[string]interface{}
+//	@Failure		400			{object}	map[string]interface{}
+//	@Failure		401			{object}	map[string]interface{}
+//	@Failure		500			{object}	map[string]interface{}
+//	@Router			/ai-configs/{key}/versions [get]
 func (h *AIConfigHandler) ListVersions(c *fiber.Ctx) error {
 	key := c.Params("key")
 	projectID := c.Query("project_id")

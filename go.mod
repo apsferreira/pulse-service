@@ -3,11 +3,16 @@ module github.com/institutoitinerante/pulse-service
 go 1.24.0
 
 require (
+	github.com/ansrivas/fiberprometheus/v2 v2.17.0
+	github.com/gofiber/contrib/otelfiber/v2 v2.2.3
 	github.com/gofiber/contrib/websocket v1.3.4
 	github.com/gofiber/fiber/v2 v2.52.6
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.9.1
 	github.com/redis/go-redis/v9 v9.7.3
+	go.opentelemetry.io/otel v1.40.0
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.40.0
+	go.opentelemetry.io/otel/sdk v1.40.0
 	go.uber.org/mock v0.6.0
 )
 

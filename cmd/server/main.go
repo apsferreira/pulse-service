@@ -325,6 +325,11 @@ func main() {
 	// BKL-1037: Retention purge — deleta eventos mais antigos que data_retention_days de cada projeto (1x/dia)
 	go retentionpurge.Start(jobCtx, pool, 24*time.Hour)
 
+	// BKL-1153: Segments Avançados — targeting por atributo composto para feature flags
+	segmentRepo := repository.NewSegmentRepository(pool)
+	segmentHandler := handler.NewSegmentHandler(segmentRepo, cfg.ServiceToken)
+	segmentHandler.RegisterRoutes(app)
+
 	// BKL-763: mapeamento cross-produto de identidade de usuário
 	userIdentityRepo := repository.NewUserIdentityRepository(pool)
 	userIdentityHandler := handler.NewUserIdentityHandler(userIdentityRepo, cfg.ServiceToken)

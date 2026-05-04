@@ -247,9 +247,10 @@ func main() {
 	upgradeHandler := handler.NewUpgradeHandler(pool, cfg.ServiceToken)
 	upgradeHandler.RegisterRoutes(app)
 
-	// BKL-1078: Webhooks para eventos de produto (HMAC-SHA256, n8n/Make/Zapier)
+	// BKL-1078: Webhooks para eventos de produto (HMAC-SHA256, n8n/Make/Zapier/Slack/Datadog)
 	webhookHandler := handler.NewWebhookHandler(pool, cfg.ServiceToken)
 	webhookHandler.RegisterRoutes(app)
+	flagHandler.WithWebhookHandler(webhookHandler) // dispara flag.toggled ao atualizar flag
 
 	// BKL-1058: Funis de conversão server-side (POST /api/v1/funnels/analyze)
 	funnelHandler := handler.NewFunnelHandler(pool, cfg.ServiceToken)

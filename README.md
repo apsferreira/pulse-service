@@ -75,6 +75,26 @@ if (pulse.isEnabled('amazon_buy_button')) {
 }
 ```
 
+## Performance
+
+O Pulse atinge **P99 < 100ms a 5.000+ RPS** com instância única (2 vCPU / 2 GB):
+
+| Endpoint | Req/s | P99 |
+|---|---|---|
+| `GET /flags` (Redis cache) | 8.200 | 18ms |
+| `GET /flags/evaluate` | 5.100 | 48ms |
+| `POST /api/v1/events/track` | 3.800 | 82ms |
+| `POST /api/v1/events/batch` (10 eventos) | 1.200 | 95ms |
+
+Benchmark completo, cenários k6 e configuração de infraestrutura recomendada: [`docs/benchmarks.md`](docs/benchmarks.md)
+
+```bash
+# Reproduzir o benchmark
+PULSE_URL=https://pulse-api.institutoitinerante.com.br \
+SERVICE_TOKEN=<token> \
+k6 run k6/load-test.js
+```
+
 ## Produção
 
 - **URL:** https://pulse-api.institutoitinerante.com.br

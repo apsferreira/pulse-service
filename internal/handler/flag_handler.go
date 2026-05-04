@@ -15,10 +15,11 @@ import (
 var validKeyPattern = regexp.MustCompile(`^[a-zA-Z0-9_\-\.]{2,100}$`)
 
 type FlagHandler struct {
-	svc          service.FlagServicer
-	flagRepo     *repository.FlagRepository // BKL-1002: acesso direto para GetByKeyWithPrompt
-	serviceToken string
-	sseBroker    *FlagSSEBroker // BKL-991: notifica subscribers SSE após updates
+	svc            service.FlagServicer
+	flagRepo       *repository.FlagRepository // BKL-1002: acesso direto para GetByKeyWithPrompt
+	serviceToken   string
+	sseBroker      *FlagSSEBroker  // BKL-991: notifica subscribers SSE após updates
+	webhookHandler *WebhookHandler // BKL-1078: dispara webhook flag.toggled ao atualizar flag
 }
 
 func NewFlagHandler(svc service.FlagServicer, serviceToken string) *FlagHandler {
@@ -34,6 +35,12 @@ func (h *FlagHandler) WithFlagRepo(repo *repository.FlagRepository) *FlagHandler
 // WithSSEBroker injeta o broker SSE para notificações em tempo real. BKL-991.
 func (h *FlagHandler) WithSSEBroker(broker *FlagSSEBroker) *FlagHandler {
 	h.sseBroker = broker
+	return h
+}
+
+// WithWebhookHandler injeta o WebhookHandler para disparar webhooks flag.toggled. BKL-1078.
+func (h *FlagHandler) WithWebhookHandler(wh *WebhookHandler) *FlagHandler {
+	h.webhookHandler = wh
 	return h
 }
 
@@ -176,6 +183,14 @@ func (h *FlagHandler) UpdateFlag(c *fiber.Ctx) error {
 			FlagKey:   flag.Key,
 			Enabled:   flag.Enabled,
 			UpdatedAt: flag.UpdatedAt,
+		})
+	}
+
+	// BKL-1078: dispara webhook flag.toggled para integrações externas (Slack, Datadog, n8n, etc.)
+	if h.webhookHandler != nil && flag.ProjectID != nil {
+		go h.webhookHandler.Dispatch(c.Context(), flag.ProjectID.String(), "flag.toggled", map[string]interface{}{
+			"flag_key": flag.Key,
+			"enabled":  flag.Enabled,
 		})
 	}
 

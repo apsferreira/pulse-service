@@ -330,6 +330,11 @@ func main() {
 	segmentHandler := handler.NewSegmentHandler(segmentRepo, cfg.ServiceToken)
 	segmentHandler.RegisterRoutes(app)
 
+	// BKL-1154: Multi-Armed Bandits epsilon-greedy — otimização automática de variantes A/B
+	mabRepo := repository.NewMABRepository(pool)
+	mabHandler := handler.NewMABHandler(mabRepo, cfg.ServiceToken)
+	mabHandler.RegisterRoutes(app)
+
 	// BKL-763: mapeamento cross-produto de identidade de usuário
 	userIdentityRepo := repository.NewUserIdentityRepository(pool)
 	userIdentityHandler := handler.NewUserIdentityHandler(userIdentityRepo, cfg.ServiceToken)

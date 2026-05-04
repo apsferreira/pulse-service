@@ -37,9 +37,9 @@ func (e *ErrApprovalRequired) Error() string {
 }
 
 type FlagService struct {
-	repo         *repository.FlagRepository
-	redis        *redis.Client
-	approvalRepo *repository.FlagApprovalRepository // BKL-990: nil-safe
+	repo           *repository.FlagRepository
+	redis          *redis.Client
+	approvalRepo   *repository.FlagApprovalRepository  // BKL-990: nil-safe
 }
 
 func NewFlagService(repo *repository.FlagRepository, redis *redis.Client) *FlagService {
@@ -159,6 +159,7 @@ func (s *FlagService) Update(ctx context.Context, key string, req domain.UpdateF
 	}
 
 	s.invalidateCache(ctx, uuidPtrToStr(updated.ProjectID))
+
 	return updated, nil
 }
 

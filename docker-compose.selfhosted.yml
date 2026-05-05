@@ -43,6 +43,7 @@ services:
       - "3016:80"
     environment:
       VITE_API_URL: ${PULSE_API_URL:-http://localhost:3015}
+      VITE_AUTH_SERVICE_URL: ${PULSE_AUTH_URL:-https://auth.institutoitinerante.com.br}
     depends_on:
       - pulse-backend
     networks:

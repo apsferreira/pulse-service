@@ -28,6 +28,8 @@ spec:
         env:
         - name: VITE_API_URL
           value: ""
+        - name: VITE_AUTH_SERVICE_URL
+          value: "https://auth.institutoitinerante.com.br"
         - name: VITE_SERVICE_TOKEN
           valueFrom:
             secretKeyRef:

@@ -18,7 +18,7 @@ RUN go mod download
 COPY . .
 
 # Build do binário
-RUN go build -ldflags="-s -w" -o /app/pulse-service ./cmd/server
+RUN GOFLAGS="" go build -mod=mod -ldflags="-s -w" -o /app/pulse-service ./cmd/server
 
 # ---- Runtime stage ----
 # Sem apk add — copia certs e tzdata do builder para evitar DNS no build

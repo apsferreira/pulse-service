@@ -701,8 +701,16 @@ export default function CSAT() {
   const fetchSurveys = useCallback(() => {
     setSurveysLoading(true)
     setSurveysError(null)
-    apiFetch<Survey[]>('/csat/surveys')
-      .then((data) => setSurveys(data))
+    apiFetch<Survey[] | { surveys: Survey[]; count: number }>('/csat/surveys')
+      .then((data) => {
+        const raw = Array.isArray(data)
+          ? data
+          : Array.isArray((data as { surveys: Survey[] }).surveys)
+            ? (data as { surveys: Survey[] }).surveys
+            : []
+        // normalize type to uppercase (API returns 'nps'/'csat')
+        setSurveys(raw.map((s) => ({ ...s, type: (s.type as string).toUpperCase() as 'NPS' | 'CSAT' })))
+      })
       .catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : 'Erro ao carregar surveys'
         setSurveysError(msg)

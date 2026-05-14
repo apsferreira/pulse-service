@@ -141,7 +141,7 @@ function CreateProjectModal({ onClose, onSuccess }: CreateProjectModalProps) {
               }
               placeholder="meu-produto"
               required
-              pattern="[a-z0-9-]+"
+              pattern="^[a-z0-9-]+$"
               className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent placeholder:text-slate-400 dark:placeholder:text-slate-500"
             />
           </div>
@@ -476,9 +476,9 @@ function ProjectDetailModal({ project, onClose, onUpdated }: ProjectDetailModalP
                       </>
                     ) : (
                       <>
-                        <XCircle className="w-3.5 h-3.5 text-rose-500" aria-hidden="true" />
-                        <span className="text-rose-600 dark:text-rose-400 text-xs font-medium">
-                          Inativo
+                        <Server className="w-3.5 h-3.5 text-amber-500" aria-hidden="true" />
+                        <span className="text-amber-600 dark:text-amber-400 text-xs font-medium">
+                          Aguardando SDK
                         </span>
                       </>
                     )}
@@ -579,7 +579,7 @@ function ProjectDetailModal({ project, onClose, onUpdated }: ProjectDetailModalP
                       }
                       placeholder="production"
                       required
-                      pattern="[a-z0-9-]+"
+                      pattern="^[a-z0-9-]+$"
                       className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent placeholder:text-slate-400"
                     />
                   </div>
@@ -716,9 +716,9 @@ function ProjectCard({ project, onClick }: ProjectCardProps) {
             Ativo
           </span>
         ) : (
-          <span className="flex items-center gap-1 text-xs text-rose-500 dark:text-rose-400">
-            <XCircle className="w-3.5 h-3.5" aria-hidden="true" />
-            Inativo
+          <span className="flex items-center gap-1 text-xs text-amber-500 dark:text-amber-400">
+            <Server className="w-3.5 h-3.5" aria-hidden="true" />
+            Aguardando SDK
           </span>
         )}
         {typeof project.mau_current === 'number' && (

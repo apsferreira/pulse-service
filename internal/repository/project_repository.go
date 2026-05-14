@@ -60,7 +60,7 @@ func (r *ProjectRepository) Create(ctx context.Context, req domain.ProjectCreate
 		Description:       req.Description,
 		Plan:              plan,
 		DataRetentionDays: retentionByPlan(plan), // BKL-1037
-		IsActive:          true,
+		IsActive:          false, // ativado automaticamente na primeira requisição do SDK
 		CreatedAt:         time.Now().UTC(),
 		UpdatedAt:         time.Now().UTC(),
 	}
@@ -84,13 +84,23 @@ func (r *ProjectRepository) GetBySlug(ctx context.Context, slug string) (*domain
 	return scanProject(row)
 }
 
-// GetByAPIKey retorna um projeto pela API key (usado para autenticação do SDK).
+// GetByAPIKey retorna um projeto pela API key, incluindo projetos ainda inativos (pendentes de SDK).
+// O middleware ativa o projeto automaticamente na primeira requisição válida.
 func (r *ProjectRepository) GetByAPIKey(ctx context.Context, apiKey string) (*domain.Project, error) {
 	row := r.db.QueryRow(ctx, `
 		SELECT id, name, slug, api_key, COALESCE(description, ''), COALESCE(plan, 'free'), COALESCE(data_retention_days, 90), is_active, created_at, updated_at
-		FROM projects WHERE api_key = $1 AND is_active = true
+		FROM projects WHERE api_key = $1
 	`, apiKey)
 	return scanProject(row)
+}
+
+// ActivateByAPIKey marca o projeto como ativo (chamado na primeira requisição do SDK).
+func (r *ProjectRepository) ActivateByAPIKey(ctx context.Context, apiKey string) error {
+	_, err := r.db.Exec(ctx,
+		`UPDATE projects SET is_active = true, updated_at = NOW() WHERE api_key = $1 AND is_active = false`,
+		apiKey,
+	)
+	return err
 }
 
 // List retorna todos os projetos.

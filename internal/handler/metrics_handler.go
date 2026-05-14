@@ -12,20 +12,22 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/institutoitinerante/pulse-service/internal/middleware"
 	"github.com/institutoitinerante/pulse-service/internal/pkg/metrics"
 )
 
 // MetricsHandler serve métricas para scraping pelo Prometheus.
-type MetricsHandler struct{}
+type MetricsHandler struct {
+	serviceToken string
+}
 
-func NewMetricsHandler() *MetricsHandler {
-	return &MetricsHandler{}
+func NewMetricsHandler(serviceToken string) *MetricsHandler {
+	return &MetricsHandler{serviceToken: serviceToken}
 }
 
 // RegisterRoutes monta a rota /metrics.
 func (h *MetricsHandler) RegisterRoutes(app *fiber.App) {
-	// /metrics não requer auth — Prometheus faz scrape internamente (não exposto via CF Tunnel)
-	app.Get("/metrics", h.Metrics)
+	app.Get("/metrics", middleware.ServiceTokenMiddleware(h.serviceToken), h.Metrics)
 
 	// Middleware de instrumentação: injeta latência e contadores em todas as rotas
 	app.Use(h.Instrument)

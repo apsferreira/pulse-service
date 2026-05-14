@@ -10,6 +10,7 @@ func SecurityHeaders() fiber.Handler {
 		c.Set("X-XSS-Protection", "1; mode=block")
 		c.Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		c.Set("Content-Security-Policy", "default-src 'self'")
+		c.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		return c.Next()
 	}
 }

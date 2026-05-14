@@ -248,7 +248,6 @@ function ProjectDetailModal({ project, onClose, onUpdated }: ProjectDetailModalP
       const updated = await projectsApi.update(project.slug, {
         name: name.trim(),
         plan,
-        is_active: isActive,
       })
       toast.success('Projeto atualizado')
       setEditMode(false)
@@ -409,19 +408,15 @@ function ProjectDetailModal({ project, onClose, onUpdated }: ProjectDetailModalP
                   </select>
                 </div>
                 <div className="flex items-center gap-2">
-                  <input
-                    id="is_active"
-                    type="checkbox"
-                    checked={isActive}
-                    onChange={(e) => setIsActive(e.target.checked)}
-                    className="rounded border-slate-300 dark:border-slate-600 text-emerald-600 focus:ring-emerald-500"
-                  />
-                  <label
-                    htmlFor="is_active"
-                    className="text-sm text-slate-700 dark:text-slate-300"
-                  >
-                    Projeto ativo
-                  </label>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    Status:{' '}
+                    {project.is_active ? (
+                      <span className="text-emerald-600 font-medium">Ativo</span>
+                    ) : (
+                      <span className="text-amber-500 font-medium">Aguardando SDK</span>
+                    )}
+                  </span>
+                  <span className="text-xs text-slate-400">(definido automaticamente pelo SDK)</span>
                 </div>
                 <div className="flex justify-end gap-2 pt-1">
                   <button

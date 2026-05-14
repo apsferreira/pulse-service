@@ -43,14 +43,17 @@ O backend expõe:
 
 ### SDKs disponíveis
 
-| SDK | Ambiente | Caminho no repositório |
+| SDK | Ambiente | Instalação |
 |---|---|---|
-| JavaScript / CDN | Qualquer site via `<script>` | `sdk/pulse.js` |
-| `@pulse/react` | React + TypeScript | `sdk/react/` |
-| `@pulse-iit/react-native` | Expo / React Native | `sdk/react-native/` |
-| Go | Backend Go | `sdk/go/` |
-| Node.js | Backend Node | `sdk/node/` |
-| Python | Backend Python | `sdk/python/` |
+| JavaScript / CDN | Qualquer site via `<script>` | `<script src="https://seu-pulse.exemplo.com/sdk/pulse.js">` |
+| `@pulse/react` | React + TypeScript | `npm install @pulse/react` |
+| `@pulse/react-native` | Expo / React Native | `yarn add @pulse/react-native` |
+| Go | Backend Go | `go get github.com/seu-org/pulse-service/sdk/go` |
+| Node.js | Backend Node | `npm install @pulse/node` |
+| Android | Android (Kotlin) | `sdk/android/` |
+| iOS | iOS (Swift) | `sdk/ios/` |
+
+> Todos os SDKs exigem que você forneça a `apiUrl`/`baseURL` apontando para sua instância. Não há URL padrão embutida.
 
 ---
 
@@ -60,8 +63,6 @@ O backend expõe:
 |---|---|
 | Docker | 24+ |
 | Docker Compose | v2.x (`docker compose`) |
-| PostgreSQL | 15+ |
-| Redis | 7+ |
 | Memória RAM | 512 MB para o backend + infra |
 | Disco | 1 GB para dados iniciais (cresce conforme volume de eventos) |
 
@@ -77,27 +78,30 @@ O backend expõe:
 cp .env.example .env   # se existir; ou crie manualmente
 ```
 
-Conteúdo mínimo do `.env`:
+Conteúdo mínimo do `.env` para **modo auth local** (recomendado para self-hosted):
 
 ```dotenv
 # Obrigatório — token que protege todos os endpoints admin
-SERVICE_TOKEN=seu-token-secreto-aqui
+SERVICE_TOKEN=seu-token-secreto-aqui   # openssl rand -hex 32
 
-# Senha do PostgreSQL (gerada automaticamente no compose)
+# Senha do PostgreSQL
 POSTGRES_PASSWORD=troque-esta-senha
 
-# URL pública da sua instância (usada pelo frontend)
-PULSE_API_URL=https://pulse-api.seudominio.com.br
+# URL pública da sua instância (usada pelo frontend para chamar a API)
+PULSE_API_URL=https://pulse-api.seudominio.com
+
+# Modo de autenticação (local = email+senha self-contained, sem dependências externas)
+PULSE_AUTH_MODE=local
 
 # E-mail para alertas internos (opcional)
-ADMIN_EMAIL=ops@seudominio.com.br
+ADMIN_EMAIL=ops@seudominio.com
 
-# Resend (opcional — necessário para e-mails de churn alert e onboarding)
+# Resend (opcional — para e-mails de alertas operacionais)
 RESEND_API_KEY=re_xxxxxxxx
-RESEND_FROM=noreply@seudominio.com.br
+RESEND_FROM=noreply@seudominio.com
 ```
 
-> Gere um `SERVICE_TOKEN` seguro com: `openssl rand -hex 32`
+> Gere tokens seguros com: `openssl rand -hex 32`
 
 ### Passo 2 — Subir os serviços
 
@@ -123,10 +127,7 @@ curl http://localhost:3015/health
 
 ### Passo 4 — Aplicar as migrations
 
-O Pulse usa migrations SQL manuais. Aplique na ordem:
-
 ```bash
-# Variáveis para o psql
 export PGPASSWORD=troque-esta-senha
 
 for f in $(ls migrations/*.sql | sort); do
@@ -135,101 +136,71 @@ for f in $(ls migrations/*.sql | sort); do
 done
 ```
 
-As migrations são numeradas sequencialmente (`001_create_feature_flags.sql` → `041_...`). Nunca pule nenhuma.
+### Passo 5 — Criar o primeiro usuário admin (modo local)
+
+Se `PULSE_AUTH_MODE=local`, crie o primeiro usuário via API — **este endpoint só funciona enquanto não há nenhum usuário cadastrado**:
+
+```bash
+curl -X POST http://localhost:3015/api/v1/auth/setup \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "admin@suaempresa.com",
+    "password": "sua-senha-segura",
+    "name": "Admin"
+  }'
+```
+
+Resposta:
+
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "id": "...",
+    "email": "admin@suaempresa.com",
+    "name": "Admin",
+    "role": "admin"
+  }
+}
+```
+
+Após criar o primeiro usuário, o endpoint `/api/v1/auth/setup` retorna 403 para novos acessos.
+
+### Passo 6 — Acessar o dashboard
+
+Abra `http://localhost:3016` no browser. Faça login com o e-mail e senha criados no passo anterior.
 
 ---
 
-## Docker Compose Completo
+## Modos de Autenticação
 
-O arquivo `docker-compose.selfhosted.yml` na raiz do repositório já está pronto para uso. Abaixo o conteúdo para referência:
+O Pulse suporta dois modos de autenticação para o dashboard. Configure via `PULSE_AUTH_MODE`.
 
-```yaml
-version: "3.9"
+### Opção A — Auth Local (recomendado para self-hosted)
 
-services:
-  pulse-backend:
-    image: ghcr.io/institutoitinerante/pulse-service:latest
-    container_name: pulse-backend
-    restart: unless-stopped
-    ports:
-      - "3015:3015"
-    environment:
-      DATABASE_URL: postgres://pulse:${POSTGRES_PASSWORD:-pulse_secret}@pulse-postgres:5432/pulse_db?sslmode=disable
-      REDIS_URL: redis://pulse-redis:6379
-      PORT: "3015"
-      SERVICE_TOKEN: ${SERVICE_TOKEN:?SERVICE_TOKEN is required}
-      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
-      RESEND_API_KEY: ${RESEND_API_KEY:-}
-      RESEND_FROM: ${RESEND_FROM:-}
-      LOG_LEVEL: ${LOG_LEVEL:-info}
-      SELF_HOSTED: "true"
-    depends_on:
-      pulse-postgres:
-        condition: service_healthy
-      pulse-redis:
-        condition: service_healthy
-    networks:
-      - pulse-net
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3015/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+Self-contained: email + senha armazenados no próprio banco. Não requer nenhum serviço externo.
 
-  pulse-frontend:
-    image: ghcr.io/institutoitinerante/pulse-frontend:latest
-    container_name: pulse-frontend
-    restart: unless-stopped
-    ports:
-      - "3016:80"
-    environment:
-      VITE_API_URL: ${PULSE_API_URL:-http://localhost:3015}
-    depends_on:
-      - pulse-backend
-    networks:
-      - pulse-net
-
-  pulse-postgres:
-    image: postgres:15-alpine
-    container_name: pulse-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: pulse_db
-      POSTGRES_USER: pulse
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pulse_secret}
-    volumes:
-      - pulse-postgres-data:/var/lib/postgresql/data
-    networks:
-      - pulse-net
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U pulse -d pulse_db"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  pulse-redis:
-    image: redis:7-alpine
-    container_name: pulse-redis
-    restart: unless-stopped
-    command: redis-server --save 60 1 --loglevel warning
-    volumes:
-      - pulse-redis-data:/data
-    networks:
-      - pulse-net
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-volumes:
-  pulse-postgres-data:
-  pulse-redis-data:
-
-networks:
-  pulse-net:
-    driver: bridge
+```dotenv
+PULSE_AUTH_MODE=local
+PULSE_JWT_SECRET=seu-secret-jwt-aqui   # openssl rand -hex 32 (opcional — usa SERVICE_TOKEN como fallback)
 ```
+
+Fluxo:
+1. `POST /api/v1/auth/setup` → cria primeiro admin (só funciona se não há usuários)
+2. `POST /api/v1/auth/login` → retorna JWT (válido por 24h)
+3. `GET /api/v1/auth/me` → valida token e retorna dados do usuário
+4. `POST /api/v1/auth/logout` → stateless (cliente descarta o token)
+
+### Opção B — Auth Externo (OAuth via auth-service)
+
+Integração com um auth-service OAuth externo. Adequado para organizações que já têm SSO ou um provedor de identidade próprio.
+
+```dotenv
+PULSE_AUTH_MODE=external
+PULSE_AUTH_URL=https://auth.suaempresa.com
+```
+
+Fluxo: o frontend redireciona para `PULSE_AUTH_URL` que completa o OAuth e emite um token aceito pelo Pulse.
 
 ---
 
@@ -239,30 +210,146 @@ networks:
 
 | Variável | Obrigatória | Padrão | Descrição |
 |---|---|---|---|
-| `DATABASE_URL` | Sim | — | Connection string PostgreSQL. Formato: `postgres://user:pass@host:5432/dbname?sslmode=disable` |
-| `SERVICE_TOKEN` | Sim | — | Token de acesso a todos os endpoints admin (`/api/v1/*`). Mínimo 32 caracteres. |
-| `REDIS_URL` | Não | `redis://localhost:6379/6` | URL do Redis. O DB 6 é usado por padrão para cache de flags. |
-| `PORT` | Não | `3050` | Porta em que o servidor escuta. No compose self-hosted usamos `3015`. |
+| `SERVICE_TOKEN` | **Sim** | — | Token de acesso a todos os endpoints admin. Mínimo 32 caracteres. Gere com `openssl rand -hex 32`. |
+| `DATABASE_URL` | **Sim** | — | Connection string PostgreSQL. Formato: `postgres://user:pass@host:5432/dbname?sslmode=disable` |
+| `REDIS_URL` | Não | `redis://localhost:6379/6` | URL do Redis. DB 6 é usado para cache de flags. |
+| `PORT` | Não | `3050` | Porta em que o servidor escuta. No compose self-hosted: `3015`. |
+| `PULSE_AUTH_MODE` | Não | `external` | Modo de autenticação do dashboard: `local` ou `external`. |
+| `PULSE_JWT_SECRET` | Não | *(usa `SERVICE_TOKEN`)* | Secret para assinar JWTs no modo local. Se omitido, usa `SERVICE_TOKEN`. |
+| `PULSE_AUTH_URL` | Não | — | URL do auth-service externo. Necessário apenas no modo `external`. |
+| `PULSE_BILLING_URL` | Não | — | URL do portal de upgrade exibida quando a quota mensal é atingida (HTTP 429). Deixe vazio para self-hosted sem billing. |
+| `PULSE_ALLOWED_ORIGINS` | Não | `*` | Origens CORS permitidas (CSV). Padrão `*` é mantido porque o SDK é embeddable em qualquer site. |
 | `LOG_LEVEL` | Não | `info` | Nível de log: `debug`, `info`, `warn`, `error`. |
-| `PULSE_ALLOWED_ORIGINS` | Não | `*` | Origens CORS permitidas (CSV). Ex: `https://app.seudominio.com.br,https://admin.seudominio.com.br`. O padrão `*` é mantido porque o SDK é embeddable em qualquer site. |
 | `ADMIN_EMAIL` | Não | — | E-mail para alertas de churn crítico e notificações operacionais. |
-| `RESEND_API_KEY` | Não | — | API key do Resend para envio de e-mails transacionais (alertas de churn, onboarding). |
-| `RESEND_FROM` | Não | — | Endereço de remetente para os e-mails. Ex: `noreply@seudominio.com.br`. |
-| `SELF_HOSTED` | Não | — | Quando `"true"`, desabilita métricas de quota e billing. |
+| `RESEND_API_KEY` | Não | — | API key do Resend para e-mails transacionais. |
+| `RESEND_FROM` | Não | — | Endereço de remetente. Ex: `noreply@seudominio.com`. |
 
 ### Frontend (`pulse-frontend`)
 
 | Variável | Obrigatória | Padrão | Descrição |
 |---|---|---|---|
-| `VITE_API_URL` | Sim | `http://localhost:3015` | URL base da API. Deve ser a URL pública acessível pelo browser. |
+| `VITE_API_URL` | Não | `/api/v1` (relativo) | URL base da API. Deve ser a URL pública acessível pelo browser. Ex: `https://pulse-api.seudominio.com` |
+| `VITE_AUTH_MODE` | Não | `external` | Espelha `PULSE_AUTH_MODE`. Define qual UI de login exibir. |
+| `VITE_AUTH_SERVICE_URL` | Não | — | URL do auth-service externo. Necessário apenas no modo `external`. |
 
 ---
 
-## Primeiro Acesso
+## Configuração dos SDKs
 
-### 1. Criar o primeiro projeto
+> Todos os SDKs exigem a URL da sua instância Pulse. Não há fallback para nenhuma URL externa.
 
-Com os containers rodando, crie um projeto via API:
+### JavaScript / CDN
+
+```html
+<script src="https://pulse-api.seudominio.com/sdk/pulse.js"></script>
+<script>
+  pulse.init({
+    projectKey: 'pk_live_xxxxxxxxxxxxxxxxxx',
+    apiUrl: 'https://pulse-api.seudominio.com',
+    userId: 'user-123',
+    debug: false,
+  })
+
+  if (pulse.isEnabled('nova-feature')) {
+    // mostra nova feature
+  }
+
+  pulse.track('page_viewed', { page: 'home' })
+</script>
+```
+
+### React
+
+```bash
+npm install @pulse/react
+```
+
+```tsx
+import { PulseProvider, usePulseFlag, useTrack } from '@pulse/react'
+
+// main.tsx
+<PulseProvider
+  projectKey="pk_live_xxxxxxxxxxxxxxxxxx"
+  apiUrl="https://pulse-api.seudominio.com"
+  userId={currentUser?.id}
+  defaults={{ 'nova-feature': false }}
+  failOpen={true}
+>
+  <App />
+</PulseProvider>
+
+// Componente
+function MyComponent() {
+  const novaFeature = usePulseFlag('nova-feature', false)
+  const track = useTrack()
+  return novaFeature ? <V2 /> : <V1 />
+}
+```
+
+### React Native / Expo
+
+```bash
+yarn add @pulse/react-native @react-native-async-storage/async-storage
+```
+
+```tsx
+import { PulseProvider, useFeatureFlag } from '@pulse/react-native'
+
+<PulseProvider
+  config={{
+    apiUrl: 'https://pulse-api.seudominio.com',
+    projectKey: 'pk_live_xxxxxxxxxxxxxxxxxx',
+  }}
+>
+  <RootNavigator />
+</PulseProvider>
+```
+
+### Go
+
+```bash
+go get github.com/seu-org/pulse-service/sdk/go
+```
+
+```go
+import pulse "github.com/seu-org/pulse-service/sdk/go"
+
+client, _ := pulse.NewClient("https://pulse-api.seudominio.com")
+
+enabled, err := client.IsEnabled(ctx, "nova-feature")
+if err != nil {
+    enabled = false // fail-open
+}
+
+client.TrackEvent(ctx, pulse.TrackEventRequest{
+    EventName: "user_signup",
+    UserID:    &userID,
+    Properties: map[string]interface{}{"plan": "free"},
+})
+```
+
+### Node.js
+
+```bash
+npm install @pulse/node
+```
+
+```js
+const { PulseClient } = require('@pulse/node')
+
+const pulse = new PulseClient({
+  baseURL: 'https://pulse-api.seudominio.com',
+  projectKey: 'pk_live_xxxxxxxxxxxxxxxxxx',
+})
+
+const enabled = await pulse.isEnabled('nova-feature', { userId: 'user-123' })
+```
+
+---
+
+## Criando o Primeiro Projeto
+
+Após subir e criar o primeiro usuário admin, crie um projeto:
 
 ```bash
 curl -X POST http://localhost:3015/api/v1/projects \
@@ -288,15 +375,27 @@ Resposta:
 }
 ```
 
-Guarde o `api_key` — esse é o `X-Project-Key` que vai nos SDKs.
+Guarde o `api_key` — esse é o `X-Project-Key` usado nos SDKs e nos endpoints de ingest de eventos.
 
-### 2. Acessar o dashboard
+### Estrutura de dados
 
-Abra `http://localhost:3016` no browser. Use o `SERVICE_TOKEN` definido no `.env` para autenticar.
+```
+Usuário (admin)
+  └── Projeto A (api_key: pk_live_aaa...)
+        ├── Feature Flag: nova-homepage
+        ├── Feature Flag: dark-mode
+        └── Feature Flag: checkout-v2
+  └── Projeto B (api_key: pk_live_bbb...)
+        └── Feature Flag: ...
+```
 
-### 3. Criar a primeira feature flag
+Cada projeto tem sua própria `api_key` e seus dados são isolados.
 
-Via dashboard ou via API:
+---
+
+## Feature Flags
+
+### Criar uma flag
 
 ```bash
 curl -X POST http://localhost:3015/api/v1/flags \
@@ -311,425 +410,56 @@ curl -X POST http://localhost:3015/api/v1/flags \
   }'
 ```
 
----
-
-## Configuração dos SDKs
-
-### JavaScript / CDN
-
-Não requer bundler nem instalação. Adicione no `<head>` do seu site:
-
-```html
-<script src="https://pulse-api.seudominio.com.br/sdk/pulse.js"></script>
-<script>
-  pulse.init({
-    projectKey: 'pk_live_xxxxxxxxxxxxxxxxxx',
-    apiUrl: 'https://pulse-api.seudominio.com.br',
-    userId: 'user-123',       // opcional
-    debug: false,
-  })
-
-  // Verificar flag
-  if (pulse.isEnabled('nova-homepage')) {
-    document.getElementById('hero').className = 'hero-v2'
-  }
-
-  // Rastrear evento
-  pulse.track('page_viewed', { page: 'home', referrer: document.referrer })
-</script>
-```
-
-### React
+### Avaliar flags via API pública
 
 ```bash
-npm install @pulse/react
-# ou
-yarn add @pulse/react
-```
-
-```tsx
-// main.tsx
-import { PulseProvider } from '@pulse/react'
-
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <PulseProvider
-    projectKey="pk_live_xxxxxxxxxxxxxxxxxx"
-    apiUrl="https://pulse-api.seudominio.com.br"
-    userId={currentUser?.id}
-    defaults={{ 'nova-homepage': false }}
-    failOpen={true}
-  >
-    <App />
-  </PulseProvider>
-)
-
-// Em qualquer componente
-import { usePulseFlag, useTrack, usePulseVariant } from '@pulse/react'
-
-function Homepage() {
-  const novaHomepage = usePulseFlag('nova-homepage', false)
-  const variant = usePulseVariant('pricing-test', 'control')
-  const track = useTrack()
-
-  useEffect(() => {
-    track('page_viewed', { page: 'home' })
-  }, [])
-
-  return novaHomepage ? <HomepageV2 /> : <HomepageV1 />
-}
-```
-
-**Opções do `PulseProvider`:**
-
-| Prop | Tipo | Descrição |
-|---|---|---|
-| `projectKey` | `string` | API key do projeto (`pk_live_...`) |
-| `apiUrl` | `string` | URL base do backend Pulse |
-| `userId` | `string?` | ID do usuário autenticado |
-| `defaults` | `Record<string, boolean>?` | Valores padrão por flag (usados no fail-open) |
-| `failOpen` | `boolean?` | Retorna defaults em vez de erro quando backend indisponível (padrão: `true`) |
-| `timeout` | `number?` | Timeout de requests em ms (padrão: `2000`) |
-| `debug` | `boolean?` | Logs detalhados no console |
-
-### React Native / Expo
-
-```bash
-yarn add @pulse-iit/react-native @react-native-async-storage/async-storage
-```
-
-```tsx
-// App.tsx
-import { PulseProvider, useFeatureFlag, useTrack } from '@pulse-iit/react-native'
-
-export default function App() {
-  return (
-    <PulseProvider
-      config={{
-        apiUrl: 'https://pulse-api.seudominio.com.br',
-        projectKey: 'pk_live_xxxxxxxxxxxxxxxxxx',
-      }}
-    >
-      <RootNavigator />
-    </PulseProvider>
-  )
-}
-
-// Num screen qualquer
-function OnboardingScreen() {
-  const { value: novoOnboarding, loading } = useFeatureFlag('novo-onboarding')
-  const track = useTrack()
-
-  if (loading) return <LoadingSpinner />
-
-  return novoOnboarding ? <OnboardingV2 /> : <OnboardingV1 />
-}
-```
-
-### Go
-
-```bash
-go get github.com/institutoitinerante/pulse-service/sdk/go
-```
-
-```go
-import pulse "github.com/institutoitinerante/pulse-service/sdk/go"
-
-func main() {
-    client, err := pulse.NewClient("https://pulse-api.seudominio.com.br")
-    if err != nil {
-        log.Fatal(err)
-    }
-
-    // Verificar flag
-    enabled, err := client.IsEnabled(ctx, "nova-homepage")
-    if err != nil {
-        // fail-open: use o valor padrão
-        enabled = false
-    }
-
-    // Rastrear evento
-    _, err = client.TrackEvent(ctx, pulse.TrackEventRequest{
-        EventName:   "user_signup",
-        UserID:      &userID,
-        Environment: "production",
-        Properties: map[string]interface{}{
-            "plan": "free",
-        },
-    })
-}
-```
-
----
-
-## Feature Flags — Como Funciona
-
-### Criação e configuração
-
-Uma flag é criada com uma chave única (ex: `nova-homepage`), associada a um projeto e pode ter:
-
-- `enabled`: liga/desliga global
-- `rollout_percentage`: 0–100, determina a fatia de usuários que vê a flag como `true`
-- `targeting`: regras de targeting — force `true` ou `false` para `user_id`s ou `tenant_id`s específicos
-- `variants`: configuração de A/B testing (ex: `["control", "challenger"]`)
-- `starts_at` / `ends_at`: ativação e desativação automática agendadas
-- `require_approval`: quando `true`, toda mudança na flag entra num workflow de aprovação antes de ser aplicada
-
-### Rollout percentual
-
-O rollout é **determinístico por `user_id`**: o mesmo usuário sempre cai no mesmo balde. O algoritmo usa SHA-256 do `user_id` para derivar um número de 0–100.
-
-Isso garante que um usuário que vê `nova-homepage=true` continuará vendo mesmo que a página seja recarregada ou que ele troque de dispositivo.
-
-```
-hash = SHA256(user_id + flag_key)
-bucket = hash % 100
-enabled = bucket < rollout_percentage
-```
-
-### Avaliação de flags via API pública
-
-```bash
-# Avalia todas as flags para um usuário específico
+# Avalia todas as flags para um usuário (sem autenticação, usa X-Project-Key)
 GET /flags?user_id=user-123&project_id=550e8400-...
-
-# Resposta
-{"flags": {"nova-homepage": true, "dark-mode": false}}
+X-Project-Key: pk_live_xxxxxxxxxxxxxxxxxx
 ```
 
-```bash
-# Avalia um lote de flags específicas (SDKs usam isso no init)
-POST /flags/evaluate-batch
-{
-  "keys": ["nova-homepage", "dark-mode"],
-  "user_id": "user-123",
-  "tenant_id": "acme-corp",
-  "project_id": "550e8400-..."
-}
-```
-
-### Atualizações em tempo real via SSE
-
-O Pulse expõe um endpoint SSE que notifica clientes imediatamente quando uma flag é atualizada — sem polling.
+### Atualizações em tempo real (SSE)
 
 ```
 GET /api/v1/projects/:project_id/flags/stream
-Header: X-Service-Token: seu-token-secreto-aqui
-```
-
-Formato dos eventos:
-
-```
-: connected project_id=550e8400-...
-
-data: {"flag_key":"nova-homepage","enabled":true,"updated_at":"2026-01-01T12:00:00Z"}
-
-data: {"type":"heartbeat"}
-```
-
-O heartbeat é enviado a cada 30 segundos para manter a conexão viva através de proxies e load balancers.
-
-**Uso com JavaScript:**
-
-```javascript
-const evtSource = new EventSource(
-  `https://pulse-api.seudominio.com.br/api/v1/projects/${projectId}/flags/stream`,
-  { headers: { 'X-Service-Token': serviceToken } }
-)
-
-evtSource.onmessage = (e) => {
-  const update = JSON.parse(e.data)
-  if (update.type === 'heartbeat') return
-  console.log(`Flag ${update.flag_key} agora é ${update.enabled}`)
-  // Atualiza estado local sem recarregar a página
-}
-```
-
-### Variants A/B
-
-```bash
-GET /flags/variants?user_id=user-123&project_id=550e8400-...
-
-# Resposta
-{"variants": {"pricing-test": "challenger", "onboarding-flow": "control"}}
-```
-
-A atribuição de variante também é determinística por `user_id`.
-
----
-
-## Integração com seu Sistema
-
-### Enviar eventos
-
-O endpoint de events é **público** — não requer `SERVICE_TOKEN`. Use o `X-Project-Key` do projeto.
-
-```bash
-# Evento simples
-POST /api/v1/events
-Content-Type: application/json
-X-Project-Key: pk_live_xxxxxxxxxxxxxxxxxx
-
-{
-  "event_name": "checkout_completed",
-  "user_id": "user-123",
-  "session_id": "sess-abc",
-  "environment": "production",
-  "properties": {
-    "plan": "growth",
-    "amount_cents": 79900,
-    "coupon": "LAUNCH25"
-  }
-}
-```
-
-```bash
-# Batch de eventos (flush de fila do SDK — até 500 por chamada)
-POST /api/v1/events/batch
-Content-Type: application/json
-
-{
-  "events": [
-    {"event_name": "page_viewed", "user_id": "user-123", ...},
-    {"event_name": "button_clicked", "user_id": "user-123", ...}
-  ]
-}
-```
-
-```bash
-# Identificar usuário (merge anonymous_id → user_id após login)
-POST /api/v1/events/identify
-
-{
-  "anonymous_id": "anon-xyz",
-  "user_id": "user-123",
-  "traits": {
-    "name": "Maria Silva",
-    "email": "maria@empresa.com",
-    "plan": "free"
-  }
-}
-```
-
-### Avaliar flags no backend
-
-Para aplicações server-side que precisam avaliar flags sem usar os SDKs:
-
-```bash
-GET /flags?user_id=user-123&project_id=550e8400-e29b-41d4-a716-446655440000
-
-# Ou para uma flag específica (endpoint admin)
-GET /api/v1/flags/nova-homepage/evaluate?user_id=user-123
-Header: X-Service-Token: seu-token-secreto-aqui
-```
-
----
-
-## Gerenciamento de Projetos
-
-### Criar projeto
-
-```bash
-POST /api/v1/projects
-X-Service-Token: seu-token-secreto-aqui
-
-{
-  "name": "Meu SaaS",
-  "slug": "meu-saas",
-  "plan": "free"
-}
-```
-
-### Listar projetos
-
-```bash
-GET /api/v1/projects
 X-Service-Token: seu-token-secreto-aqui
 ```
 
-### Regenerar API key
-
-Útil quando uma chave é comprometida:
-
-```bash
-POST /api/v1/projects/meu-saas/regenerate-key
-X-Service-Token: seu-token-secreto-aqui
-```
-
-### Ambientes
-
-O Pulse suporta múltiplos ambientes por projeto (ex: `staging`, `production`):
-
-```bash
-POST /api/v1/environments
-X-Service-Token: seu-token-secreto-aqui
-
-{
-  "name": "Staging",
-  "slug": "staging",
-  "project_id": "550e8400-..."
-}
-```
-
-Ao enviar eventos, passe `"environment": "staging"` no payload. Flags e métricas ficam isolados por ambiente.
+O Pulse notifica clientes imediatamente quando uma flag muda, sem polling. Heartbeats a cada 30s mantêm a conexão viva.
 
 ---
 
 ## Segurança
 
-### Modelo de autenticação
-
-O Pulse usa dois tokens com escopos diferentes:
+### Tokens
 
 | Token | Header | Escopo |
 |---|---|---|
-| `SERVICE_TOKEN` | `X-Service-Token` | Endpoints admin: CRUD de flags, projetos, consultas de dados, SSE stream |
-| `X-Project-Key` (`api_key` do projeto) | `X-Project-Key` | Endpoints públicos do SDK: avaliação de flags, ingest de eventos |
-
-Os endpoints públicos (sem autenticação ou com apenas `X-Project-Key`) são:
-
-- `GET /flags` — avaliação de flags
-- `POST /flags/evaluate-batch` — batch evaluation
-- `GET /flags/variants` — variants A/B
-- `POST /api/v1/events` — ingest de eventos
-- `POST /api/v1/events/batch` — batch ingest
-- `POST /api/v1/events/track` — simplified tracking
-- `POST /api/v1/events/identify` — merge de identidade
-- `GET /health` — health check
-- `GET /sdk/*` — arquivos do SDK via CDN
+| `SERVICE_TOKEN` | `X-Service-Token` | Endpoints admin: CRUD de flags, projetos, dashboard |
+| `api_key` do projeto | `X-Project-Key` | Endpoints públicos do SDK: avaliação de flags, ingest de eventos |
 
 ### Recomendações para produção
 
-1. **Use HTTPS obrigatoriamente.** O `SERVICE_TOKEN` trafega em headers e deve ser protegido por TLS. Configure um reverse proxy (Nginx, Traefik, Caddy) com certificado SSL.
-
-2. **Nunca exponha o `SERVICE_TOKEN` no frontend.** Ele fica apenas em ambientes server-side, variáveis de ambiente CI/CD, ou secrets do Kubernetes.
-
-3. **Restrinja CORS em produção.** Defina `PULSE_ALLOWED_ORIGINS` com os domínios exatos do seu frontend:
+1. **Use HTTPS obrigatoriamente.** Configure um reverse proxy (Nginx, Traefik, Caddy) com certificado SSL.
+2. **Nunca exponha o `SERVICE_TOKEN` no frontend.** Apenas em variáveis server-side ou secrets do Kubernetes.
+3. **Restrinja CORS em produção:**
+   ```dotenv
+   PULSE_ALLOWED_ORIGINS=https://app.seudominio.com,https://www.seudominio.com
    ```
-   PULSE_ALLOWED_ORIGINS=https://app.seudominio.com.br,https://www.seudominio.com.br
-   ```
+4. **Não exponha PostgreSQL e Redis externamente.** As portas estão comentadas no compose intencionalmente.
+5. **Rotacione o `SERVICE_TOKEN` periodicamente** e atualize a variável de ambiente.
 
-4. **Rate limiting.** O Pulse usa Redis sliding window para rate limiting automático. Por padrão é configurado para tolerar tráfego normal de SDKs. Ajuste conforme seu volume.
-
-5. **Não exponha o PostgreSQL e o Redis externamente.** No compose, as portas dessas dependências estão comentadas intencionalmente.
-
-6. **Rotacione o `SERVICE_TOKEN` periodicamente.** Ao rotacionar, atualize a variável de ambiente e reinicie o container.
-
-### Configuração de Nginx para produção
+### Configuração Nginx para SSE
 
 ```nginx
 server {
     listen 443 ssl;
-    server_name pulse-api.seudominio.com.br;
-
-    ssl_certificate /etc/ssl/certs/seudominio.crt;
-    ssl_certificate_key /etc/ssl/private/seudominio.key;
+    server_name pulse-api.seudominio.com;
 
     location / {
         proxy_pass http://localhost:3015;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-
-        # Necessário para SSE (Server-Sent Events)
         proxy_buffering off;
         proxy_cache off;
         proxy_read_timeout 3600s;
@@ -742,109 +472,86 @@ server {
 
 ## Atualização
 
-### Atualizar para a versão mais recente
-
 ```bash
 # Baixar nova imagem
-docker pull ghcr.io/institutoitinerante/pulse-service:latest
-docker pull ghcr.io/institutoitinerante/pulse-frontend:latest
+docker pull ghcr.io/seu-org/pulse-service:latest
+docker pull ghcr.io/seu-org/pulse-frontend:latest
 
-# Aplicar novas migrations (se houver)
-# Verifique o CHANGELOG ou as migrations adicionadas desde sua versão atual
-for f in $(ls migrations/NEW_*.sql | sort); do
+# Aplicar novas migrations (verifique o CHANGELOG)
+for f in migrations/NEW_*.sql; do
   docker exec -i pulse-postgres psql -U pulse -d pulse_db < "$f"
 done
 
-# Reiniciar os containers
+# Reiniciar
 docker compose -f docker-compose.selfhosted.yml up -d
 ```
 
-### Verificar a versão atual
-
-```bash
-docker exec pulse-backend ./pulse-service --version 2>/dev/null || \
-  curl -s http://localhost:3015/health | jq .
-```
-
-### Estratégia de versões
-
-As imagens são publicadas com tags semânticas (`v2026.04`, `latest`). Em produção, prefira tags específicas em vez de `latest` para ter controle sobre qual versão está rodando.
+Em produção, prefira tags semânticas em vez de `latest`:
 
 ```yaml
-# docker-compose.selfhosted.yml — troque :latest por uma tag específica
-image: ghcr.io/institutoitinerante/pulse-service:v2026.04
+image: ghcr.io/seu-org/pulse-service:v2026.04
 ```
 
 ---
 
 ## Troubleshooting
 
-### Serviço não inicia — "DATABASE_URL environment variable is required"
+### "SERVICE_TOKEN is required" ao subir
 
-O container aborta na inicialização se `DATABASE_URL` não estiver definida. Verifique:
+O `SERVICE_TOKEN` é obrigatório. Verifique se o `.env` existe e está no mesmo diretório do compose:
 
 ```bash
-docker compose -f docker-compose.selfhosted.yml config | grep DATABASE_URL
+docker compose -f docker-compose.selfhosted.yml config | grep SERVICE_TOKEN
 ```
 
-Se o valor estiver vazio, verifique se o arquivo `.env` existe na mesma pasta do compose e se `SERVICE_TOKEN` também está preenchido (obrigatório).
+### Login local não funciona — "invalid credentials"
 
-### Serviço não inicia — "SERVICE_TOKEN environment variable is required"
+Verifique se `PULSE_AUTH_MODE=local` está definido no backend **e** `VITE_AUTH_MODE=local` no frontend. Se o frontend estiver em modo `external`, ele redireciona para o auth-service ao invés de exibir o formulário de login.
 
-Igual ao anterior — `SERVICE_TOKEN` também é obrigatório.
+### Setup retorna 403 — "setup already completed"
 
-### Erro de conexão com o Redis — "failed to parse REDIS_URL"
+O endpoint `/api/v1/auth/setup` só funciona enquanto a tabela `pulse_users` está vazia. Se você já criou um usuário, use `/api/v1/auth/login` normalmente.
 
-O formato esperado é `redis://host:port/db` ou `redis://:password@host:port/db`. Evite espaços ou caracteres especiais sem encoding.
+Para resetar (ambiente de teste):
+
+```bash
+docker exec pulse-postgres psql -U pulse -d pulse_db -c "TRUNCATE pulse_users;"
+```
 
 ### Migrations falham — "relation already exists"
 
-As migrations são idempotentes quando possível, mas se aplicadas parcialmente podem gerar conflito. Verifique qual foi a última migration aplicada:
+Verifique qual foi a última migration aplicada e aplique apenas a partir da que está faltando:
 
 ```bash
 docker exec pulse-postgres psql -U pulse -d pulse_db \
   -c "SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename;"
 ```
 
-Compare com os arquivos em `migrations/` e aplique apenas a partir da que está faltando.
-
 ### CORS bloqueando requests do frontend
 
-Se o browser mostra erros de CORS, verifique `PULSE_ALLOWED_ORIGINS`. Para debug temporário, defina `*`. Para produção, liste os domínios exatos:
-
-```
-PULSE_ALLOWED_ORIGINS=https://app.seudominio.com.br
-```
-
-Reinicie o container após alterar a variável:
+Para debug temporário: `PULSE_ALLOWED_ORIGINS=*`. Para produção, liste os domínios exatos. Reinicie após alterar:
 
 ```bash
 docker compose -f docker-compose.selfhosted.yml restart pulse-backend
 ```
 
-### SSE desconectando a cada 60 segundos (proxy)
+### SSE desconectando a cada 60s (proxy)
 
-O Pulse envia heartbeats a cada 30 segundos. Se sua conexão SSE ainda cai, seu proxy ou load balancer provavelmente tem timeout de idle connection. Configure:
-
-- **Nginx:** `proxy_read_timeout 3600s;`
-- **Traefik:** annotation `traefik.ingress.kubernetes.io/router.middlewares` com timeout ajustado
-- **CloudFlare:** o plano Free tem timeout de 100 segundos para SSE — use o header `X-Accel-Buffering: no` (já configurado pelo Pulse)
+Configure o timeout do proxy: **Nginx** `proxy_read_timeout 3600s;`, **Traefik** ajuste middleware de timeout, **Cloudflare** (plano Free) tem limite de 100s — use `X-Accel-Buffering: no`.
 
 ### Logs detalhados
 
 ```bash
-# Logs do backend em tempo real
 docker logs -f pulse-backend
 
 # Ativar debug completo
-docker compose -f docker-compose.selfhosted.yml stop pulse-backend
 LOG_LEVEL=debug docker compose -f docker-compose.selfhosted.yml up pulse-backend
 ```
 
 ### Backup dos dados
 
 ```bash
-# Dump completo
+# Dump
 docker exec pulse-postgres pg_dump -U pulse pulse_db > backup-$(date +%Y%m%d).sql
 
 # Restaurar

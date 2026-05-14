@@ -222,7 +222,7 @@ async function flush(): Promise<void> {
   const events = [...eventBuffer];
   eventBuffer = [];
 
-  const baseURL = options.baseURL ?? 'https://pulse-api.institutoitinerante.com.br';
+  const baseURL = options.baseURL ?? '';
   const payload = {
     session_id: sessionId,
     project_id: options.projectId,

@@ -2,7 +2,7 @@
 //
 // Usage:
 //
-//	client := pulse.New("https://pulse-api.institutoitinerante.com.br", "service-token")
+//	client := pulse.New("https://seu-pulse.exemplo.com", "service-token")
 //	enabled := client.IsEnabled(ctx, "minha-flag", true)
 //	variant := client.GetVariant(ctx, "pricing-test", "control", pulse.WithUser("user-123"))
 //	client.Track("page.viewed", pulse.Props{"page": "/home"})
@@ -77,7 +77,7 @@ func WithCacheTTL(d time.Duration) ClientOption {
 }
 
 // New cria um Client com timeout de 3s e sem cache.
-// baseURL: URL base da API (ex: "https://pulse-api.institutoitinerante.com.br").
+// baseURL: URL base da API (ex: "https://seu-pulse.exemplo.com").
 // token: service token da conta do serviço registrado em service_clients.
 func New(baseURL, token string) *Client {
 	return &Client{

@@ -5,7 +5,9 @@ description: "Como rodar o Pulse na sua própria infraestrutura usando Docker Co
 
 # Self-hosted — como funciona
 
-O modo self-hosted permite rodar o Pulse inteiramente na sua infraestrutura. Os dados nunca saem do seu ambiente. Disponível no plano **Pro** mediante consulta.
+O modo self-hosted permite rodar o Pulse inteiramente na sua infraestrutura. Os dados nunca saem do seu ambiente.
+
+> Para um guia completo com todos os detalhes, consulte [docs/self-hosted.md](../self-hosted.md).
 
 ---
 
@@ -25,139 +27,86 @@ O modo self-hosted permite rodar o Pulse inteiramente na sua infraestrutura. Os 
 ## Pré-requisitos
 
 - Docker 24+ e Docker Compose v2
-- PostgreSQL 15+ (pode ser o mesmo que você já usa ou um novo banco)
+- PostgreSQL 15+
 - Redis 7+
-- 2 vCPU / 2 GB RAM mínimo para o backend Pulse
+- 512 MB RAM mínimo para o backend Pulse
 - Acesso HTTPS à instância (para o SDK funcionar a partir do browser)
 
 ---
 
-## Instalação com Docker Compose
+## Instalação rápida
 
-### 1. Obter o arquivo de composição
+### 1. Configurar variáveis de ambiente
 
-O arquivo `docker-compose.selfhosted.yml` é fornecido ao ativar o plano Pro. Solicite via support@institutoitinerante.com.br com seu `project_id`.
+Crie um arquivo `.env` no mesmo diretório do compose (nunca commite este arquivo):
 
-Estrutura do arquivo:
+```dotenv
+# Obrigatório
+SERVICE_TOKEN=seu-token-secreto-aqui   # openssl rand -hex 32
+POSTGRES_PASSWORD=troque-esta-senha
 
-```yaml
-# docker-compose.selfhosted.yml
-version: '3.9'
+# URL pública da instância (usada pelo frontend para chamar a API)
+PULSE_API_URL=https://pulse-api.seudominio.com
 
-services:
-  pulse-api:
-    image: ghcr.io/apsferreira/pulse-service:latest
-    restart: unless-stopped
-    ports:
-      - "8090:8090"
-    environment:
-      - DATABASE_URL=${DATABASE_URL}
-      - REDIS_URL=${REDIS_URL}
-      - SERVICE_TOKEN=${SERVICE_TOKEN}
-      - JWT_SECRET=${JWT_SECRET}
-      - PORT=8090
-      - ENV=production
-      - LOG_LEVEL=info
-      - CORS_ORIGINS=${CORS_ORIGINS}
-    depends_on:
-      - pulse-migrate
-    networks:
-      - pulse-net
+# Modo de autenticação: "local" (self-contained) ou "external" (OAuth)
+PULSE_AUTH_MODE=local
 
-  pulse-migrate:
-    image: ghcr.io/apsferreira/pulse-service:latest
-    command: ["migrate", "up"]
-    environment:
-      - DATABASE_URL=${DATABASE_URL}
-    networks:
-      - pulse-net
-
-  pulse-dashboard:
-    image: ghcr.io/apsferreira/pulse-dashboard:latest
-    restart: unless-stopped
-    ports:
-      - "8091:80"
-    environment:
-      - VITE_PULSE_API_URL=${PULSE_API_URL}
-    networks:
-      - pulse-net
-
-networks:
-  pulse-net:
-    driver: bridge
+# Opcional
+ADMIN_EMAIL=ops@seudominio.com
+RESEND_API_KEY=re_xxxxxxxx
+RESEND_FROM=noreply@seudominio.com
 ```
 
-### 2. Configurar variáveis de ambiente
-
-Crie um arquivo `.env` no mesmo diretório (nunca commite este arquivo):
-
-```bash
-# .env — self-hosted Pulse
-
-# Banco de dados PostgreSQL
-DATABASE_URL=postgres://pulse_user:senha_segura@192.168.30.121:5432/pulse_db?sslmode=disable
-
-# Redis
-REDIS_URL=redis://:senha_redis@192.168.30.121:6379/5
-
-# Token de acesso ao serviço (gerado na configuração inicial)
-SERVICE_TOKEN=pulse_svc_seu_token_secreto_aqui
-
-# Secret para JWT interno (mínimo 32 caracteres aleatórios)
-JWT_SECRET=sua_chave_jwt_de_pelo_menos_32_caracteres
-
-# URL pública da API (usada pelo dashboard)
-PULSE_API_URL=https://pulse-api.seudominio.com.br
-
-# Origens permitidas no CORS (lista separada por vírgula)
-CORS_ORIGINS=https://pulse.seudominio.com.br,https://app.seudominio.com.br
-```
-
-Gere valores seguros com:
-
-```bash
-# SERVICE_TOKEN
-openssl rand -hex 32
-
-# JWT_SECRET
-openssl rand -base64 48
-```
-
-### 3. Criar o banco e rodar migrations
-
-```bash
-# Criar banco (se necessário)
-psql -h 192.168.30.121 -U postgres -c "CREATE DATABASE pulse_db;"
-psql -h 192.168.30.121 -U postgres -c "CREATE USER pulse_user WITH PASSWORD 'senha_segura';"
-psql -h 192.168.30.121 -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE pulse_db TO pulse_user;"
-
-# Rodar migrations via Docker Compose
-docker compose -f docker-compose.selfhosted.yml run --rm pulse-migrate
-```
-
-### 4. Subir os serviços
+### 2. Subir os serviços
 
 ```bash
 docker compose -f docker-compose.selfhosted.yml up -d
+```
 
-# Verificar logs
-docker compose -f docker-compose.selfhosted.yml logs -f pulse-api
+### 3. Aplicar migrations
+
+```bash
+export PGPASSWORD=troque-esta-senha
+for f in $(ls migrations/*.sql | sort); do
+  docker exec -i pulse-postgres psql -U pulse -d pulse_db < "$f"
+done
+```
+
+### 4. Criar primeiro usuário admin (modo local)
+
+```bash
+curl -X POST http://localhost:3015/api/v1/auth/setup \
+  -H "Content-Type: application/json" \
+  -d '{"email": "admin@suaempresa.com", "password": "sua-senha-segura", "name": "Admin"}'
 ```
 
 ### 5. Verificar saúde
 
 ```bash
-curl https://pulse-api.seudominio.com.br/health
+curl http://localhost:3015/health
+# {"status":"ok","service":"pulse-service"}
 ```
 
-```json
-{
-  "status": "ok",
-  "version": "1.4.2",
-  "db": "ok",
-  "redis": "ok",
-  "uptime_seconds": 42
-}
+---
+
+## Modos de autenticação
+
+### Modo local (recomendado para self-hosted)
+
+Email + senha armazenados no próprio banco. Não requer serviços externos.
+
+```dotenv
+PULSE_AUTH_MODE=local
+PULSE_JWT_SECRET=seu-secret-jwt   # openssl rand -hex 32 (opcional)
+```
+
+### Modo externo (OAuth)
+
+Integração com auth-service OAuth externo.
+
+```dotenv
+PULSE_AUTH_MODE=external
+PULSE_AUTH_URL=https://auth.suaempresa.com
 ```
 
 ---
@@ -165,61 +114,41 @@ curl https://pulse-api.seudominio.com.br/health
 ## Configurar o SDK para apontar para sua instância
 
 ```typescript
-const pulse = new PulseSDK({
-  apiUrl: 'https://pulse-api.seudominio.com.br',  // sua instância, não a managed
-  product: 'minha-app',
-  serviceToken: process.env.PULSE_SERVICE_TOKEN!,
+// JavaScript / TypeScript
+const pulse = new PulseClient({
+  apiUrl: 'https://pulse-api.seudominio.com',
+  projectKey: 'pk_live_xxxxxxxxxxxxxxxxxx',
 })
 ```
 
----
-
-## Atualizações
-
-Para atualizar para uma nova versão:
-
-```bash
-# Puxar nova imagem
-docker compose -f docker-compose.selfhosted.yml pull
-
-# Rodar migrations da nova versão (sem downtime se backward-compatible)
-docker compose -f docker-compose.selfhosted.yml run --rm pulse-migrate
-
-# Reiniciar o serviço
-docker compose -f docker-compose.selfhosted.yml up -d pulse-api
+```go
+// Go
+client, _ := pulse.NewClient("https://pulse-api.seudominio.com")
 ```
 
-Consulte o [CHANGELOG](https://github.com/apsferreira/pulse-service/blob/main/CHANGELOG.md) antes de cada update para verificar se há breaking changes nas migrations.
+> Todos os SDKs exigem `apiUrl`/`baseURL` explícito. Não há URL padrão embutida.
 
 ---
 
 ## Deploy em K3s / Kubernetes
 
-Se você já usa K3s (como o ambiente do IIT), prefira o manifesto Kubernetes em vez do Docker Compose:
-
 ```bash
-# Manifests disponíveis no repositório
-ls /Users/antonio.ferreira/projects/pulse-service/k8s/
+# Manifests no repositório
+ls k8s/
 # deployment.yaml  service.yaml  ingress.yaml  configmap.yaml  secret.yaml
-```
 
-Aplique com:
-
-```bash
-KUBECONFIG=~/.kube/k3s-homelab kubectl apply -f k8s/
+kubectl apply -f k8s/
 ```
 
 ---
 
 ## Diferenças entre managed e self-hosted
 
-| Funcionalidade | Managed (Pro) | Self-hosted |
-|---------------|---------------|-------------|
+| Funcionalidade | Managed | Self-hosted |
+|---------------|---------|-------------|
 | Updates automáticos | Sim | Manual (você controla) |
 | Backups automáticos | Sim | Sua responsabilidade |
-| SLA 99,95% | Contratual | Depende da sua infra |
-| Suporte prioritário | Incluído | Incluído (email/GitHub) |
-| Compliance de dados | Dados no IIT | Dados 100% na sua infra |
+| Dados fora da sua infra | Sim | Não (100% local) |
 | Customizações | Não | Fork + build próprio |
 | Custo de infra | Incluso | Você paga o servidor |
 
@@ -228,18 +157,18 @@ KUBECONFIG=~/.kube/k3s-homelab kubectl apply -f k8s/
 ## Backup e recuperação
 
 ```bash
-# Backup do banco (rodar via cron)
-pg_dump -h 192.168.30.121 -U pulse_user pulse_db \
-  | gzip > /backups/pulse_$(date +%Y%m%d_%H%M%S).sql.gz
+# Backup do banco
+docker exec pulse-postgres pg_dump -U pulse pulse_db \
+  | gzip > backup-$(date +%Y%m%d_%H%M%S).sql.gz
 
 # Restaurar
-gunzip -c /backups/pulse_20260411_120000.sql.gz \
-  | psql -h 192.168.30.121 -U pulse_user pulse_db
+gunzip -c backup-20260411_120000.sql.gz \
+  | docker exec -i pulse-postgres psql -U pulse pulse_db
 ```
 
 ---
 
 ## Próximos passos
 
-- [05-qual-plano-escolher.md](./05-qual-plano-escolher.md) — verificar se self-hosted é o plano certo para você
-- [10-integrar-pulse-ci-cd.md](./10-integrar-pulse-ci-cd.md) — automatizar deploy da instância self-hosted em CI/CD
+- [self-hosted.md](../self-hosted.md) — guia completo com todas as variáveis e troubleshooting
+- [05-qual-plano-escolher.md](./05-qual-plano-escolher.md) — verificar se self-hosted é o plano certo

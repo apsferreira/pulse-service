@@ -4,9 +4,20 @@ version: "3.9"
 # Uso: docker compose -f docker-compose.selfhosted.yml up -d
 # Docs: docs/self-hosted.md
 #
-# Variáveis obrigatórias (copie .env.selfhosted.example para .env e preencha):
+# Variáveis obrigatórias:
 #   SERVICE_TOKEN        — token admin interno (gere com: openssl rand -hex 32)
-#   PULSE_AUTH_URL       — URL do auth-service que gerencia login (ex: https://auth.suaempresa.com)
+#
+# Modo de autenticação (escolha um):
+#
+#   Opção A — Auth local (sem auth-service externo, recomendado para self-hosted):
+#     PULSE_AUTH_MODE=local
+#     PULSE_JWT_SECRET=<openssl rand -hex 32>  (opcional — usa SERVICE_TOKEN como fallback)
+#     VITE_AUTH_MODE=local
+#     Após subir: POST http://localhost:3015/api/v1/auth/setup para criar o primeiro usuário.
+#
+#   Opção B — Auth externo (OAuth via auth-service):
+#     PULSE_AUTH_MODE=external   (default)
+#     PULSE_AUTH_URL=https://auth.suaempresa.com
 #
 # Variáveis opcionais:
 #   POSTGRES_PASSWORD    — senha do PostgreSQL (default: pulse_secret — troque em prod)
@@ -34,6 +45,8 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-info}
       SELF_HOSTED: "true"
       PULSE_BILLING_URL: ${PULSE_BILLING_URL:-}
+      PULSE_AUTH_MODE: ${PULSE_AUTH_MODE:-external}
+      PULSE_JWT_SECRET: ${PULSE_JWT_SECRET:-}
     depends_on:
       pulse-postgres:
         condition: service_healthy
@@ -56,7 +69,8 @@ services:
       - "3016:80"
     environment:
       VITE_API_URL: ${PULSE_API_URL:-http://localhost:3015}
-      VITE_AUTH_SERVICE_URL: ${PULSE_AUTH_URL:?PULSE_AUTH_URL is required (URL do auth-service)}
+      VITE_AUTH_MODE: ${PULSE_AUTH_MODE:-external}
+      VITE_AUTH_SERVICE_URL: ${PULSE_AUTH_URL:-}
     depends_on:
       - pulse-backend
     networks:

@@ -6,7 +6,7 @@
  * import { usePulseFlag, usePulseVariant } from '@iit/pulse-sdk/react'
  * import { PulseClient } from '@iit/pulse-sdk'
  *
- * const pulse = new PulseClient({ baseURL: 'https://pulse-api.institutoitinerante.com.br' })
+ * const pulse = new PulseClient({ baseURL: 'https://seu-pulse.exemplo.com' })
  *
  * function MyComponent() {
  *   const newDashboard = usePulseFlag(pulse, 'new-dashboard')

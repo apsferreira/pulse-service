@@ -23,7 +23,7 @@ import java.util.*
 object PulseSDK {
     private var apiKey: String = ""
     private var projectId: String = ""
-    private var baseURL: String = "https://pulse-api.institutoitinerante.com.br"
+    private var baseURL: String = ""
     private var userId: String = ""
     private val flagCache = mutableMapOf<String, Boolean>()
     private val offlineQueue = mutableListOf<Map<String, Any>>()

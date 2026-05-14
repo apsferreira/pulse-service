@@ -6,23 +6,23 @@ Feature flags e event tracking self-hostável. Mude comportamento de qualquer pr
 
 ```mermaid
 graph TD
-    subgraph Produtos["Produtos / Clientes"]
-        A["Site IIT (Astro)"]
-        B["SocialMake (React)"]
-        C["Librinho (React Native)"]
-        D["Nitro (React Native)"]
+    subgraph Produtos
+        A[Site IIT - Astro]
+        B[SocialMake - React]
+        C[Librinho - React Native]
+        D[Nitro - React Native]
     end
 
-    subgraph nginx["nginx — proxy site IIT"]
-        PF["/pulse-flags"]
-        PI["/pulse-ingest"]
+    subgraph nginx
+        PF[proxy pulse-flags]
+        PI[proxy pulse-ingest]
     end
 
-    subgraph K3s["K3s — namespace production"]
-        PS["pulse-service (Go/Fiber :3050)"]
-        RD[("Redis — cache flags")]
-        DB[("PostgreSQL — pulse_db")]
-        FE["pulse-service-frontend (React :80)"]
+    subgraph K3s
+        PS[pulse-service Go/Fiber]
+        RD[(Redis cache)]
+        DB[(PostgreSQL)]
+        FE[pulse-service-frontend]
     end
 
     A -->|GET /pulse-flags| PF
@@ -67,11 +67,11 @@ sequenceDiagram
 
 ```mermaid
 graph LR
-    subgraph "hash(user_id) mod 100 — rollout 50%"
-        U1["user-01 → 3"] --> K1[controle]
-        U2["user-12 → 47"] --> T1[tratamento]
-        U3["user-33 → 81"] --> K2[controle]
-        U4["user-77 → 12"] --> T2[tratamento]
+    subgraph rollout["hash mod 100 - rollout 50%"]
+        U1[user-01 hash 3] --> K1[controle]
+        U2[user-12 hash 47] --> T1[tratamento]
+        U3[user-33 hash 81] --> K2[controle]
+        U4[user-77 hash 12] --> T2[tratamento]
     end
     style T1 fill:#6ee7b7,color:#000
     style T2 fill:#6ee7b7,color:#000

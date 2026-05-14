@@ -5,11 +5,13 @@ package handler
 
 import (
 	"context"
+	"crypto/subtle"
 	"log"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"github.com/institutoitinerante/pulse-service/internal/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -24,10 +26,13 @@ func NewReplayHandler(db *pgxpool.Pool, serviceToken string) *ReplayHandler {
 
 // RegisterRoutes registra as rotas de Session Replay na aplicação Fiber.
 func (h *ReplayHandler) RegisterRoutes(app *fiber.App) {
-	replay := app.Group("/api/v1/replay")
-	replay.Post("/events", h.IngestEvents)         // SDK envia batch de eventos
-	replay.Get("/sessions", h.ListSessions)        // dashboard lista sessões
-	replay.Get("/sessions/:session_id/events", h.GetSessionEvents) // playback
+	// POST /events usa Bearer token por design SDK; GET requer service token (dados sensíveis de sessão)
+	replayPublic := app.Group("/api/v1/replay")
+	replayPublic.Post("/events", h.IngestEvents)
+
+	replay := app.Group("/api/v1/replay", middleware.ServiceTokenMiddleware(h.serviceToken))
+	replay.Get("/sessions", h.ListSessions)
+	replay.Get("/sessions/:session_id/events", h.GetSessionEvents)
 }
 
 type replayEventPayload struct {
@@ -72,7 +77,7 @@ func (h *ReplayHandler) IngestEvents(c *fiber.Ctx) error {
 	err = h.db.QueryRow(context.Background(), `
 		SELECT api_key FROM projects WHERE id = $1 AND deleted_at IS NULL
 	`, projectID).Scan(&storedToken)
-	if err != nil || storedToken != authHeader[7:] {
+	if err != nil || subtle.ConstantTimeCompare([]byte(storedToken), []byte(authHeader[7:])) != 1 {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "token inválido"})
 	}
 

@@ -237,6 +237,9 @@ func (h *EventHandler) ListEvents(c *fiber.Ctx) error {
 	limit := 50
 	if l := c.Query("limit"); l != "" {
 		if v, err := strconv.Atoi(l); err == nil && v > 0 {
+			if v > 1000 {
+				v = 1000
+			}
 			limit = v
 		}
 	}

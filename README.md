@@ -14,8 +14,8 @@ graph TD
     end
 
     subgraph nginx["nginx — proxy site IIT"]
-        PF[/pulse-flags]
-        PI[/pulse-ingest]
+        PF["/pulse-flags"]
+        PI["/pulse-ingest"]
     end
 
     subgraph K3s["K3s — namespace production"]

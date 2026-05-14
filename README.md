@@ -7,22 +7,22 @@ Feature flags e event tracking self-hostável. Mude comportamento de qualquer pr
 ```mermaid
 graph TD
     subgraph Produtos["Produtos / Clientes"]
-        A[Site IIT\nAstro]
-        B[SocialMake\nReact]
-        C[Librinho\nReact Native]
-        D[Nitro\nReact Native]
+        A["Site IIT (Astro)"]
+        B["SocialMake (React)"]
+        C["Librinho (React Native)"]
+        D["Nitro (React Native)"]
     end
 
-    subgraph nginx["nginx (proxy — site IIT)"]
+    subgraph nginx["nginx — proxy site IIT"]
         PF[/pulse-flags]
         PI[/pulse-ingest]
     end
 
     subgraph K3s["K3s — namespace production"]
-        PS[pulse-service\nGo/Fiber :3050]
-        RD[(Redis\ncache flags)]
-        DB[(PostgreSQL\npulse_db)]
-        FE[pulse-service-frontend\nReact :80]
+        PS["pulse-service (Go/Fiber :3050)"]
+        RD[("Redis — cache flags")]
+        DB[("PostgreSQL — pulse_db")]
+        FE["pulse-service-frontend (React :80)"]
     end
 
     A -->|GET /pulse-flags| PF
@@ -86,7 +86,7 @@ O mesmo `user_id` **sempre** cai no mesmo grupo — sem guardar estado, sem sess
 ```mermaid
 stateDiagram-v2
     [*] --> AguardandoSDK: Projeto criado no Dashboard
-    AguardandoSDK --> Ativo: Primeira requisição autenticada\n(ActivateByAPIKey)
+    AguardandoSDK --> Ativo: "Primeira requisição autenticada (ActivateByAPIKey)"
     Ativo --> Ativo: Flags avaliadas / eventos recebidos
 ```
 

@@ -14,7 +14,7 @@ public final class PulseSDK {
 
     private var apiKey: String = ""
     private var projectId: String = ""
-    private var baseURL: String = "https://pulse-api.institutoitinerante.com.br"
+    private var baseURL: String = ""
     private var userId: String = ""
     private var flagCache: [String: Bool] = [:]
     private var offlineQueue: [[String: Any]] = []

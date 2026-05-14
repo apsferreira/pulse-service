@@ -8,7 +8,7 @@
  * Uso (API original):
  *   import { PulseProvider, useFlag, useTrack, useExperiment } from '@pulse/react'
  *
- *   <PulseProvider projectKey="YOUR_KEY" apiUrl="https://pulse-api.institutoitinerante.com.br">
+ *   <PulseProvider projectKey="YOUR_KEY" apiUrl="https://seu-pulse.exemplo.com">
  *     <MyApp />
  *   </PulseProvider>
  *
@@ -16,7 +16,7 @@
  *   import { PulseProvider, usePulseFlag, usePulseVariant } from '@pulse/react'
  *
  *   <PulseProvider serviceToken="svc_xxx" projectId="proj_yyy"
- *                  apiUrl="https://pulse-api.institutoitinerante.com.br"
+ *                  apiUrl="https://seu-pulse.exemplo.com"
  *                  defaults={{ 'nova-feature': false }}
  *                  failOpen={true}>
  *     <MyApp />

@@ -13,7 +13,7 @@
 export interface PulseClientOptions {
   /** ID do projeto no pulse-service */
   projectId: string;
-  /** Base URL do pulse-service (ex: "https://pulse-api.institutoitinerante.com.br") */
+  /** Base URL do pulse-service (ex: "https://seu-pulse.exemplo.com") */
   apiUrl: string;
   /**
    * Intervalo de flush automatico em ms (default: 5000).

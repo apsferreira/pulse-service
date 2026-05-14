@@ -3,7 +3,7 @@
  */
 
 export interface PulseConfig {
-  /** URL base da API Pulse. Ex: "https://pulse-api.institutoitinerante.com.br" */
+  /** URL base da API Pulse. Ex: "https://seu-pulse.exemplo.com" */
   apiUrl: string
   /** Chave do projeto (X-Project-Key). */
   projectKey: string

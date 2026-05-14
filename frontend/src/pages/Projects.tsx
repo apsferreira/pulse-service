@@ -197,7 +197,6 @@ interface ProjectDetailModalProps {
 function ProjectDetailModal({ project, onClose, onUpdated }: ProjectDetailModalProps) {
   const [name, setName] = useState(project.name)
   const [plan, setPlan] = useState(project.plan)
-  const [isActive, setIsActive] = useState(project.is_active)
   const [saving, setSaving] = useState(false)
   const [editMode, setEditMode] = useState(false)
 
@@ -425,7 +424,6 @@ function ProjectDetailModal({ project, onClose, onUpdated }: ProjectDetailModalP
                       setEditMode(false)
                       setName(project.name)
                       setPlan(project.plan)
-                      setIsActive(project.is_active)
                     }}
                     className="px-3 py-1.5 rounded-lg text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                   >

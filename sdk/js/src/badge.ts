@@ -13,14 +13,14 @@ export interface BadgeOptions {
   position?: "bottom-right" | "bottom-left" | "top-right" | "top-left";
   /** Tema do badge (default: "auto" — segue prefers-color-scheme) */
   theme?: "light" | "dark" | "auto";
-  /** URL da landing page (default: https://pulse.institutoitinerante.com.br) */
+  /** URL da landing page (default: "") */
   landingURL?: string;
   /** z-index do badge (default: 9999) */
   zIndex?: number;
 }
 
 const BADGE_ID = "__pulse_powered_by_badge__";
-const DEFAULT_LANDING_URL = "https://pulse.institutoitinerante.com.br";
+const DEFAULT_LANDING_URL = "";
 
 /**
  * Injeta o badge "Powered by Pulse" no DOM da aplicação.

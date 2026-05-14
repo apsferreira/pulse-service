@@ -14,7 +14,7 @@
 export type DefaultsMap = Record<string, boolean>;
 
 export interface PulseClientOptions {
-  /** Base URL do pulse-service (ex: "https://pulse.institutoitinerante.com.br") */
+  /** Base URL do pulse-service (ex: "https://seu-pulse.exemplo.com") */
   baseURL: string;
   /**
    * Timeout em ms para fetch de flags (default: 2000).
@@ -44,7 +44,7 @@ export interface PulseClientOptions {
 export interface PulseInitOptions {
   /** API key do projeto (equivale a baseURL — usado como identificador) */
   apiKey: string;
-  /** Base URL do pulse-service (ex: "https://pulse-api.institutoitinerante.com.br") */
+  /** Base URL do pulse-service (ex: "https://seu-pulse.exemplo.com") */
   baseURL?: string;
   /** BKL-258: valores default por flag */
   defaults?: DefaultsMap;
@@ -412,7 +412,7 @@ export default PulseClient;
  *
  * pulse.init({
  *   apiKey: 'proj_xxx',
- *   baseURL: 'https://pulse-api.institutoitinerante.com.br',
+ *   baseURL: 'https://seu-pulse.exemplo.com',
  *   failOpen: true,
  *   defaults: { 'nova-feature': false, 'dark-mode': true },
  * })
@@ -427,7 +427,7 @@ class PulseSingleton {
    * BKL-258: failOpen=true e timeout=2000ms são os defaults.
    */
   init(options: PulseInitOptions): this {
-    const baseURL = options.baseURL ?? `https://pulse-api.institutoitinerante.com.br`;
+    const baseURL = options.baseURL;
     this.client = new PulseClient({
       baseURL,
       timeout: options.timeout ?? 2000,

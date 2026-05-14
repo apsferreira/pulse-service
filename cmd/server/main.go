@@ -161,6 +161,12 @@ func main() {
 		AllowMethods: "GET, POST, PUT, DELETE, OPTIONS",
 	}))
 
+	// Auth local (self-hosted) — só ativo quando PULSE_AUTH_MODE=local
+	if cfg.AuthMode == "local" {
+		localAuthHandler := handler.NewLocalAuthHandler(pool, cfg.JWTSecret)
+		localAuthHandler.RegisterRoutes(app)
+	}
+
 	// Health check
 	app.Get("/health", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{

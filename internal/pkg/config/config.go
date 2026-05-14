@@ -16,6 +16,9 @@ type Config struct {
 	// Default "*" mantido pois o SDK Pulse é embeddable em qualquer domínio de cliente.
 	// Adicionar Vary: Origin é obrigatório quando o valor não for literal "*".
 	AllowedOrigins string
+	// BillingURL é a URL exibida no HTTP 429 quando a quota mensal é atingida.
+	// Vazio = omite o campo (adequado para self-hosted sem portal de billing).
+	BillingURL string
 }
 
 // Load reads configuration from environment variables, applying defaults where appropriate.
@@ -28,6 +31,7 @@ func Load() *Config {
 		Port:           getEnv("PORT", "3050"),
 		LogLevel:       getEnv("LOG_LEVEL", "info"),
 		AllowedOrigins: getEnv("PULSE_ALLOWED_ORIGINS", "*"),
+		BillingURL:     getEnv("PULSE_BILLING_URL", ""),
 	}
 }
 

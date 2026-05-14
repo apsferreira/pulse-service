@@ -1,13 +1,12 @@
 package handler
 
-// BKL-424: Dashboard Analytics Unificado — agrega métricas de todos os produtos IIT.
-// Endpoint interno (service token) que consolida DAU/MAU, conversão, churn e MRR
-// de todos os projetos cadastrados no Pulse (SocialMake, Libri, Nitro, StoreMake, etc.).
+// Dashboard Analytics Unificado — agrega métricas de todos os projetos cadastrados.
+// Endpoint interno (service token) que consolida DAU/MAU, conversão, churn e MRR.
 //
 // Endpoints:
-//   GET /api/v1/iit/dashboard          — overview consolidado de todos os produtos
-//   GET /api/v1/iit/products/:slug     — métricas detalhadas por produto
-//   GET /api/v1/iit/mrr                — MRR consolidado + breakdown por produto
+//   GET /api/v1/admin/dashboard         — overview consolidado de todos os projetos
+//   GET /api/v1/admin/projects/:slug    — métricas detalhadas por projeto
+//   GET /api/v1/admin/mrr               — MRR consolidado + breakdown por plano
 
 import (
 	"fmt"
@@ -18,45 +17,44 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// IITDashboardHandler agrega métricas de todos os produtos IIT.
-type IITDashboardHandler struct {
+// AdminDashboardHandler agrega métricas de todos os projetos.
+type AdminDashboardHandler struct {
 	db           *pgxpool.Pool
 	serviceToken string
 }
 
-func NewIITDashboardHandler(db *pgxpool.Pool, serviceToken string) *IITDashboardHandler {
-	return &IITDashboardHandler{db: db, serviceToken: serviceToken}
+func NewAdminDashboardHandler(db *pgxpool.Pool, serviceToken string) *AdminDashboardHandler {
+	return &AdminDashboardHandler{db: db, serviceToken: serviceToken}
 }
 
-func (h *IITDashboardHandler) RegisterRoutes(app *fiber.App) {
-	api := app.Group("/api/v1/iit", middleware.ServiceTokenMiddleware(h.serviceToken))
+func (h *AdminDashboardHandler) RegisterRoutes(app *fiber.App) {
+	api := app.Group("/api/v1/admin", middleware.ServiceTokenMiddleware(h.serviceToken))
 	api.Get("/dashboard", h.Overview)
-	api.Get("/products/:slug", h.ProductDetail)
+	api.Get("/projects/:slug", h.ProjectDetail)
 	api.Get("/mrr", h.MRR)
 }
 
-// ProductMetrics representa métricas de um produto IIT no período.
-type ProductMetrics struct {
-	ProjectID    string  `json:"project_id"`
-	ProjectName  string  `json:"project_name"`
-	Slug         string  `json:"slug"`
-	Plan         string  `json:"plan"`
-	DAU          int64   `json:"dau"`         // usuários únicos hoje
-	MAU          int64   `json:"mau"`         // usuários únicos últimos 30 dias
-	EventsToday  int64   `json:"events_today"`
-	EventsMonth  int64   `json:"events_month"`
-	FlagsActive  int64   `json:"flags_active"`
-	FlagsEnabled int64   `json:"flags_enabled"` // flags com is_enabled=true
-	QuotaUsedPct int     `json:"quota_used_pct"`
+// ProjectMetrics representa métricas de um projeto no período.
+type ProjectMetrics struct {
+	ProjectID    string `json:"project_id"`
+	ProjectName  string `json:"project_name"`
+	Slug         string `json:"slug"`
+	Plan         string `json:"plan"`
+	DAU          int64  `json:"dau"`
+	MAU          int64  `json:"mau"`
+	EventsToday  int64  `json:"events_today"`
+	EventsMonth  int64  `json:"events_month"`
+	FlagsActive  int64  `json:"flags_active"`
+	FlagsEnabled int64  `json:"flags_enabled"`
+	QuotaUsedPct int    `json:"quota_used_pct"`
 }
 
-// Overview GET /api/v1/iit/dashboard
-func (h *IITDashboardHandler) Overview(c *fiber.Ctx) error {
+// Overview GET /api/v1/admin/dashboard
+func (h *AdminDashboardHandler) Overview(c *fiber.Ctx) error {
 	now := time.Now().UTC()
 	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 	start30d := now.Add(-30 * 24 * time.Hour)
 
-	// Busca todos os projetos ativos
 	projectRows, err := h.db.Query(c.Context(), `
 		SELECT id, name, slug, COALESCE(plan, 'free')
 		FROM projects WHERE is_active = true
@@ -82,18 +80,17 @@ func (h *IITDashboardHandler) Overview(c *fiber.Ctx) error {
 	}
 	projectRows.Close()
 
-	var metrics []ProductMetrics
+	var metrics []ProjectMetrics
 	totalDAU, totalMAU, totalEventsToday, totalEventsMonth := int64(0), int64(0), int64(0), int64(0)
 
 	for _, proj := range projects {
-		m := ProductMetrics{
+		m := ProjectMetrics{
 			ProjectID:   proj.ID,
 			ProjectName: proj.Name,
 			Slug:        proj.Slug,
 			Plan:        proj.Plan,
 		}
 
-		// DAU: usuários únicos hoje
 		_ = h.db.QueryRow(c.Context(), `
 			SELECT COUNT(DISTINCT properties->>'user_id')
 			FROM events
@@ -102,7 +99,6 @@ func (h *IITDashboardHandler) Overview(c *fiber.Ctx) error {
 			  AND properties->>'user_id' IS NOT NULL
 		`, proj.ID, startOfDay).Scan(&m.DAU)
 
-		// MAU: usuários únicos últimos 30 dias
 		_ = h.db.QueryRow(c.Context(), `
 			SELECT COUNT(DISTINCT properties->>'user_id')
 			FROM events
@@ -111,23 +107,19 @@ func (h *IITDashboardHandler) Overview(c *fiber.Ctx) error {
 			  AND properties->>'user_id' IS NOT NULL
 		`, proj.ID, start30d).Scan(&m.MAU)
 
-		// Eventos hoje
 		_ = h.db.QueryRow(c.Context(), `
 			SELECT COUNT(*) FROM events
 			WHERE properties->>'project_id' = $1 AND created_at >= $2
 		`, proj.ID, startOfDay).Scan(&m.EventsToday)
 
-		// Eventos mês
 		_ = h.db.QueryRow(c.Context(), `
 			SELECT COUNT(*) FROM events
 			WHERE properties->>'project_id' = $1 AND created_at >= $2
 		`, proj.ID, start30d).Scan(&m.EventsMonth)
 
-		// Flags ativas e enabled
 		_ = h.db.QueryRow(c.Context(), `SELECT COUNT(*) FROM feature_flags WHERE project_id = $1`, proj.ID).Scan(&m.FlagsActive)
 		_ = h.db.QueryRow(c.Context(), `SELECT COUNT(*) FROM feature_flags WHERE project_id = $1 AND is_enabled = true`, proj.ID).Scan(&m.FlagsEnabled)
 
-		// Quota usada %
 		quotaLimit := quotaLimitByPlan(proj.Plan)
 		if quotaLimit > 0 && m.EventsMonth > 0 {
 			pct := int(m.EventsMonth * 100 / quotaLimit)
@@ -146,7 +138,7 @@ func (h *IITDashboardHandler) Overview(c *fiber.Ctx) error {
 	}
 
 	if metrics == nil {
-		metrics = []ProductMetrics{}
+		metrics = []ProjectMetrics{}
 	}
 
 	return c.JSON(fiber.Map{
@@ -155,18 +147,18 @@ func (h *IITDashboardHandler) Overview(c *fiber.Ctx) error {
 			"to":   now.Format(time.RFC3339),
 		},
 		"totals": fiber.Map{
-			"projects":      len(projects),
-			"dau":           totalDAU,
-			"mau":           totalMAU,
-			"events_today":  totalEventsToday,
-			"events_month":  totalEventsMonth,
+			"projects":     len(projects),
+			"dau":          totalDAU,
+			"mau":          totalMAU,
+			"events_today": totalEventsToday,
+			"events_month": totalEventsMonth,
 		},
 		"products": metrics,
 	})
 }
 
-// ProductDetail GET /api/v1/iit/products/:slug
-func (h *IITDashboardHandler) ProductDetail(c *fiber.Ctx) error {
+// ProjectDetail GET /api/v1/admin/projects/:slug
+func (h *AdminDashboardHandler) ProjectDetail(c *fiber.Ctx) error {
 	slug := c.Params("slug")
 
 	var projectID, projectName, plan string
@@ -175,16 +167,15 @@ func (h *IITDashboardHandler) ProductDetail(c *fiber.Ctx) error {
 		FROM projects WHERE slug = $1 AND is_active = true
 	`, slug).Scan(&projectID, &projectName, &plan)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "produto não encontrado"})
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "projeto não encontrado"})
 	}
 
 	now := time.Now().UTC()
 	start7d := now.Add(-7 * 24 * time.Hour)
 	start30d := now.Add(-30 * 24 * time.Hour)
 
-	// Série temporal: eventos por dia nos últimos 7 dias
 	rows, _ := h.db.Query(c.Context(), `
-		SELECT DATE(created_at AT TIME ZONE 'America/Bahia') as day, COUNT(*) as events
+		SELECT DATE(created_at AT TIME ZONE 'UTC') as day, COUNT(*) as events
 		FROM events
 		WHERE properties->>'project_id' = $1 AND created_at >= $2
 		GROUP BY day ORDER BY day ASC
@@ -207,7 +198,6 @@ func (h *IITDashboardHandler) ProductDetail(c *fiber.Ctx) error {
 		daily = []DailyStat{}
 	}
 
-	// Top 5 event names
 	topRows, _ := h.db.Query(c.Context(), `
 		SELECT event, COUNT(*) as cnt
 		FROM events
@@ -232,7 +222,6 @@ func (h *IITDashboardHandler) ProductDetail(c *fiber.Ctx) error {
 		topEvents = []TopEvent{}
 	}
 
-	// Feature flags por status
 	var totalFlags, enabledFlags, experimentFlags int64
 	_ = h.db.QueryRow(c.Context(), `SELECT COUNT(*) FROM feature_flags WHERE project_id = $1`, projectID).Scan(&totalFlags)
 	_ = h.db.QueryRow(c.Context(), `SELECT COUNT(*) FROM feature_flags WHERE project_id = $1 AND is_enabled = true`, projectID).Scan(&enabledFlags)
@@ -253,8 +242,8 @@ func (h *IITDashboardHandler) ProductDetail(c *fiber.Ctx) error {
 	})
 }
 
-// MRR GET /api/v1/iit/mrr — estimativa de MRR baseada nos planos
-func (h *IITDashboardHandler) MRR(c *fiber.Ctx) error {
+// MRR GET /api/v1/admin/mrr
+func (h *AdminDashboardHandler) MRR(c *fiber.Ctx) error {
 	planPrices := map[string]float64{
 		"free":    0,
 		"starter": 49,
@@ -274,10 +263,10 @@ func (h *IITDashboardHandler) MRR(c *fiber.Ctx) error {
 	defer rows.Close()
 
 	type PlanCount struct {
-		Plan     string  `json:"plan"`
-		Count    int64   `json:"count"`
-		Price    float64 `json:"price_brl"`
-		MRR      float64 `json:"mrr_brl"`
+		Plan  string  `json:"plan"`
+		Count int64   `json:"count"`
+		Price float64 `json:"price_brl"`
+		MRR   float64 `json:"mrr_brl"`
 	}
 	var breakdown []PlanCount
 	totalMRR := 0.0

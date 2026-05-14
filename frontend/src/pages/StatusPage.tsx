@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { CheckCircle2, XCircle, Clock, AlertCircle, RefreshCw } from 'lucide-react'
 import type { MonitorStatus } from '../services/pulseApi'
 
-const API_BASE = import.meta.env.VITE_API_URL ?? 'https://pulse-api.institutoitinerante.com.br/api/v1'
+const API_BASE = import.meta.env.VITE_API_URL ?? '/api/v1'
 
 function fetchPublic<T>(path: string): Promise<T> {
   return fetch(`${API_BASE}${path}`).then(r => {

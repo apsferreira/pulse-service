@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"log"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/institutoitinerante/pulse-service/internal/domain"
 	"github.com/institutoitinerante/pulse-service/internal/middleware"
@@ -51,6 +53,7 @@ func (h *ProjectHandler) CreateProject(c *fiber.Ctx) error {
 
 	project, err := h.repo.Create(c.Context(), req)
 	if err != nil {
+		log.Printf("[project_handler] CreateProject error: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: "failed to create project"})
 	}
 	return c.Status(fiber.StatusCreated).JSON(project)

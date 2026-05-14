@@ -104,6 +104,25 @@ go run ./cmd/server
 cd frontend && npm install && npm run dev
 ```
 
+## Comportamento quando o Pulse fica fora do ar
+
+O Pulse foi projetado para ser **fail-open**: se o serviço ficar indisponível, os produtos que o integram continuam funcionando normalmente.
+
+| Camada | O que acontece |
+|--------|---------------|
+| SDK com cache em memória | Usa estado salvo dos últimos 30 segundos |
+| SDK com cache localStorage | Usa último estado salvo (TTL 5 minutos) |
+| Sem cache | Retorna o `defaultValue` de cada `getFeatureFlag('key', default)` |
+| Rastreamento de eventos | Falha silenciosamente — sem erro visível ao usuário |
+| Dashboard | Indisponível, mas os produtos **não percebem** |
+
+```typescript
+// Se Pulse estiver fora, retorna `false` (defaultValue) sem erro
+const isEnabled = await PulseSDK.getFeatureFlag('nova_feature', false)
+```
+
+K3s garante reinício automático do pod em caso de falha (liveness probe a cada 10s).
+
 ## Performance
 
 P99 < 100ms a 5.000+ RPS (2 vCPU / 2 GB):
@@ -114,3 +133,31 @@ P99 < 100ms a 5.000+ RPS (2 vCPU / 2 GB):
 | `POST /api/v1/events` | 3.800 | 82ms |
 
 Benchmark completo e sizing recomendado: [`docs/benchmarks.md`](docs/benchmarks.md)
+
+## Escalabilidade
+
+Para 1 milhão de usuários ativos:
+
+| Componente | Config mínima | Config para 1M MAU |
+|------------|--------------|-------------------|
+| Réplicas backend | 1 | 3-5 (HPA CPU > 70%) |
+| Redis | Standalone | Cluster (3 nós) |
+| PostgreSQL | Shared | Dedicado com read replicas |
+| CDN `/flags` | — | Cloudflare Cache (TTL 30s) |
+
+Estimativa de custo self-hosted para 1M MAU: **~R$ 1.250/mês** (vs ~R$ 65.000/mês no LaunchDarkly).
+
+## Licença
+
+[Business Source License 1.1 (BSL 1.1)](LICENSE)
+
+- ✅ Uso interno em qualquer empresa — gratuito
+- ✅ Modificar e usar internamente — gratuito
+- ❌ Oferecer como SaaS cloud para terceiros — requer licença comercial
+- ✅ Converte automaticamente para Apache 2.0 após 4 anos
+
+## Uso em produção e validação
+
+Para validar o Pulse em produção antes de apresentar para terceiros, e para detalhes sobre modelo de contratação e precificação:
+
+→ [`docs/pm/pulse-apresentacao-comercial.md`](../instituto-itinerante-ecosystem/docs/pm/pulse-apresentacao-comercial.md) (no repositório do ecossistema)

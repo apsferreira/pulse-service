@@ -260,7 +260,7 @@ Para 1 milhão de usuários ativos:
 | PostgreSQL | Shared | Dedicado com read replicas |
 | CDN `/flags` | — | Cloudflare Cache (TTL 30s) |
 
-Estimativa de custo self-hosted para 1M MAU: **~R$ 1.250/mês** (vs ~R$ 65.000/mês no LaunchDarkly).
+Para dimensionamento e licenciamento entre em contato: contato@institutoitinerante.com.br
 
 ## Licença e uso comercial
 

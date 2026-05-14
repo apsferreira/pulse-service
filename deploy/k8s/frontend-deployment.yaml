@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: ghcr.io/apsferreira/pulse-service-frontend:sha-d175e89
+        image: ghcr.io/apsferreira/pulse-service-frontend:sha-b49a50e
         imagePullPolicy: Always
         ports:
         - containerPort: 80

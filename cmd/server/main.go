@@ -141,7 +141,7 @@ func main() {
 	telemetry.RegisterFiber(app, "pulse-service")
 
 	// BKL-1053: Prometheus metrics + instrumentação (antes de tudo para capturar todas as rotas)
-	metricsHandler := handler.NewMetricsHandler()
+	metricsHandler := handler.NewMetricsHandler(cfg.ServiceToken)
 	metricsHandler.RegisterRoutes(app)
 
 	// Global middleware

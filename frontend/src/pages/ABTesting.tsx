@@ -2,10 +2,11 @@
 // BKL-1049: Painel de análise estatística (p-value, CI, lift, badge significativo)
 // BKL-1001: Tab de análise Bayesiana (Beta distribution + Monte Carlo P(B > A))
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { FlaskConical, ToggleLeft, TrendingUp, Users, BarChart2, CheckCircle, Clock, Atom } from 'lucide-react'
 import { flagsApi, api } from '../services/api'
 import type { FeatureFlag, FlagVariant } from '../services/api'
+import { useProject } from '../components/Layout'
 
 // --- BKL-1049: Stat Analyzer Component ---
 
@@ -465,18 +466,24 @@ function BayesianAnalysis() {
 }
 
 export default function ABTesting() {
+  const { projectId } = useProject()
   const [flags, setFlags] = useState<FeatureFlag[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<'all' | 'ab' | 'onoff'>('all')
 
-  useEffect(() => {
+  const fetchFlags = useCallback(() => {
+    setLoading(true)
     flagsApi
-      .list()
+      .list(projectId)
       .then(res => setFlags(res.data))
       .catch(() => setError('Falha ao carregar flags'))
       .finally(() => setLoading(false))
-  }, [])
+  }, [projectId])
+
+  useEffect(() => {
+    fetchFlags()
+  }, [fetchFlags])
 
   const abFlags = flags.filter(f => f.variants && f.variants.length > 0)
   const onoffFlags = flags.filter(f => !f.variants || f.variants.length === 0)

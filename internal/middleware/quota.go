@@ -32,7 +32,8 @@ const (
 // QuotaEnforcement retorna middleware que verifica e decrementa quota mensal do projeto.
 // Deve ser aplicado APÓS ValidateProjectKey (depende de Locals("project_id") e Locals("project_plan")).
 // Se rdb for nil, retorna middleware no-op (fail-open).
-func QuotaEnforcement(rdb *redis.Client) fiber.Handler {
+// billingURL é incluído na resposta 429; se vazio, o campo é omitido.
+func QuotaEnforcement(rdb *redis.Client, billingURL string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		// Sem Redis — fail-open
 		if rdb == nil {
@@ -68,14 +69,17 @@ func QuotaEnforcement(rdb *redis.Client) fiber.Handler {
 
 		current := incr.Val()
 		if current > int64(limit) {
-			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
-				"error":      "quota mensal atingida — faça upgrade do seu plano",
-				"plan":       plan,
-				"limit":      limit,
-				"consumed":   current - 1,
-				"reset_at":   endOfMonth().Format(time.RFC3339),
-				"upgrade_url": "https://pulse.institutoitinerante.com.br/billing",
-			})
+			resp := fiber.Map{
+				"error":    "quota mensal atingida — faça upgrade do seu plano",
+				"plan":     plan,
+				"limit":    limit,
+				"consumed": current - 1,
+				"reset_at": endOfMonth().Format(time.RFC3339),
+			}
+			if billingURL != "" {
+				resp["upgrade_url"] = billingURL
+			}
+			return c.Status(fiber.StatusTooManyRequests).JSON(resp)
 		}
 
 		// Injeta headers informativos

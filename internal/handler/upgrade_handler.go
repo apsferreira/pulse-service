@@ -219,7 +219,7 @@ func buildCTA(current, recommended string, shouldUpgrade bool) (string, string) 
 	planURLs := map[string]string{
 		"starter": "/checkout?plan=starter",
 		"growth":  "/checkout?plan=growth",
-		"pro":     "mailto:comercial@institutoitinerante.com.br",
+		"pro":     "/checkout?plan=pro",
 	}
 
 	cta := fmt.Sprintf("Faça upgrade para o %s e continue crescendo sem limites.", capitalize(recommended))

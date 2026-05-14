@@ -18,6 +18,7 @@ type EventHandler struct {
 	serviceToken string
 	hub          *wshub.Hub
 	rdb          *redis.Client
+	billingURL   string
 }
 
 func NewEventHandler(svc service.EventServicer, serviceToken string) *EventHandler {
@@ -27,6 +28,12 @@ func NewEventHandler(svc service.EventServicer, serviceToken string) *EventHandl
 // WithRedis adiciona o cliente Redis ao EventHandler para quota enforcement (BKL-1077).
 func (h *EventHandler) WithRedis(rdb *redis.Client) *EventHandler {
 	h.rdb = rdb
+	return h
+}
+
+// WithBillingURL configura a URL de upgrade exibida no HTTP 429 de quota esgotada.
+func (h *EventHandler) WithBillingURL(url string) *EventHandler {
+	h.billingURL = url
 	return h
 }
 
@@ -64,7 +71,7 @@ func (h *EventHandler) RegisterRoutes(app *fiber.App) {
 
 	// Public endpoint — called from frontends, no auth
 	// BKL-1077: quota enforcement (fail-open se Redis nil)
-	quotaMW := middleware.QuotaEnforcement(h.rdb)
+	quotaMW := middleware.QuotaEnforcement(h.rdb, h.billingURL)
 	api.Post("/events", quotaMW, h.IngestEvent)
 
 	// BKL-1041: batch ingest de até 500 eventos por chamada (SDK queue flush)

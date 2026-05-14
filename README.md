@@ -13,6 +13,13 @@ Feature flags e event tracking self-hostável. Mude comportamento de qualquer pr
 | [docs/guides/ab-testing.md](docs/guides/ab-testing.md) | Criar e analisar testes A/B |
 | [docs/benchmarks.md](docs/benchmarks.md) | Benchmarks de performance (P99, RPS, sizing) |
 
+**Documentação orientada a produto (repositório do ecossistema):**
+
+| Documento | O que cobre |
+|-----------|-------------|
+| [instituto-itinerante-ecosystem/docs/pulse/ab-testing.md](../instituto-itinerante-ecosystem/docs/pulse/ab-testing.md) | A/B testing — perspectiva de produto, exemplos reais IIT (SocialMake, Catraca, Librinho) |
+| [instituto-itinerante-ecosystem/docs/pulse/eventos.md](../instituto-itinerante-ecosystem/docs/pulse/eventos.md) | Sistema de eventos — ingest via API e SDK, casos de uso por produto |
+
 ## Início rápido (self-hosted)
 
 ```bash

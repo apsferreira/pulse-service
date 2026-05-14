@@ -2,6 +2,94 @@
 
 Feature flags e event tracking self-hostável. Mude comportamento de qualquer produto sem redeploy.
 
+## Arquitetura
+
+```mermaid
+graph TD
+    subgraph Produtos["Produtos / Clientes"]
+        A[Site IIT\nAstro]
+        B[SocialMake\nReact]
+        C[Librinho\nReact Native]
+        D[Nitro\nReact Native]
+    end
+
+    subgraph nginx["nginx (proxy — site IIT)"]
+        PF[/pulse-flags]
+        PI[/pulse-ingest]
+    end
+
+    subgraph K3s["K3s — namespace production"]
+        PS[pulse-service\nGo/Fiber :3050]
+        RD[(Redis\ncache flags)]
+        DB[(PostgreSQL\npulse_db)]
+        FE[pulse-service-frontend\nReact :80]
+    end
+
+    A -->|GET /pulse-flags| PF
+    A -->|POST /pulse-ingest| PI
+    PF -->|proxy interno| PS
+    PI -->|proxy interno| PS
+    B -->|X-Project-Key| PS
+    C -->|X-Project-Key| PS
+    D -->|X-Project-Key| PS
+    PS <-->|cache 30s| RD
+    PS <--> DB
+    FE -->|X-Service-Token| PS
+```
+
+## Fluxo de avaliação de flag
+
+```mermaid
+sequenceDiagram
+    participant SDK as SDK / Browser
+    participant PS as pulse-service
+    participant RD as Redis
+    participant DB as PostgreSQL
+
+    SDK->>PS: GET /flags?key=minha_flag&user_id=u-123
+    PS->>RD: GET cache:flag:projeto:minha_flag
+    alt cache hit (TTL 30s)
+        RD-->>PS: {rollout: 50, enabled: true}
+        PS->>PS: hash(u-123) mod 100 < 50?
+        PS-->>SDK: {"enabled": true}
+    else cache miss
+        RD-->>PS: nil
+        PS->>DB: SELECT * FROM feature_flags WHERE key = 'minha_flag'
+        DB-->>PS: {rollout: 50, ...}
+        PS->>RD: SET cache:flag:... EX 30
+        PS->>PS: hash(u-123) mod 100 < 50?
+        PS-->>SDK: {"enabled": true}
+    end
+    PS->>DB: INSERT INTO flag_evaluations (async)
+```
+
+## Rollout determinístico
+
+```mermaid
+graph LR
+    subgraph "hash(user_id) mod 100 — rollout 50%"
+        U1["user-01 → 3"] --> K1[controle]
+        U2["user-12 → 47"] --> T1[tratamento]
+        U3["user-33 → 81"] --> K2[controle]
+        U4["user-77 → 12"] --> T2[tratamento]
+    end
+    style T1 fill:#6ee7b7,color:#000
+    style T2 fill:#6ee7b7,color:#000
+    style K1 fill:#e2e8f0,color:#000
+    style K2 fill:#e2e8f0,color:#000
+```
+
+O mesmo `user_id` **sempre** cai no mesmo grupo — sem guardar estado, sem sessão, sem banco. Só hash.
+
+## Ciclo de vida de um projeto
+
+```mermaid
+stateDiagram-v2
+    [*] --> AguardandoSDK: Projeto criado no Dashboard
+    AguardandoSDK --> Ativo: Primeira requisição autenticada\n(ActivateByAPIKey)
+    Ativo --> Ativo: Flags avaliadas / eventos recebidos
+```
+
 ## Documentação
 
 | Documento | O que cobre |
@@ -10,15 +98,10 @@ Feature flags e event tracking self-hostável. Mude comportamento de qualquer pr
 | [docs/guides/getting-started.md](docs/guides/getting-started.md) | Primeiros passos: criar projeto, flag e integrar SDK |
 | [docs/guides/sdk-reference.md](docs/guides/sdk-reference.md) | Referência completa de todos os SDKs (JS, React, RN, Go, Node) |
 | [docs/guides/validation-checklist.md](docs/guides/validation-checklist.md) | Checklist pós-instalação — validar que tudo funciona |
-| [docs/guides/ab-testing.md](docs/guides/ab-testing.md) | Criar e analisar testes A/B |
+| [docs/guides/ab-testing.md](docs/guides/ab-testing.md) | Criar e analisar testes A/B (técnico) |
+| [docs/guides/ab-testing-produto.md](docs/guides/ab-testing-produto.md) | A/B testing — perspectiva de produto, exemplos reais IIT |
+| [docs/guides/eventos-produto.md](docs/guides/eventos-produto.md) | Sistema de eventos — ingest via API e SDK, casos de uso por produto |
 | [docs/benchmarks.md](docs/benchmarks.md) | Benchmarks de performance (P99, RPS, sizing) |
-
-**Documentação orientada a produto (repositório do ecossistema):**
-
-| Documento | O que cobre |
-|-----------|-------------|
-| [instituto-itinerante-ecosystem/docs/pulse/ab-testing.md](../instituto-itinerante-ecosystem/docs/pulse/ab-testing.md) | A/B testing — perspectiva de produto, exemplos reais IIT (SocialMake, Catraca, Librinho) |
-| [instituto-itinerante-ecosystem/docs/pulse/eventos.md](../instituto-itinerante-ecosystem/docs/pulse/eventos.md) | Sistema de eventos — ingest via API e SDK, casos de uso por produto |
 
 ## Início rápido (self-hosted)
 
@@ -58,6 +141,7 @@ Pulse
 | `GET` | `/api/v1/projects` | `X-Service-Token` | Listar projetos |
 | `POST` | `/api/v1/projects` | `X-Service-Token` | Criar projeto |
 | `POST` | `/api/v1/events` | `X-Project-Key` | Rastrear evento |
+| `GET` | `/api/v1/events/summary` | `X-Service-Token` | Resumo de eventos por projeto |
 
 Endpoint de avaliação (SDK):
 ```
@@ -162,9 +246,3 @@ Estimativa de custo self-hosted para 1M MAU: **~R$ 1.250/mês** (vs ~R$ 65.000/m
 - ✅ Modificar e usar internamente — gratuito
 - ❌ Oferecer como SaaS cloud para terceiros — requer licença comercial
 - ✅ Converte automaticamente para Apache 2.0 após 4 anos
-
-## Uso em produção e validação
-
-Para validar o Pulse em produção antes de apresentar para terceiros, e para detalhes sobre modelo de contratação e precificação:
-
-→ [`docs/pm/pulse-apresentacao-comercial.md`](../instituto-itinerante-ecosystem/docs/pm/pulse-apresentacao-comercial.md) (no repositório do ecossistema)

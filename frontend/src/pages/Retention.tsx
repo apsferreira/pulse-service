@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react'
 import { Users, TrendingUp, Calendar, AlertTriangle, CheckCircle, ShieldAlert } from 'lucide-react'
 import { metricsApi, api } from '../services/api'
 import type { ActiveUsersResponse, CohortsResponse } from '../services/api'
+import { useProject } from '../components/Layout'
 
 // --- BKL-1065: Churn Risk Card ---
 
@@ -306,20 +307,24 @@ function CohortTable({ data }: { data: CohortsResponse }) {
 }
 
 export default function Retention() {
+  const { projectSlug } = useProject()
   const [product, setProduct] = useState('')
   const [granularity, setGranularity] = useState<'week' | 'month'>('week')
   const [activeUsers, setActiveUsers] = useState<ActiveUsersResponse | null>(null)
   const [cohorts, setCohorts] = useState<CohortsResponse | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Usa o slug do projeto selecionado como produto padrão
+  const effectiveProduct = product || projectSlug || ''
 
   const fetchData = async () => {
     setLoading(true)
     setError(null)
     try {
       const [auRes, cohRes] = await Promise.all([
-        metricsApi.activeUsers(product || undefined),
-        metricsApi.cohorts(product || undefined, granularity),
+        metricsApi.activeUsers(effectiveProduct || undefined),
+        metricsApi.cohorts(effectiveProduct || undefined, granularity),
       ])
       setActiveUsers(auRes.data)
       setCohorts(cohRes.data)
@@ -332,8 +337,8 @@ export default function Retention() {
   }
 
   useEffect(() => {
-    fetchData()
-  }, [product, granularity])
+    void fetchData()
+  }, [effectiveProduct, granularity])
 
   return (
     <div className="space-y-6">

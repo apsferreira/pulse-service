@@ -2,25 +2,12 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Star, Plus, Copy, Check, X, ChevronDown } from 'lucide-react'
-
-const API_BASE = (import.meta.env?.VITE_API_URL as string) ?? ''
-const SERVICE_TOKEN = (import.meta.env?.VITE_SERVICE_TOKEN as string) ?? ''
+import { api } from '../services/api'
 
 function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  return fetch(`${API_BASE}/api/v1${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Service-Token': SERVICE_TOKEN,
-      ...init?.headers,
-    },
-  }).then(async (res) => {
-    if (!res.ok) {
-      const text = await res.text().catch(() => res.statusText)
-      throw new Error(text || `HTTP ${res.status}`)
-    }
-    return res.json() as Promise<T>
-  })
+  const method = (init?.method ?? 'GET') as 'get' | 'post' | 'put' | 'delete' | 'patch'
+  const body = init?.body ? JSON.parse(init.body as string) : undefined
+  return api.request<T>({ method, url: path, data: body }).then((r) => r.data)
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────

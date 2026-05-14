@@ -163,6 +163,8 @@ export const approvalsApi = {
   review: (approvalId: string, payload: ReviewApprovalPayload) =>
     api.post<Approval>(`/approvals/${approvalId}/review`, payload),
 
-  listAll: (status?: ApprovalStatus) =>
-    api.get<Approval[]>('/approvals', { params: status ? { status } : undefined }),
+  listAll: (projectId?: string | null) =>
+    projectId
+      ? api.get<Approval[]>('/approvals/pending', { params: { project_id: projectId } })
+      : Promise.resolve({ data: [] as Approval[], status: 200, statusText: 'OK', headers: {}, config: {} as never }),
 }

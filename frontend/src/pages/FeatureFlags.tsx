@@ -649,7 +649,7 @@ export default function FeatureFlags() {
     else setLoading(true)
     setError('')
     try {
-      const { data } = await flagsApi.list()
+      const { data } = await flagsApi.list(projectId)
       setFlags(Array.isArray(data) ? data : [])
     } catch {
       setError('Não foi possível carregar as flags. Verifique a conexão com a API.')

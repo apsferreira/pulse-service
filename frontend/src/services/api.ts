@@ -97,7 +97,8 @@ export interface UpdateFlagPayload {
 // ── Flag API calls ───────────────────────────────────────────────────────────
 
 export const flagsApi = {
-  list: () => api.get<FeatureFlag[]>('/flags'),
+  list: (projectId?: string | null) =>
+    api.get<FeatureFlag[]>('/flags', { params: projectId ? { project_id: projectId } : {} }),
 
   getByKey: (key: string) => api.get<FeatureFlag>(`/flags/${key}`),
 

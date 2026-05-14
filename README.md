@@ -219,18 +219,24 @@ O Pulse foi projetado para ser **fail-open**: se o serviço ficar indisponível,
 
 | Camada | O que acontece |
 |--------|---------------|
-| SDK com cache em memória | Usa estado salvo dos últimos 30 segundos |
-| SDK com cache localStorage | Usa último estado salvo (TTL 5 minutos) |
-| Sem cache | Retorna o `defaultValue` de cada `getFeatureFlag('key', default)` |
+| SDK JS/React — cache em memória | Usa o último estado retornado pela API (durante a vida da instância) |
+| SDK JS/React — fallback localStorage | Usa último estado salvo (TTL 5 minutos) |
+| Sem chamada prévia | Retorna o `defaultValue` configurado por flag |
 | Rastreamento de eventos | Falha silenciosamente — sem erro visível ao usuário |
 | Dashboard | Indisponível, mas os produtos **não percebem** |
 
 ```typescript
-// Se Pulse estiver fora, retorna `false` (defaultValue) sem erro
-const isEnabled = await PulseSDK.getFeatureFlag('nova_feature', false)
-```
+const client = new PulseClient({
+  baseURL: 'https://seu-pulse.exemplo.com',
+  failOpen: true,           // padrão: true
+  defaults: {
+    nova_feature: false,    // retornado se Pulse estiver fora e não houver cache
+  },
+})
 
-K3s garante reinício automático do pod em caso de falha (liveness probe a cada 10s).
+const flags = await client.getFlags()
+// Se falhar: usa localStorage (5min) → defaults → não lança erro
+```
 
 ## Performance
 

@@ -16,7 +16,7 @@ O Pulse roda no K3s do IIT como serviço interno. É o modo de referência — o
 ```
 Internet → Cloudflare Tunnel → Traefik (K3s) → pulse-service (Go/Fiber)
                                                       ↓
-                                              PostgreSQL (VM 192.168.30.121)
+                                              PostgreSQL (VM DB_HOST)
                                               Redis (shared-infra)
 ```
 
@@ -26,7 +26,7 @@ O frontend (`pulse.institutoitinerante.com.br`) não está exposto via CF Tunnel
 
 | Variável | Obrigatório | Exemplo | Descrição |
 |----------|-------------|---------|-----------|
-| `DATABASE_URL` | Sim | `postgres://postgres:senha@192.168.30.121:5432/pulse_db` | PostgreSQL connection string |
+| `DATABASE_URL` | Sim | `postgres://postgres:SUA_SENHA@DB_HOST:5432/pulse_db` | PostgreSQL connection string |
 | `REDIS_URL` | Sim | `redis://redis:6379` | Redis para cache de flags |
 | `SERVICE_TOKEN` | Sim | `tok_...` | Token admin para endpoints `/api/v1/*` |
 | `PORT` | Não (default 3015) | `3015` | Porta HTTP do backend |

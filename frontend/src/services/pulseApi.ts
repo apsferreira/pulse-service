@@ -62,6 +62,24 @@ export interface EventsSummaryResponse {
   total_last_24h: number
 }
 
+export interface RawEvent {
+  id: string
+  product: string
+  event_type: string
+  properties: Record<string, unknown>
+  ip_address: string
+  user_agent: string
+  environment: string
+  created_at: string
+}
+
+export interface EventsListResponse {
+  items: RawEvent[]
+  total: number
+  limit: number
+  offset: number
+}
+
 // ── Monitor API ───────────────────────────────────────────────────────────────
 
 export const monitorsApi = {
@@ -82,6 +100,8 @@ export const monitorsApi = {
 
 export const eventsApi = {
   summary: () => api.get<EventsSummaryResponse>('/events/summary'),
+  list: (params?: Record<string, string | number>) =>
+    api.get<EventsListResponse>('/events', { params }),
 }
 
 // ── Session Replay types ──────────────────────────────────────────────────────

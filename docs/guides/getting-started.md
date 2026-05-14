@@ -1,287 +1,229 @@
 # Pulse — Getting Started
 
-Bem-vindo ao Pulse! Este guia vai te ajudar a configurar feature flags e event tracking na sua aplicação em minutos.
+Bem-vindo ao Pulse! Este guia leva você do zero até feature flags e event tracking funcionando em minutos.
 
 ---
 
 ## Pré-requisitos
 
-- Uma conta Pulse (Free, Growth ou Pro)
-- Acesso ao seu `SERVICE_TOKEN` (Admin → Settings → API)
-- Node.js 16+ (para SDK JavaScript) ou Go 1.24+ (para SDK Go)
+- Instância Pulse rodando (ver [self-hosted.md](../self-hosted.md)) ou acesso a uma instância existente
+- `SERVICE_TOKEN` (visível no `.env` ou nos secrets do Kubernetes)
+- Node.js 18+ (SDK JavaScript) ou Go 1.24+ (SDK Go)
 
 ---
 
-## 1. Configurar Feature Flags via API
+## 1. Criar um projeto
 
-### Criar uma Flag
+Cada sistema/produto que vai usar o Pulse precisa de um projeto próprio. O projeto tem uma `api_key` usada nos SDKs.
 
 ```bash
-# Variáveis de ambiente
-export PULSE_API=https://pulse-api.institutoitinerante.com.br
-export SERVICE_TOKEN=seu-token-aqui
-export PRODUCT=libri  # ou nitro, brio, etc
+export PULSE_API=https://seu-pulse.seudominio.com
+export SERVICE_TOKEN=seu-service-token-aqui
 
-# Criar flag
-curl -X POST $PULSE_API/api/v1/flags \
+curl -X POST $PULSE_API/api/v1/projects \
   -H "X-Service-Token: $SERVICE_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "amazon_buy_button",
-    "product": "libri",
-    "description": "Novo botão de compra na Amazon",
-    "enabled": true,
-    "rollout_percentage": 50,
-    "tags": ["experimental"]
+    "name": "Meu App",
+    "slug": "meu-app",
+    "plan": "free"
   }'
 ```
 
 **Resposta:**
 ```json
 {
-  "id": "flag_abc123",
-  "name": "amazon_buy_button",
-  "product": "libri",
-  "enabled": true,
-  "rollout_percentage": 50,
-  "created_at": "2026-04-09T18:00:00Z",
-  "updated_at": "2026-04-09T18:00:00Z"
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "Meu App",
+  "slug": "meu-app",
+  "api_key": "pulse_xxxxxxxxxxxxxxxxxxxxxxxx",
+  "plan": "free"
 }
 ```
 
-### Listar Flags
+Guarde o `api_key` — é ele que vai nas variáveis de ambiente do seu produto.
 
-```bash
-curl -X GET "$PULSE_API/api/v1/flags?product=libri" \
-  -H "X-Service-Token: $SERVICE_TOKEN"
-```
+> Crie **um projeto por sistema**. Não compartilhe `api_key` entre produtos diferentes — isso mistura métricas e flags.
 
 ---
 
-## 2. Integrar SDK JavaScript (Frontend)
-
-### Instalação
+## 2. Criar uma feature flag
 
 ```bash
-# Copie o SDK para seu projeto
-cp ../sdk/js/pulse.js src/lib/
+export PROJECT_ID=550e8400-e29b-41d4-a716-446655440000
 
-# Ou use npm (quando publicado)
-npm install @institutoitinerante/pulse-sdk-js
-```
-
-### Uso Básico
-
-```typescript
-import { PulseSDK } from './lib/pulse'
-
-// Inicializar SDK
-const pulse = new PulseSDK({
-  apiUrl: 'https://pulse-api.institutoitinerante.com.br',
-  product: 'libri',
-  userId: 'user-123',  // opcional
-  tenantId: 'tenant-456',  // opcional
-  cacheTime: 60000  // cache 60s
-})
-
-// Obter todas as flags
-const flags = await pulse.getFlags()
-console.log(flags)
-
-// Verificar uma flag específica
-if (pulse.isEnabled('amazon_buy_button')) {
-  // Render novo botão de compra
-  return <AmazonBuyButton />
-}
-
-// Enviar evento customizado (em Growth/Pro)
-await pulse.track('product_viewed', {
-  productId: 'prod_123',
-  price: 49.90,
-  category: 'livro'
-})
-```
-
-### Integração em React
-
-```typescript
-import { useEffect, useState } from 'react'
-import { PulseSDK } from './lib/pulse'
-
-export function AmazonCheckout() {
-  const [flags, setFlags] = useState(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const pulse = new PulseSDK({
-      apiUrl: 'https://pulse-api.institutoitinerante.com.br',
-      product: 'libri',
-      userId: user.id
-    })
-
-    pulse.getFlags()
-      .then(f => {
-        setFlags(f)
-        setLoading(false)
-      })
-      .catch(err => {
-        console.error('Pulse error:', err)
-        setLoading(false)
-      })
-  }, [])
-
-  if (loading) return <div>Carregando...</div>
-
-  return (
-    <>
-      {flags?.amazon_buy_button && <AmazonBuyButton />}
-      {flags?.stripe_checkout && <StripeCheckout />}
-    </>
-  )
-}
-```
-
----
-
-## 3. Integrar SDK Go (Backend)
-
-### Instalação
-
-```bash
-go get github.com/apsferreira/pulse-service/sdk/go
-```
-
-### Uso Básico
-
-```go
-package main
-
-import (
-  "github.com/apsferreira/pulse-service/sdk/go/pulse"
-)
-
-func main() {
-  // Inicializar cliente
-  client := pulse.NewClient(
-    "https://pulse-api.institutoitinerante.com.br",
-    "libri",  // product
-  )
-
-  // Avaliar flags para usuário
-  flags, err := client.EvaluateFlags("user-123", "tenant-456")
-  if err != nil {
-    log.Fatal(err)
-  }
-
-  if flags["amazon_buy_button"] {
-    // Ativa rota de compra na Amazon
-  }
-
-  // Enviar evento
-  err = client.Track("user-123", "product_viewed", map[string]interface{}{
-    "productId": "prod_123",
-    "price": 49.90,
-  })
-}
-```
-
----
-
-## 4. Usar Feature Flags no Código
-
-### Padrão: Flag Guard
-
-```typescript
-// Antes: sempre ativa
-function renderCheckout() {
-  return <StripeCheckout />
-}
-
-// Depois: protegida por flag
-function renderCheckout(pulse: PulseSDK) {
-  if (pulse.isEnabled('stripe_checkout_v2')) {
-    return <StripeCheckoutV2 />
-  }
-  return <StripeCheckoutV1 />
-}
-```
-
-### Padrão: Rollout Percentual
-
-```typescript
-// Apenas 30% dos usuários veem o novo design
-if (pulse.isEnabled('new_dashboard_design')) {
-  return <DashboardV2 />
-}
-return <DashboardV1 />
-```
-
-A flag com `rollout_percentage: 30` garante que o mesmo usuário sempre vê a mesma experiência (hash consistente por userID).
-
-### Padrão: Override por Usuário
-
-```bash
-# Forçar usuário específico a ver nova feature
-curl -X POST $PULSE_API/api/v1/flags/flag_abc123/overrides \
+curl -X POST $PULSE_API/api/v1/flags \
   -H "X-Service-Token: $SERVICE_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "user_id": "user-123",
-    "enabled": true
+    "key": "nova_homepage",
+    "description": "Nova versão da homepage",
+    "enabled": false,
+    "rollout_percentage": 0,
+    "project_id": "'$PROJECT_ID'"
   }'
 ```
 
 ---
 
-## 5. Monitorar Flags no Dashboard
+## 3. Integrar o SDK JavaScript (frontend)
 
-1. Acesse `https://pulse.institutoitinerante.com.br` (login via auth-service)
-2. Selecione seu projeto
-3. Veja todas as flags ativas, rollout % e última mudança
-4. Edite em tempo real (mudanças propagam em <10s via Redis)
+### Instalação
+
+```bash
+npm install @pulse/js
+```
+
+### Uso básico
+
+```typescript
+import { PulseSDK } from '@pulse/js'
+
+// Inicializar uma vez (ex: main.tsx ou App.tsx)
+PulseSDK.init({
+  projectKey: import.meta.env.VITE_PULSE_KEY,    // api_key do projeto
+  apiUrl: import.meta.env.VITE_PULSE_URL,        // URL da instância Pulse
+})
+
+// Verificar flag
+if (await PulseSDK.getFeatureFlag('nova_homepage', false)) {
+  renderV2()
+} else {
+  renderV1()
+}
+
+// Rastrear evento
+PulseSDK.track('page_viewed', { page: '/home' })
+```
+
+### Variáveis de ambiente (Vite)
+
+```dotenv
+# .env.local
+VITE_PULSE_KEY=pulse_xxxxxxxxxxxxxxxxxxxxxxxx
+VITE_PULSE_URL=https://seu-pulse.seudominio.com
+```
+
+### Hook React
+
+```typescript
+import { useFeatureFlag } from '@pulse/js/react'
+
+function Homepage() {
+  const isV2 = useFeatureFlag('nova_homepage')
+  return isV2 ? <HomepageV2 /> : <HomepageV1 />
+}
+```
 
 ---
 
-## 6. Próximos Passos
+## 4. Integrar o SDK Go (backend)
 
-- [A/B Testing Guide](./ab-testing.md) — criar e analisar testes
-- [API Reference](../API.md) — endpoint completo
-- [SDK Documentation](../sdk/README.md) — detalhes de cada SDK
-- [Best Practices](./best-practices.md) — padrões recomendados
+```bash
+go get github.com/seu-org/pulse-service/sdk/go
+```
+
+```go
+import pulse "github.com/seu-org/pulse-service/sdk/go"
+
+client, _ := pulse.NewClient(os.Getenv("PULSE_URL"))
+
+// Feature flag
+enabled, err := client.IsEnabled(ctx, "nova_feature")
+if err != nil {
+    enabled = false // fail-open: nunca quebrar o sistema por causa do Pulse
+}
+
+// Evento
+client.TrackEvent(ctx, pulse.TrackEventRequest{
+    EventName:  "user_signup",
+    UserID:     &userID,
+    Properties: map[string]interface{}{"plan": "free"},
+})
+```
+
+```bash
+# Variável de ambiente
+PULSE_URL=https://seu-pulse.seudominio.com
+```
+
+---
+
+## 5. Padrões de uso
+
+### Flag guard — rollout seguro
+
+```typescript
+// O mesmo usuário sempre cai no mesmo bucket (hash por userId)
+// rollout_percentage: 10 → 10% dos usuários veem a nova versão
+if (await PulseSDK.getFeatureFlag('nova_checkout', false)) {
+  return <CheckoutV2 />
+}
+return <CheckoutV1 />
+```
+
+### Kill switch — rollback sem redeploy
+
+```typescript
+// Flag 'maintenance_mode' desativa o sistema instantaneamente pelo dashboard
+// sem precisar de deploy ou rollback de código
+const inMaintenance = await PulseSDK.getFeatureFlag('maintenance_mode', false)
+if (inMaintenance) {
+  return <MaintenancePage />
+}
+```
+
+### Targeting por usuário
+
+```bash
+# Forçar flag ativa só para usuários beta
+curl -X PUT $PULSE_API/api/v1/flags/nova_feature \
+  -H "X-Service-Token: $SERVICE_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "targeting": {
+      "user_ids": ["user-123", "user-456"]
+    }
+  }'
+```
+
+---
+
+## 6. Monitorar no dashboard
+
+1. Acesse `https://seu-pulse.seudominio.com` (porta `3016` em self-hosted)
+2. Selecione o projeto no seletor do topo
+3. Veja flags ativas, rollout % e última modificação
+4. Edite em tempo real — mudanças propagam em <10s via Redis
+
+---
+
+## 7. Próximos passos
+
+- [sdk-reference.md](./sdk-reference.md) — referência completa de todos os SDKs
+- [ab-testing.md](./ab-testing.md) — criar e analisar testes A/B
+- [self-hosted.md](../self-hosted.md) — instalar e operar sua própria instância
+- [validation-checklist.md](./validation-checklist.md) — validar que tudo funciona após setup
 
 ---
 
 ## Troubleshooting
 
-### SDK não conecta na API
-
+**SDK não conecta na API**
 ```
-Erro: "Failed to fetch flags"
-Solução: Verifique CORS (apiUrl deve estar acessível do browser)
-        ou confira se SERVICE_TOKEN está correto
+Verificar: CORS (apiUrl deve ser acessível do browser), SERVICE_TOKEN correto,
+           instância Pulse rodando (GET /health deve retornar {"status":"ok"})
 ```
 
-### Flags não mudam em tempo real
-
+**Flag alterada no dashboard mas app não reflete**
 ```
-Erro: "Flag alterada mas não reflete no app"
-Solução: Cache JavaScript padrão é 60s. Reduza cacheTime ao inicializar:
-        new PulseSDK({ ..., cacheTime: 5000 })
+Cache JavaScript padrão: 60s. Para debug, reduza: PulseSDK.init({ ..., flushInterval: 1000 })
+Ou chame PulseSDK.flush() manualmente.
 ```
 
-### Limite de 10k eventos (Free)
-
+**Eventos não aparecem no dashboard**
 ```
-Erro: "Event rejected: quota exceeded"
-Solução: Faça upgrade para Growth (500k/mês) ou Pro (ilimitado)
-        Veja docs/PRICING.md
+Verificar: X-Project-Key correto (api_key do projeto, não o SERVICE_TOKEN)
+           POST /api/v1/events retorna 200?
+           Plano Free tem limite de 10k eventos/mês.
 ```
-
----
-
-## Suporte
-
-- **Docs:** https://github.com/apsferreira/pulse-service/tree/main/docs
-- **Issues:** https://github.com/apsferreira/pulse-service/issues
-- **Email:** support@institutoitinerante.com.br
-- **Discord:** [IIT Community](https://discord.gg/institutoitinerante)

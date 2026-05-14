@@ -39,7 +39,8 @@ export function useRealtimeEvents({ projectId = '', onEvent, enabled = true }: U
   onEventRef.current = onEvent
 
   const connect = useCallback(() => {
-    if (!enabled || !SERVICE_TOKEN) return
+    // WebSocket endpoint não implementado — desabilita silenciosamente
+    if (!enabled || !SERVICE_TOKEN || !API_BASE_URL) return
 
     // Converte URL HTTP para WS
     const base = API_BASE_URL.replace(/^http/, 'ws')

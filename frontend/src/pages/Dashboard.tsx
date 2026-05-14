@@ -6,8 +6,10 @@ import FlagModal from '../components/FlagModal'
 import OnboardingWizard from '../components/OnboardingWizard'
 import { flagsApi } from '../services/api'
 import type { FeatureFlag, CreateFlagPayload, UpdateFlagPayload } from '../services/api'
+import { useProject } from '../components/Layout'
 
 export default function Dashboard() {
+  const { projectId } = useProject()
   const [flags, setFlags] = useState<FeatureFlag[]>([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -22,7 +24,7 @@ export default function Dashboard() {
   const fetchFlags = useCallback(async () => {
     setLoading(true)
     try {
-      const { data } = await flagsApi.list()
+      const { data } = await flagsApi.list(projectId)
       setFlags(data)
     } catch (err) {
       toast.error('Falha ao carregar feature flags')
@@ -30,7 +32,7 @@ export default function Dashboard() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [projectId])
 
   useEffect(() => {
     void fetchFlags()
@@ -149,7 +151,7 @@ export default function Dashboard() {
     icon: 'check',
     title: 'Verifique o Health Score dos tenants',
     description: 'Acompanhe a saúde de cada tenant e identifique problemas de adoção antes que virem suporte.',
-    href: '/health-scores',
+    href: '/uptime',
     linkLabel: 'Ver Health Scores',
     priority: 3,
   })

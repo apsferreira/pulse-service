@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { CheckSquare, RefreshCw, Clock, CheckCircle2, XCircle, MessageSquare, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { approvalsApi, type Approval, type ApprovalStatus } from '../services/pulseApi'
+import { useProject } from '../components/Layout'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -357,6 +358,7 @@ function EmptyState({ tab }: EmptyStateProps) {
 type TabKey = 'pending' | 'history'
 
 export default function Approvals() {
+  const { projectId } = useProject()
   const [approvals, setApprovals] = useState<Approval[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<TabKey>('pending')
@@ -368,7 +370,7 @@ export default function Approvals() {
   const fetchApprovals = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await approvalsApi.listAll()
+      const res = await approvalsApi.listAll(projectId)
       const data = res.data
       setApprovals(Array.isArray(data) ? data : [])
     } catch {
@@ -376,7 +378,7 @@ export default function Approvals() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [projectId])
 
   useEffect(() => {
     void fetchApprovals()

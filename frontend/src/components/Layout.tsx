@@ -65,7 +65,7 @@ export default function Layout({ children }: LayoutProps) {
   useEffect(() => {
     let cancelled = false
     approvalsApi
-      .listAll('pending')
+      .listAll(projectId)
       .then((res) => {
         if (!cancelled) {
           const data = res.data

@@ -1,103 +1,116 @@
-# pulse-service
+# Pulse
 
-Feature flags and event tracking service for Instituto Itinerante products (libri, nitro, brio).
+Feature flags e event tracking self-hostável. Mude comportamento de qualquer produto sem redeploy.
 
-## Fase 1 — Feature Flags MVP
+## Documentação
 
-- CRUD de feature flags com suporte a produtos e flags globais
-- Avaliação por usuário com cache Redis (TTL 60s)
-- Rollout percentual com hash consistente por userID (crc32)
-- Overrides por usuário ou tenant
-- SDK JavaScript mínimo (`sdk/pulse.js`)
-- Proteção de endpoints admin via `X-Service-Token`
+| Documento | O que cobre |
+|-----------|-------------|
+| [docs/self-hosted.md](docs/self-hosted.md) | Instalação completa — Docker Compose + Kubernetes + env vars |
+| [docs/guides/getting-started.md](docs/guides/getting-started.md) | Primeiros passos: criar projeto, flag e integrar SDK |
+| [docs/guides/sdk-reference.md](docs/guides/sdk-reference.md) | Referência completa de todos os SDKs (JS, React, RN, Go, Node) |
+| [docs/guides/validation-checklist.md](docs/guides/validation-checklist.md) | Checklist pós-instalação — validar que tudo funciona |
+| [docs/guides/ab-testing.md](docs/guides/ab-testing.md) | Criar e analisar testes A/B |
+| [docs/benchmarks.md](docs/benchmarks.md) | Benchmarks de performance (P99, RPS, sizing) |
+
+## Início rápido (self-hosted)
+
+```bash
+git clone <este-repo>
+cp .env.example .env          # preencher DATABASE_URL, REDIS_URL, SERVICE_TOKEN
+docker compose -f docker-compose.selfhosted.yml up -d
+```
+
+Guia completo com migrations, auth e troubleshooting: [`docs/self-hosted.md`](docs/self-hosted.md)
+
+## Conceito central
+
+Cada produto usa um **projeto** isolado com sua própria `api_key`. As feature flags vivem dentro do projeto — não há flags compartilhadas entre produtos.
+
+```
+Pulse
+├── projeto: librinho    (api_key: pulse_libri_...)
+│   ├── flag: isbn_camera_scan
+│   └── flag: reading_insights_v2
+├── projeto: nitro       (api_key: pulse_nitro_...)
+│   └── flag: ai_study_plan
+└── projeto: socialmake  (api_key: pulse_sm_...)
+    └── flag: new_ai_copy_engine
+```
+
+## Endpoints principais
+
+| Method | Path | Auth | Descrição |
+|--------|------|------|-----------|
+| `GET` | `/health` | — | Health check |
+| `GET` | `/flags` | `X-Project-Key` | Avaliar flags para um usuário (SDK) |
+| `GET` | `/api/v1/flags` | `X-Service-Token` | Listar flags (admin) |
+| `POST` | `/api/v1/flags` | `X-Service-Token` | Criar flag |
+| `PUT` | `/api/v1/flags/:key` | `X-Service-Token` | Atualizar flag |
+| `DELETE` | `/api/v1/flags/:key` | `X-Service-Token` | Deletar flag |
+| `GET` | `/api/v1/projects` | `X-Service-Token` | Listar projetos |
+| `POST` | `/api/v1/projects` | `X-Service-Token` | Criar projeto |
+| `POST` | `/api/v1/events` | `X-Project-Key` | Rastrear evento |
+
+Endpoint de avaliação (SDK):
+```
+GET /flags?user_id=user-123&project_id=<uuid>
+X-Project-Key: pulse_xxxx
+```
+
+## SDK — exemplo mínimo
+
+```typescript
+import { PulseSDK } from '@pulse/js'
+
+PulseSDK.init({
+  projectKey: process.env.VITE_PULSE_KEY,
+  apiUrl: process.env.VITE_PULSE_URL,
+})
+
+// Verificar flag
+const isEnabled = await PulseSDK.getFeatureFlag('nova_feature', false)
+
+// Rastrear evento
+PulseSDK.track('checkout_started', { plan: 'growth' })
+```
+
+Referência completa com Go, Node, React Native e tratamento de erros: [`docs/guides/sdk-reference.md`](docs/guides/sdk-reference.md)
 
 ## Stack
 
-- Go 1.24 + Fiber v2
-- PostgreSQL 15 (pgxpool)
-- Redis 7 (go-redis/v9)
-- K3s + Traefik + ArgoCD
-
-## Endpoints
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET | /health | — | Health check |
-| GET | /api/v1/flags | X-Service-Token | List all flags |
-| POST | /api/v1/flags | X-Service-Token | Create flag |
-| PUT | /api/v1/flags/:id | X-Service-Token | Update flag |
-| DELETE | /api/v1/flags/:id | X-Service-Token | Delete flag |
-| GET | /api/v1/flags/evaluate | — | Evaluate flags for user |
-
-### Evaluate query params
-
-- `product` — produto (libri, nitro, brio) ou vazio para flags globais
-- `user_id` — ID do usuário (opcional)
-- `tenant_id` — ID do tenant (opcional)
-
-## Configuração
-
-| Env var | Default | Description |
-|---------|---------|-------------|
-| `DATABASE_URL` | — | PostgreSQL connection string (obrigatório) |
-| `REDIS_URL` | `redis://localhost:6379` | Redis connection URL |
-| `SERVICE_TOKEN` | — | Token para endpoints admin (obrigatório) |
-| `PORT` | `3015` | Porta HTTP |
-| `LOG_LEVEL` | `info` | Nível de log |
+- **Backend:** Go 1.24 + Fiber v2
+- **Banco:** PostgreSQL 15 (pgxpool)
+- **Cache:** Redis 7 (go-redis/v9)
+- **Frontend:** React 19 + TypeScript + Vite + TailwindCSS
+- **Infra:** Docker Compose (dev) / K3s (prod) / ArgoCD (GitOps)
 
 ## Desenvolvimento local
 
 ```bash
-# Suba shared-infra primeiro
+# 1. Infraestrutura compartilhada
 cd ../shared-infra && docker compose up -d
 
-# Aplique a migration
-psql $DATABASE_URL -f migrations/001_create_feature_flags.sql
+# 2. Migrations
+psql $DATABASE_URL -f migrations/001_initial_schema.sql
 
-# Execute o servidor
-DATABASE_URL=... SERVICE_TOKEN=dev-token go run ./cmd/server
-```
+# 3. Backend
+DATABASE_URL=postgres://postgres:postgres@localhost:5432/pulse_db \
+REDIS_URL=redis://localhost:6379 \
+SERVICE_TOKEN=dev-token \
+go run ./cmd/server
 
-## SDK JavaScript
-
-```js
-import { PulseSDK } from './sdk/pulse.js'
-
-const pulse = new PulseSDK({
-  apiUrl: 'https://pulse-api.institutoitinerante.com.br',
-  product: 'libri',
-  userId: 'user-123',
-})
-
-const flags = await pulse.getFlags()
-if (pulse.isEnabled('amazon_buy_button')) {
-  // mostra botão
-}
+# 4. Frontend (outra aba)
+cd frontend && npm install && npm run dev
 ```
 
 ## Performance
 
-O Pulse atinge **P99 < 100ms a 5.000+ RPS** com instância única (2 vCPU / 2 GB):
+P99 < 100ms a 5.000+ RPS (2 vCPU / 2 GB):
 
 | Endpoint | Req/s | P99 |
 |---|---|---|
 | `GET /flags` (Redis cache) | 8.200 | 18ms |
-| `GET /flags/evaluate` | 5.100 | 48ms |
-| `POST /api/v1/events/track` | 3.800 | 82ms |
-| `POST /api/v1/events/batch` (10 eventos) | 1.200 | 95ms |
+| `POST /api/v1/events` | 3.800 | 82ms |
 
-Benchmark completo, cenários k6 e configuração de infraestrutura recomendada: [`docs/benchmarks.md`](docs/benchmarks.md)
-
-```bash
-# Reproduzir o benchmark
-PULSE_URL=https://pulse-api.institutoitinerante.com.br \
-SERVICE_TOKEN=<token> \
-k6 run k6/load-test.js
-```
-
-## Produção
-
-- **URL:** https://pulse-api.institutoitinerante.com.br
-- **Namespace K8s:** production
-- **Secret:** `pulse-service-secrets` (database-url, redis-url, service-token)
-- **Deploy:** ArgoCD auto-sync em `deploy/k8s/`
+Benchmark completo e sizing recomendado: [`docs/benchmarks.md`](docs/benchmarks.md)

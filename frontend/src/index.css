@@ -39,6 +39,58 @@
   .input-base {
     @apply w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all;
   }
+  .input-hint {
+    @apply mt-1 text-xs text-slate-400 dark:text-slate-500;
+  }
+  .input-hint--warning {
+    @apply mt-1.5 text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5;
+  }
+
+  /* Toggle switch CSS nativo — 36×20px */
+  .flag-toggle {
+    @apply relative inline-flex flex-shrink-0 h-5 w-9 cursor-pointer rounded-full border-2 border-transparent
+           transition-colors duration-150 ease-in-out focus:outline-none focus-visible:ring-2
+           focus-visible:ring-violet-500 focus-visible:ring-offset-2
+           disabled:opacity-50 disabled:cursor-wait;
+  }
+  .flag-toggle--on  { @apply bg-emerald-500; }
+  .flag-toggle--off { @apply bg-slate-200 dark:bg-slate-700; }
+  .flag-toggle__thumb {
+    @apply pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm
+           transform transition-transform duration-150 ease-in-out;
+  }
+  .flag-toggle__thumb--on  { @apply translate-x-4; }
+  .flag-toggle__thumb--off { @apply translate-x-0; }
+
+  /* Stat card */
+  .stat-card {
+    @apply bg-white dark:bg-slate-900 rounded-xl border px-5 py-4 flex items-center gap-4;
+  }
+  .stat-card__icon {
+    @apply w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0;
+  }
+  .stat-card__value {
+    @apply text-2xl font-bold tabular-nums;
+  }
+  .stat-card__label {
+    @apply text-xs text-slate-500 dark:text-slate-400 mt-0.5;
+  }
+
+  /* Skeleton loader */
+  .skeleton {
+    @apply animate-pulse bg-slate-200 dark:bg-slate-700 rounded;
+  }
+
+  /* Modal section divider */
+  .modal-section {
+    @apply text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-500
+           flex items-center gap-2;
+  }
+  .modal-section::before,
+  .modal-section::after {
+    content: '';
+    @apply flex-1 h-px bg-slate-100 dark:bg-slate-800;
+  }
 }
 
 @layer base {

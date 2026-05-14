@@ -59,8 +59,9 @@ func (s *EventService) Ingest(ctx context.Context, req domain.IngestEventRequest
 }
 
 // GetSummary returns event counts grouped by product/event_type for last 24h.
-func (s *EventService) GetSummary(ctx context.Context) (domain.EventsSummaryResponse, error) {
-	items, err := s.repo.GetSummaryLast24h(ctx)
+// projectID is optional — empty string returns all projects.
+func (s *EventService) GetSummary(ctx context.Context, projectID string) (domain.EventsSummaryResponse, error) {
+	items, err := s.repo.GetSummaryLast24h(ctx, projectID)
 	if err != nil {
 		return domain.EventsSummaryResponse{}, fmt.Errorf("event_service: GetSummary: %w", err)
 	}

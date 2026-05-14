@@ -101,17 +101,31 @@ func (r *EventRepository) MergeAnonymousUser(ctx context.Context, anonymousID, u
 }
 
 // GetSummaryLast24h returns counts grouped by product and event_type for the last 24 hours.
-func (r *EventRepository) GetSummaryLast24h(ctx context.Context) ([]domain.EventSummaryItem, error) {
+// If projectID is non-empty, filters to that project only.
+func (r *EventRepository) GetSummaryLast24h(ctx context.Context, projectID string) ([]domain.EventSummaryItem, error) {
 	since := time.Now().UTC().Add(-24 * time.Hour)
 
-	rows, err := r.db.Query(ctx,
-		`SELECT product, event_type, COUNT(*) AS cnt
-		 FROM events
-		 WHERE created_at >= $1
-		 GROUP BY product, event_type
-		 ORDER BY product ASC, cnt DESC`,
-		since,
-	)
+	var rows pgx.Rows
+	var err error
+	if projectID != "" {
+		rows, err = r.db.Query(ctx,
+			`SELECT product, event_type, COUNT(*) AS cnt
+			 FROM events
+			 WHERE created_at >= $1 AND project_id = $2
+			 GROUP BY product, event_type
+			 ORDER BY product ASC, cnt DESC`,
+			since, projectID,
+		)
+	} else {
+		rows, err = r.db.Query(ctx,
+			`SELECT product, event_type, COUNT(*) AS cnt
+			 FROM events
+			 WHERE created_at >= $1
+			 GROUP BY product, event_type
+			 ORDER BY product ASC, cnt DESC`,
+			since,
+		)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("event_repository: GetSummaryLast24h: %w", err)
 	}

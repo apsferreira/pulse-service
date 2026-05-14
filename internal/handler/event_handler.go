@@ -138,9 +138,10 @@ func (h *EventHandler) BatchIngestEvents(c *fiber.Ctx) error {
 }
 
 // GetSummary godoc
-// GET /api/v1/events/summary
+// GET /api/v1/events/summary?project_id=<uuid>
 func (h *EventHandler) GetSummary(c *fiber.Ctx) error {
-	summary, err := h.svc.GetSummary(c.Context())
+	projectID := c.Query("project_id")
+	summary, err := h.svc.GetSummary(c.Context(), projectID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: err.Error()})
 	}

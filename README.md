@@ -262,11 +262,11 @@ Para 1 milhão de usuários ativos:
 
 Estimativa de custo self-hosted para 1M MAU: **~R$ 1.250/mês** (vs ~R$ 65.000/mês no LaunchDarkly).
 
-## Licença
+## Licença e uso comercial
 
-[Business Source License 1.1 (BSL 1.1)](LICENSE)
+O Pulse é uma plataforma comercial desenvolvida pelo Instituto Itinerante de Tecnologia.
 
-- ✅ Uso interno em qualquer empresa — gratuito
-- ✅ Modificar e usar internamente — gratuito
-- ❌ Oferecer como SaaS cloud para terceiros — requer licença comercial
-- ✅ Converte automaticamente para Apache 2.0 após 4 anos
+- O código-fonte está disponível para auditoria e self-hosting avaliativo
+- Uso em produção (próprio ou para terceiros) requer licença comercial
+- Para planos e preços: [institutoitinerante.com.br/pulse](https://institutoitinerante.com.br/pulse)
+- Contato comercial: contato@institutoitinerante.com.br

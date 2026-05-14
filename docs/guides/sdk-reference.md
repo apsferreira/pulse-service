@@ -1,6 +1,6 @@
 # Pulse SDK — Referência Completa
 
-> BKL-1060 | Documentação pública do SDK | Versão 1.0 | 2026-04-10
+> Versão 1.1 | Atualizado: 2026-05
 
 ---
 
@@ -19,13 +19,18 @@ yarn add @pulse/js
 ### CDN (sem bundler)
 
 ```html
-<!-- IIFE — funciona direto no browser sem bundler -->
-<script src="https://pulse-api.institutoitinerante.com.br/sdk/pulse.js"></script>
+<!-- Servido diretamente pela sua instância Pulse -->
+<script src="https://seu-pulse.seudominio.com/sdk/pulse.js"></script>
 <script>
-  PulseSDK.init({ projectKey: 'pulse_xxxx' })
+  PulseSDK.init({
+    projectKey: 'pulse_xxxx',
+    apiUrl: 'https://seu-pulse.seudominio.com',
+  })
   PulseSDK.track('page_view', { page: '/home' })
 </script>
 ```
+
+> O arquivo `pulse.js` é servido pelo próprio backend Pulse em `/sdk/pulse.js`. Não há CDN externo — sempre use a URL da sua instância.
 
 ---
 
@@ -37,11 +42,11 @@ yarn add @pulse/js
 import { PulseSDK } from '@pulse/js'
 
 PulseSDK.init({
-  projectKey: 'pulse_xxxx',   // Obrigatório: API key do seu projeto
-  apiUrl: 'https://pulse-api.institutoitinerante.com.br', // Opcional: default é a URL pública
-  debug: false,               // Opcional: loga eventos no console (default: false)
-  flushInterval: 5000,        // Opcional: flush a cada 5s (default: 5000ms)
-  maxBatchSize: 25,           // Opcional: flush ao atingir 25 eventos (default: 25)
+  projectKey: 'pulse_xxxx',              // Obrigatório: API key do projeto no dashboard
+  apiUrl: 'https://seu-pulse.seudominio.com', // Obrigatório: URL da sua instância
+  debug: false,                          // Opcional: loga eventos no console
+  flushInterval: 5000,                   // Opcional: flush a cada 5s (default: 5000ms)
+  maxBatchSize: 25,                      // Opcional: flush ao atingir N eventos
 })
 ```
 
@@ -55,9 +60,11 @@ import { PulseSDK } from '@pulse/js'
 
 export function PulseProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    // SSR guard: window só existe no browser
     if (typeof window !== 'undefined') {
-      PulseSDK.init({ projectKey: process.env.NEXT_PUBLIC_PULSE_KEY! })
+      PulseSDK.init({
+        projectKey: process.env.NEXT_PUBLIC_PULSE_KEY!,
+        apiUrl: process.env.NEXT_PUBLIC_PULSE_URL!,
+      })
     }
   }, [])
   return <>{children}</>
@@ -67,11 +74,13 @@ export function PulseProvider({ children }: { children: React.ReactNode }) {
 ### Astro SSR
 
 ```typescript
-// src/scripts/pulse.ts
-// Importar apenas em scripts client-side (não no servidor)
+// src/scripts/pulse.ts — apenas client-side
 if (typeof window !== 'undefined') {
   const { PulseSDK } = await import('@pulse/js')
-  PulseSDK.init({ projectKey: import.meta.env.PUBLIC_PULSE_KEY })
+  PulseSDK.init({
+    projectKey: import.meta.env.PUBLIC_PULSE_KEY,
+    apiUrl: import.meta.env.PUBLIC_PULSE_URL,
+  })
 }
 ```
 
@@ -90,66 +99,60 @@ PulseSDK.track('checkout_started', {
   currency: 'BRL',
 })
 
-// Com user_id
-PulseSDK.track('feature_used', {
-  feature: 'export_pdf',
-}, {
-  userId: 'user_123',
-})
+// Com user_id explícito
+PulseSDK.track('feature_used', { feature: 'export_pdf' }, { userId: 'user_123' })
 
 // Modo anônimo (antes do login)
-PulseSDK.track('page_view', {
-  page: '/pricing',
-}, {
-  anonymousId: 'anon_abc123',
-})
+PulseSDK.track('page_view', { page: '/pricing' }, { anonymousId: 'anon_abc123' })
 ```
 
 ---
 
 ## identify() — Vincular Usuário Anônimo
 
-Após o login, associe o `anonymousId` ao `userId` real para unificar a jornada:
+Após login, associe `anonymousId` ao `userId` real para unificar a jornada:
 
 ```typescript
-// Após login bem-sucedido
 PulseSDK.identify({
   userId: 'user_123',
-  anonymousId: 'anon_abc123', // Opcional: se rastreou antes do login
+  anonymousId: 'anon_abc123', // opcional
   traits: {
     email: 'user@empresa.com',
     plan: 'growth',
-    company: 'Empresa LTDA',
   },
 })
 ```
 
 ---
 
-## useFeatureFlag() — Feature Flags em React
+## Feature Flags
+
+### Hook React
 
 ```typescript
-import { useFeatureFlag } from '@pulse/js/react'
+import { useFeatureFlag, useVariant } from '@pulse/js/react'
 
-function MyComponent() {
-  const isEnabled = useFeatureFlag('nova_checkout_ux')
-
-  if (!isEnabled) return <CheckoutV1 />
-  return <CheckoutV2 />
+function CheckoutPage() {
+  const isNewUX = useFeatureFlag('new_checkout_ux')
+  return isNewUX ? <CheckoutV2 /> : <CheckoutV1 />
 }
-```
-
-### Com variante A/B
-
-```typescript
-import { useVariant } from '@pulse/js/react'
 
 function PricingPage() {
   const variant = useVariant('pricing_experiment') // 'control' | 'treatment' | null
-
-  if (variant === 'treatment') return <NewPricingLayout />
-  return <OriginalPricingLayout />
+  return variant === 'treatment' ? <NewPricing /> : <OriginalPricing />
 }
+```
+
+### Imperativo (qualquer framework)
+
+```typescript
+// Verificar flag
+const isEnabled = await PulseSDK.getFeatureFlag('nova_feature', false)
+//                                                               ^^^
+//                               Valor padrão se API estiver inacessível (fail-open)
+
+// Obter variante A/B
+const variant = await PulseSDK.getVariant('ab_test_key', 'control')
 ```
 
 ---
@@ -159,37 +162,76 @@ function PricingPage() {
 ```typescript
 import { PulseSDK } from '@pulse/react-native'
 
-// Inicializar uma vez no App.tsx
+// App.tsx — uma vez
 PulseSDK.init({
   projectKey: 'pulse_xxxx',
-  // AsyncStorage é usado automaticamente para persistência de userId
+  apiUrl: 'https://seu-pulse.seudominio.com',
+  // AsyncStorage é usado automaticamente para persistência
 })
 
-// Rastrear evento
-PulseSDK.track('screen_view', { screen: 'Home' })
-
-// Hook (Expo + React Native)
+// Hook
 import { useFeatureFlag } from '@pulse/react-native'
 
 function HomeScreen() {
   const showBanner = useFeatureFlag('home_banner_v2')
-  // ...
+  return showBanner ? <BannerV2 /> : <BannerV1 />
 }
 ```
 
 ---
 
-## Configuração de Ambientes (BKL-1075)
+## SDK Go (backend)
 
-Use API keys diferentes por ambiente para isolar dados de staging/prod:
+```go
+import pulse "github.com/seu-org/pulse-service/sdk/go"
+
+client, err := pulse.NewClient("https://seu-pulse.seudominio.com")
+if err != nil {
+    log.Fatal(err)
+}
+
+// Feature flag
+enabled, err := client.IsEnabled(ctx, "nova_feature")
+if err != nil {
+    enabled = false // fail-open
+}
+
+// Evento
+client.TrackEvent(ctx, pulse.TrackEventRequest{
+    EventName:  "user_signup",
+    UserID:     &userID,
+    Properties: map[string]interface{}{"plan": "free"},
+})
+```
+
+---
+
+## SDK Node.js (backend)
 
 ```typescript
-const isProd = process.env.NODE_ENV === 'production'
+import { PulseClient } from '@pulse/node'
 
+const pulse = new PulseClient({
+  baseURL: 'https://seu-pulse.seudominio.com',
+  projectKey: process.env.PULSE_PROJECT_KEY!,
+})
+
+const enabled = await pulse.isEnabled('nova_feature', { userId: 'user_123' })
+await pulse.track('order_placed', { amount: 150.00 })
+```
+
+---
+
+## Configuração por Ambiente
+
+Use `api_key` diferentes por ambiente para isolar dados de staging/prod:
+
+```typescript
 PulseSDK.init({
-  projectKey: isProd
-    ? process.env.PULSE_KEY_PROD       // env_prod_xxxx
-    : process.env.PULSE_KEY_STAGING,   // env_staging_xxxx
+  projectKey: process.env.NODE_ENV === 'production'
+    ? process.env.PULSE_KEY_PROD
+    : process.env.PULSE_KEY_STAGING,
+  apiUrl: 'https://seu-pulse.seudominio.com',
 })
 ```
 
@@ -197,88 +239,73 @@ PulseSDK.init({
 
 ## Tratamento de Erros e Fallbacks
 
-O SDK é **fail-open**: erros de rede nunca lançam exceções para o seu código.
+O SDK é **fail-open**: erros de rede nunca lançam exceções no seu código.
 
 ```typescript
-// getFeatureFlag() com fallback explícito
+// Fallback explícito — retorna `false` se API inacessível
 const isEnabled = await PulseSDK.getFeatureFlag('minha_flag', false)
-//                                                               ^^^
-//                              Valor padrão se o servidor estiver inacessível
 
-// O SDK armazena o último valor válido em memória (30s) e localStorage (5min)
-// como fallback automático durante downtime.
+// O SDK armazena o último valor válido:
+// - Em memória: 30 segundos
+// - Em localStorage: 5 minutos
+// Mudanças propagam em <10s via Redis após alterar no dashboard.
 ```
 
 ---
 
 ## Flush Manual
 
-O SDK envia eventos em batch automaticamente. Para forçar envio imediato:
-
 ```typescript
-// Útil antes de navegação ou logout
+// Útil antes de navegação, logout ou encerrar processo Node
 await PulseSDK.flush()
 ```
 
 ---
 
-## Opções Completas de Inicialização
+## Referência Completa de Opções
 
 ```typescript
 PulseSDK.init({
-  projectKey: string,           // Obrigatório
-  apiUrl?: string,              // Default: 'https://pulse-api.institutoitinerante.com.br'
-  debug?: boolean,              // Default: false
-  flushInterval?: number,       // Default: 5000 (ms)
-  maxBatchSize?: number,        // Default: 25 eventos
-  sessionTimeout?: number,      // Default: 30 (minutos)
-  disableAutoPageview?: boolean, // Default: false — desabilita page_view automático
+  projectKey: string,              // Obrigatório
+  apiUrl: string,                  // Obrigatório — URL da sua instância Pulse
+  debug?: boolean,                 // Default: false
+  flushInterval?: number,          // Default: 5000 (ms)
+  maxBatchSize?: number,           // Default: 25 eventos
+  sessionTimeout?: number,         // Default: 30 (minutos)
+  disableAutoPageview?: boolean,   // Default: false
 })
-```
-
----
-
-## Exemplos Completos
-
-### React SPA com login
-
-```typescript
-// App.tsx
-import { useEffect } from 'react'
-import { PulseSDK } from '@pulse/js'
-
-export default function App() {
-  useEffect(() => {
-    PulseSDK.init({ projectKey: import.meta.env.VITE_PULSE_KEY })
-  }, [])
-
-  const handleLogin = async (user: User) => {
-    await loginAPI(user)
-    PulseSDK.identify({ userId: user.id, traits: { plan: user.plan } })
-    PulseSDK.track('user_logged_in', { method: 'email' })
-  }
-
-  return <Router />
-}
 ```
 
 ---
 
 ## Rate Limits e Quotas
 
-| Plano | Eventos/mês | Resposta ao atingir limite |
-|-------|------------|--------------------------|
-| Free | 10.000 | HTTP 429 — SDK armazena localmente e tenta re-enviar no próximo mês |
-| Starter | 500.000 | HTTP 429 + header X-Quota-Remaining |
-| Growth | 2.000.000 | HTTP 429 + header X-Quota-Remaining |
+| Plano | Eventos/mês | Comportamento ao atingir limite |
+|-------|------------|--------------------------------|
+| Free | 10.000 | HTTP 429 — SDK armazena e tenta re-enviar no próximo ciclo |
+| Starter | 500.000 | HTTP 429 + header `X-Quota-Remaining` |
+| Growth | 2.000.000 | HTTP 429 + header `X-Quota-Remaining` |
 | Pro | Ilimitado | — |
 
-O SDK respeita o header `X-Quota-Remaining` e ajusta a frequência de envio automaticamente.
+Self-hosted: quotas são desabilitadas por padrão (variável `SELF_HOSTED=true`).
+
+---
+
+## Tradeoffs — Quando usar cada abordagem
+
+| Cenário | Recomendação |
+|---------|-------------|
+| SPA (React, Vue, Svelte) | `@pulse/js` + hooks — cache automático, fail-open nativo |
+| SSR (Next.js, Remix) | `@pulse/js` no client-side apenas (SSR guard obrigatório) |
+| Backend Go | `sdk/go` — avaliação server-side, sem latência de rede extra |
+| Backend Node | `@pulse/node` — ideal para microsserviços JS |
+| Mobile | `@pulse/react-native` — AsyncStorage para persistência offline |
+| Feature crítica de segurança | Avalie no backend — nunca confie em avaliação client-side |
+| Alta frequência de eventos (>100/s) | Use batch + `flushInterval` curto; monitore Redis |
 
 ---
 
 ## Suporte
 
-- **Docs:** pulse.institutoitinerante.com.br/docs
-- **Email:** suporte@institutoitinerante.com.br
-- **Issues:** github.com/institutoitinerante/pulse-service/issues
+- **Documentação:** `docs/` no repositório
+- **Issues:** abra uma issue no GitHub com label `sdk`

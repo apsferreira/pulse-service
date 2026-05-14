@@ -645,6 +645,11 @@ export default function FeatureFlags() {
   const flashTimeouts = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
 
   const fetchFlags = useCallback(async (isRefresh = false) => {
+    if (!projectId) {
+      setFlags([])
+      setLoading(false)
+      return
+    }
     if (isRefresh) setRefreshing(true)
     else setLoading(true)
     setError('')

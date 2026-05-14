@@ -466,13 +466,18 @@ function BayesianAnalysis() {
 }
 
 export default function ABTesting() {
-  const { projectId } = useProject()
+  const { projectId, projectSlug } = useProject()
   const [flags, setFlags] = useState<FeatureFlag[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<'all' | 'ab' | 'onoff'>('all')
 
   const fetchFlags = useCallback(() => {
+    if (!projectId) {
+      setFlags([])
+      setLoading(false)
+      return
+    }
     setLoading(true)
     flagsApi
       .list(projectId)
@@ -496,6 +501,20 @@ export default function ABTesting() {
   const activeAB = abFlags.filter(f => f.enabled).length
   const totalAB = abFlags.length
 
+  if (!projectId) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center gap-4">
+        <div className="w-14 h-14 rounded-2xl bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center">
+          <FlaskConical className="w-7 h-7 text-violet-500" />
+        </div>
+        <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Selecione um projeto</h2>
+        <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs">
+          Escolha um projeto no seletor do topo para ver os experimentos A/B.
+        </p>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -505,7 +524,7 @@ export default function ABTesting() {
           A/B Testing
         </h1>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-          Flags com variantes de distribuição — experimentos ativos no ecossistema IIT
+          Experimentos do projeto <span className="font-medium text-violet-500">{projectSlug}</span>
         </p>
       </div>
 

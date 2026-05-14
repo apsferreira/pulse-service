@@ -19,7 +19,7 @@ O Pulse Service atinge **P99 < 100ms a 5.000+ RPS** para os endpoints de leitura
 | Instâncias | 1 réplica Go |
 | vCPU | 2 vCPU |
 | RAM | 2 GB |
-| Banco de dados | PostgreSQL 15, VM dedicada (<REDACTED-INTERNAL-IP>) |
+| Banco de dados | PostgreSQL 15, VM dedicada (DB_HOST) |
 | Redis | Redis 7, instância compartilhada (shared-infra) |
 | Rede | LAN 1Gbps (sem latência WAN adicional) |
 

@@ -221,7 +221,7 @@ Antonio
 
 ## Automação Recomendada
 
-Sequência ideal via n8n (self-hosted em 192.168.30.x):
+Sequência ideal via n8n (self-hosted em 192.168.x.x):
 
 ```
 Trigger: Cron toda segunda 09h

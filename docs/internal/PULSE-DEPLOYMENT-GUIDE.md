@@ -48,7 +48,7 @@ client.TrackEvent(ctx, pulse.Event{Name: "tarefa_criada", UserID: userID})
 ### O que o IIT mantém
 
 - K3s deployment (`deploy/k8s/`)
-- PostgreSQL no VM <REDACTED-INTERNAL-IP> (banco `pulse_db` dedicado — ver gap abaixo)
+- PostgreSQL no VM DB_HOST (banco `pulse_db` dedicado — ver gap abaixo)
 - Redis no shared-infra (DB 1)
 - Aplicação das migrations sequencialmente a cada release
 - Secret K8s `pulse-service-secrets` com as variáveis abaixo
@@ -58,7 +58,7 @@ client.TrackEvent(ctx, pulse.Event{Name: "tarefa_criada", UserID: userID})
 
 | Variável | Obrigatório | Descrição |
 |----------|-------------|-----------|
-| `DATABASE_URL` | Sim | `postgres://postgres:senha@<REDACTED-INTERNAL-IP>:5432/pulse_db` |
+| `DATABASE_URL` | Sim | `postgres://postgres:SUA_SENHA@DB_HOST:5432/pulse_db` |
 | `REDIS_URL` | Sim | `redis://redis:6379` |
 | `SERVICE_TOKEN` | Sim | Token admin para endpoints `/api/v1/*` |
 | `RESEND_API_KEY` | Sim | Churn alerts por email |
@@ -453,7 +453,7 @@ O loop de migrations atual e ingênuo — reaplica tudo e suprime erros com `2>/
 
 ```yaml
 # pulse-service-secrets
-DATABASE_URL: postgres://postgres:senha@<REDACTED-INTERNAL-IP>:5432/pulse_db?sslmode=disable
+DATABASE_URL: postgres://postgres:SUA_SENHA@DB_HOST:5432/pulse_db?sslmode=disable
 REDIS_URL: redis://redis:6379
 SERVICE_TOKEN: tok_gere_aqui_com_openssl_rand_hex_32
 RESEND_API_KEY: re_...

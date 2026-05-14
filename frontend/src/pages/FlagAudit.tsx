@@ -58,7 +58,7 @@ export default function FlagAudit() {
       if (filterKey) params.flag_key = filterKey
       if (projectId) params.project_id = projectId
 
-      const { data } = await api.get<AuditResponse>('/flags/audit', { params })
+      const { data } = await api.get<AuditResponse>('/flag-evaluations/audit', { params })
       setItems(data.items ?? [])
       setTotal(data.total ?? 0)
     } catch (err) {

@@ -73,21 +73,23 @@ func (r *RetentionRepository) GetCohorts(ctx context.Context, product, granulari
 		truncFunc = "month"
 	}
 
-	var conditions []string
 	var args []interface{}
 	argIdx := 1
 
-	conditions = append(conditions, "user_id IS NOT NULL")
+	var firstSeenConditions []string
+	var activityConditions []string
+	firstSeenConditions = append(firstSeenConditions, "events.user_id IS NOT NULL")
+	activityConditions = append(activityConditions, "e.user_id IS NOT NULL")
 	if product != "" {
-		conditions = append(conditions, fmt.Sprintf("product = $%d", argIdx))
+		firstSeenConditions = append(firstSeenConditions, fmt.Sprintf("product = $%d", argIdx))
+		activityConditions = append(activityConditions, fmt.Sprintf("e.product = $%d", argIdx))
 		args = append(args, product)
 		argIdx++
 	}
+	_ = argIdx
 
-	whereClause := ""
-	if len(conditions) > 0 {
-		whereClause = "WHERE " + strings.Join(conditions, " AND ")
-	}
+	firstSeenWhere := "WHERE " + strings.Join(firstSeenConditions, " AND ")
+	activityWhere := "WHERE " + strings.Join(activityConditions, " AND ")
 
 	query := fmt.Sprintf(`
 		WITH first_seen AS (
@@ -122,11 +124,11 @@ func (r *RetentionRepository) GetCohorts(ctx context.Context, product, granulari
 		FROM cohort_sizes cs
 		JOIN activity a ON a.cohort = cs.cohort
 		ORDER BY cs.cohort ASC, period_offset ASC`,
-		truncFunc, whereClause, truncFunc, whereClause, truncFunc, truncFunc,
+		truncFunc, firstSeenWhere, truncFunc, activityWhere, truncFunc, truncFunc,
 	)
 
-	// args are duplicated for both CTEs
-	fullArgs := append(args, args...)
+	// product arg used once (same $1 in both CTEs)
+	fullArgs := args
 
 	rows, err := r.db.Query(ctx, query, fullArgs...)
 	if err != nil {

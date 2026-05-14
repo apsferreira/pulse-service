@@ -24,7 +24,7 @@ func NewFlagAuditHandler(repo *repository.FlagEvaluationRepository, serviceToken
 // RegisterRoutes monta rotas de audit log de flags.
 func (h *FlagAuditHandler) RegisterRoutes(app *fiber.App) {
 	auth := middleware.ServiceTokenMiddleware(h.serviceToken)
-	app.Get("/api/v1/flags/audit", auth, h.List)
+	app.Get("/api/v1/flag-evaluations/audit", auth, h.List)
 }
 
 // List godoc

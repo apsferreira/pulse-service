@@ -178,21 +178,39 @@ Referência completa com Go, Node, React Native e tratamento de erros: [`docs/gu
 
 ## Desenvolvimento local
 
-```bash
-# 1. Infraestrutura compartilhada
-cd ../shared-infra && docker compose up -d
+Você precisa de PostgreSQL 15+ e Redis 7+ rodando localmente. A forma mais simples é via Docker:
 
-# 2. Migrations
+```bash
+# PostgreSQL + Redis via Docker (se não tiver rodando)
+docker run -d --name pulse-postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 postgres:15-alpine
+docker run -d --name pulse-redis -p 6379:6379 redis:7-alpine
+```
+
+Ou use qualquer outra forma que preferir — Homebrew, Postgres.app, etc.
+
+```bash
+# 1. Variáveis de ambiente
+cp .env.example .env
+# Edite .env com suas credenciais locais
+
+# 2. Criar banco e rodar migrations
+createdb pulse_db   # ou: psql -U postgres -c "CREATE DATABASE pulse_db"
 psql $DATABASE_URL -f migrations/001_initial_schema.sql
 
 # 3. Backend
-DATABASE_URL=postgres://postgres:postgres@localhost:5432/pulse_db \
-REDIS_URL=redis://localhost:6379 \
-SERVICE_TOKEN=dev-token \
 go run ./cmd/server
 
 # 4. Frontend (outra aba)
 cd frontend && npm install && npm run dev
+```
+
+**`.env` mínimo para desenvolvimento:**
+
+```env
+DATABASE_URL=postgres://postgres:postgres@localhost:5432/pulse_db
+REDIS_URL=redis://localhost:6379
+SERVICE_TOKEN=dev-token
+PORT=3050
 ```
 
 ## Comportamento quando o Pulse fica fora do ar

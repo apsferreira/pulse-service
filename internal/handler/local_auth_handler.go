@@ -9,19 +9,11 @@ package handler
 //	POST /api/v1/auth/logout  — stateless (client descarta token)
 //	GET  /api/v1/auth/me      — retorna usuário autenticado (Bearer token)
 //	POST /api/v1/auth/setup   — cria primeiro usuário admin (só quando tabela vazia)
-//
-// Hashing de senha: HMAC-SHA256(senha, salt) com salt aleatório de 32 bytes.
-// O hash armazenado tem formato "salt_hex:hmac_hex".
-// Nota: para maior segurança em produção, considere adicionar golang.org/x/crypto
-// para usar bcrypt — requer apenas `go get golang.org/x/crypto` e atualizar go.mod.
 
 import (
 	"crypto/hmac"
-	"crypto/rand"
 	"crypto/sha256"
-	"crypto/subtle"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"strings"
 	"time"
@@ -29,6 +21,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/institutoitinerante/pulse-service/internal/domain"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // LocalAuthHandler lida com autenticação local por email+senha.
@@ -215,35 +208,18 @@ func (h *LocalAuthHandler) Setup(c *fiber.Ctx) error {
 
 // --- helpers de hashing ---
 
-// hashPassword gera "saltHex:hmacHex" usando HMAC-SHA256 com salt aleatório de 32 bytes.
-// O salt é único por senha, evitando ataques de rainbow table.
+// hashPassword gera hash bcrypt com custo 12.
 func hashPassword(password string) (string, error) {
-	salt := make([]byte, 32)
-	if _, err := rand.Read(salt); err != nil {
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), 12)
+	if err != nil {
 		return "", err
 	}
-	saltHex := hex.EncodeToString(salt)
-	mac := hmac.New(sha256.New, salt)
-	mac.Write([]byte(password))
-	hashHex := hex.EncodeToString(mac.Sum(nil))
-	return saltHex + ":" + hashHex, nil
+	return string(hash), nil
 }
 
-// verifyPasswordHash verifica se password bate com o hash armazenado.
-// Usa comparação em tempo constante para evitar timing attacks.
+// verifyPasswordHash verifica se password bate com o hash bcrypt armazenado.
 func verifyPasswordHash(password, stored string) bool {
-	parts := strings.SplitN(stored, ":", 2)
-	if len(parts) != 2 {
-		return false
-	}
-	salt, err := hex.DecodeString(parts[0])
-	if err != nil {
-		return false
-	}
-	mac := hmac.New(sha256.New, salt)
-	mac.Write([]byte(password))
-	expected := hex.EncodeToString(mac.Sum(nil))
-	return subtle.ConstantTimeCompare([]byte(expected), []byte(parts[1])) == 1
+	return bcrypt.CompareHashAndPassword([]byte(stored), []byte(password)) == nil
 }
 
 // --- helpers de JWT ---

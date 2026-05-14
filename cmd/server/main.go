@@ -94,7 +94,7 @@ func main() {
 	// Wire up layers — events ingestion
 	eventRepo := repository.NewEventRepository(pool)
 	eventSvc := service.NewEventService(eventRepo)
-	eventHandler := handler.NewEventHandler(eventSvc, cfg.ServiceToken).WithHub(wsHub).WithRedis(redisClient) // BKL-1077: quota enforcement
+	eventHandler := handler.NewEventHandler(eventSvc, cfg.ServiceToken).WithHub(wsHub).WithRedis(redisClient).WithBillingURL(cfg.BillingURL)
 
 	// Wire up layers — retention metrics
 	retentionRepo := repository.NewRetentionRepository(pool)
@@ -279,9 +279,9 @@ func main() {
 	overageHandler := handler.NewOverageHandler(pool, redisClient, cfg.ServiceToken)
 	overageHandler.RegisterRoutes(app)
 
-	// BKL-424: Dashboard Analytics Unificado — agrega métricas de todos os produtos IIT
-	iitDashboardHandler := handler.NewIITDashboardHandler(pool, cfg.ServiceToken)
-	iitDashboardHandler.RegisterRoutes(app)
+	// BKL-424: Dashboard Analytics Unificado — agrega métricas de todos os projetos
+	adminDashboardHandler := handler.NewAdminDashboardHandler(pool, cfg.ServiceToken)
+	adminDashboardHandler.RegisterRoutes(app)
 
 	// BKL-769: North Star Metrics — dados reais por produto IIT (sem service token, dados agregados)
 	northStarHandler := handler.NewNorthStarHandler(pool)

@@ -2,11 +2,23 @@ version: "3.9"
 
 # Pulse — Self-Hosted
 # Uso: docker compose -f docker-compose.selfhosted.yml up -d
-# Docs: docs/DEPLOYMENT-MODES.md
+# Docs: docs/self-hosted.md
+#
+# Variáveis obrigatórias (copie .env.selfhosted.example para .env e preencha):
+#   SERVICE_TOKEN        — token admin interno (gere com: openssl rand -hex 32)
+#   PULSE_AUTH_URL       — URL do auth-service que gerencia login (ex: https://auth.suaempresa.com)
+#
+# Variáveis opcionais:
+#   POSTGRES_PASSWORD    — senha do PostgreSQL (default: pulse_secret — troque em prod)
+#   PULSE_API_URL        — URL pública da API (default: http://localhost:3015)
+#   PULSE_BILLING_URL    — URL do portal de upgrade exibida no HTTP 429 (default: vazio)
+#   RESEND_API_KEY       — chave Resend para envio de emails (opcional)
+#   RESEND_FROM          — endereço de remetente dos emails (opcional)
+#   LOG_LEVEL            — nível de log: debug|info|warn|error (default: info)
 
 services:
   pulse-backend:
-    image: ghcr.io/institutoitinerante/pulse-service:latest
+    image: ${PULSE_IMAGE:-ghcr.io/institutoitinerante/pulse-service:latest}
     container_name: pulse-backend
     restart: unless-stopped
     ports:
@@ -21,6 +33,7 @@ services:
       RESEND_FROM: ${RESEND_FROM:-}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       SELF_HOSTED: "true"
+      PULSE_BILLING_URL: ${PULSE_BILLING_URL:-}
     depends_on:
       pulse-postgres:
         condition: service_healthy
@@ -36,14 +49,14 @@ services:
       start_period: 15s
 
   pulse-frontend:
-    image: ghcr.io/institutoitinerante/pulse-frontend:latest
+    image: ${PULSE_FRONTEND_IMAGE:-ghcr.io/institutoitinerante/pulse-frontend:latest}
     container_name: pulse-frontend
     restart: unless-stopped
     ports:
       - "3016:80"
     environment:
       VITE_API_URL: ${PULSE_API_URL:-http://localhost:3015}
-      VITE_AUTH_SERVICE_URL: ${PULSE_AUTH_URL:-https://auth.institutoitinerante.com.br}
+      VITE_AUTH_SERVICE_URL: ${PULSE_AUTH_URL:?PULSE_AUTH_URL is required (URL do auth-service)}
     depends_on:
       - pulse-backend
     networks:

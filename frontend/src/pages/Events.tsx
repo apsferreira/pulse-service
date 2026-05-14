@@ -356,6 +356,7 @@ function UsersTab() {
 type Tab = 'resumo' | 'usuarios'
 
 export default function Events() {
+  const { projectId } = useProject()
   const [activeTab, setActiveTab] = useState<Tab>('resumo')
   const [summary, setSummary] = useState<EventsSummaryResponse | null>(null)
   const [loading, setLoading] = useState(true)
@@ -364,7 +365,7 @@ export default function Events() {
   const fetchSummary = useCallback(async () => {
     setLoading(true)
     try {
-      const { data } = await eventsApi.summary()
+      const { data } = await eventsApi.summary(projectId)
       setSummary(data)
     } catch (err) {
       toast.error('Falha ao carregar resumo de eventos')
@@ -372,11 +373,13 @@ export default function Events() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [projectId])
 
   // BKL-150: receber eventos em tempo real via WebSocket
+  // Filtra por project_id quando um projeto está selecionado
   const handleRealtimeEvent = useCallback((msg: RealtimeEvent) => {
     if (msg.type !== 'event') return
+    if (projectId && msg.event.properties?.['project_id'] && msg.event.properties['project_id'] !== projectId) return
     setRealtimeCount((prev) => prev + 1)
     setSummary((prev) => {
       if (!prev) return prev
@@ -391,9 +394,15 @@ export default function Events() {
       }
       return { ...prev, items, total_last_24h: prev.total_last_24h + 1 }
     })
-  }, [])
+  }, [projectId])
 
   useRealtimeEvents({ onEvent: handleRealtimeEvent })
+
+  // Reset ao mudar projeto
+  useEffect(() => {
+    setRealtimeCount(0)
+    setSummary(null)
+  }, [projectId])
 
   useEffect(() => {
     void fetchSummary()

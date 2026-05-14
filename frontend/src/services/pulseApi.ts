@@ -99,7 +99,10 @@ export const monitorsApi = {
 // ── Events API ────────────────────────────────────────────────────────────────
 
 export const eventsApi = {
-  summary: () => api.get<EventsSummaryResponse>('/events/summary'),
+  summary: (projectId?: string | null) =>
+    api.get<EventsSummaryResponse>('/events/summary', {
+      params: projectId ? { project_id: projectId } : undefined,
+    }),
   list: (params?: Record<string, string | number>) =>
     api.get<EventsListResponse>('/events', { params }),
 }

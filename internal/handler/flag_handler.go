@@ -71,12 +71,23 @@ func (h *FlagHandler) RegisterRoutes(app *fiber.App) {
 
 // GetFlagsMap godoc
 // GET /flags — public, returns {flags: {key: enabled}} for SDK consumption.
-// Query params opcionais: user_id, tenant_id — quando fornecidos, avalia rollout e targeting.
-// Query param opcional: project_id (UUID) — isola flags por tenant. BKL-323, BKL-1027, BKL-1028.
+// Query params opcionais: user_id, tenant_id — avalia rollout e targeting quando fornecidos.
+// Identificação do projeto (um dos dois):
+//   - api_key=pulse_xxx  → recomendado, seguro para expor no frontend
+//   - project_id=<UUID>  → aceito por retrocompatibilidade, mas não deve ser exposto
 func (h *FlagHandler) GetFlagsMap(c *fiber.Ctx) error {
 	userID := c.Query("user_id")
 	tenantID := c.Query("tenant_id")
 	projectID := c.Query("project_id")
+
+	// Resolve api_key → project_id quando fornecido.
+	// api_key é o identificador público seguro — o UUID nunca precisa sair do servidor.
+	if apiKey := c.Query("api_key"); apiKey != "" && h.projectRepo != nil {
+		proj, err := h.projectRepo.GetByAPIKey(c.Context(), apiKey)
+		if err == nil && proj != nil {
+			projectID = proj.ID
+		}
+	}
 
 	// Se tem contexto de usuário, avalia com rollout + targeting (filtrado por project)
 	if userID != "" || tenantID != "" {
@@ -447,13 +458,22 @@ func buildPreviewURL(flagKey, variant string, enabled bool) string {
 
 // GetVariants godoc
 // GET /flags/variants — public, returns A/B variant for each flag with variants configured.
-// Query params: user_id (required for deterministic selection), tenant_id (optional), project_id (required for isolation)
+// Query params: user_id (required for deterministic selection), tenant_id (optional).
+// Identificação do projeto: api_key=pulse_xxx (recomendado) ou project_id=<UUID> (retrocompat).
 // BKL-094, BKL-1027
 // Response: {"variants": {"flag-key": "variant-name"}}
 func (h *FlagHandler) GetVariants(c *fiber.Ctx) error {
 	userID := c.Query("user_id")
 	tenantID := c.Query("tenant_id")
 	projectID := c.Query("project_id")
+
+	// Resolve api_key → project_id
+	if apiKey := c.Query("api_key"); apiKey != "" && h.projectRepo != nil {
+		proj, err := h.projectRepo.GetByAPIKey(c.Context(), apiKey)
+		if err == nil && proj != nil {
+			projectID = proj.ID
+		}
+	}
 
 	resp, err := h.svc.GetVariants(c.Context(), userID, tenantID, projectID)
 	if err != nil {

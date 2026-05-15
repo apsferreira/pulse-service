@@ -87,19 +87,30 @@ if (flagValue === undefined) return <Skeleton />  // ainda carregando
 
 O rollout usa hash consistente do `userId`. Para um usuário específico, o hash pode cair fora da faixa do rollout — isso é intencional.
 
-**Para testar com um usuário específico**, crie um override:
+**Para forçar um grupo específico sem alterar o backend**, use o parâmetro de URL:
 
-```bash
-curl -X POST https://pulse-api.institutoitinerante.com.br/api/v1/flags/FLAG_ID/overrides \
-  -H "X-Service-Token: $SERVICE_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "user_id": "user-123",
-    "enabled": true
-  }'
+```
+# Forçar flag ON para quem acessar esse link
+https://seuapp.com/pagina?pulse_override[nome-da-flag]=on
+
+# Forçar flag OFF
+https://seuapp.com/pagina?pulse_override[nome-da-flag]=off
+
+# Forçar uma variante específica de A/B test
+https://seuapp.com/pagina?pulse_override[nome-da-flag]=challenger
 ```
 
-Se com o override a flag aparecer, o problema é só de rollout — aumente o percentual ou use targeting.
+O SDK JS lê esse parâmetro automaticamente — funciona sem nenhuma configuração extra. Útil para QA, demos e validar os dois grupos de um A/B test.
+
+**Para checar em qual bucket um `userId` específico cai**, use o endpoint de preview:
+
+```bash
+curl "https://pulse-api.institutoitinerante.com.br/api/v1/flags/nome-da-flag/preview?user_id=user-123" \
+  -H "X-Service-Token: $SERVICE_TOKEN"
+# → {"bucket": 34, "rollout_percentage": 50, "in_rollout": true, "reason": "rollout"}
+```
+
+Ou use o painel **Testar avaliação** diretamente no modal da flag no dashboard.
 
 ---
 

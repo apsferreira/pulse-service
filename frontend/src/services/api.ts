@@ -196,4 +196,59 @@ export const costsApi = {
     api.get<CostTotal>('/costs/total', { params: { days } }).then((r) => r.data),
 }
 
+// ── Upgrade gate ─────────────────────────────────────────────────────────────
+
+export class UpgradeRequiredError extends Error {
+  constructor(
+    public plan: string,
+    public upgradeUrl: string,
+    public message: string,
+    public required_plan?: string,
+    public feature?: string,
+  ) {
+    super('upgrade_required')
+    this.name = 'UpgradeRequiredError'
+  }
+}
+
+interface UpgradeRequiredBody {
+  code: string
+  plan: string
+  upgrade_url: string
+  message: string
+  required_plan?: string
+}
+
+/**
+ * Wrapper sobre axios que detecta HTTP 402 e lança UpgradeRequiredError.
+ * Use no lugar de chamar `api.get/post` diretamente quando quiser que o
+ * UpgradeModal apareça automaticamente.
+ */
+export async function apiCall<T>(
+  method: 'get' | 'post' | 'put' | 'patch' | 'delete',
+  url: string,
+  data?: unknown,
+  params?: Record<string, unknown>,
+): Promise<T> {
+  try {
+    const response = await api.request<T>({ method, url, data, params })
+    return response.data
+  } catch (err: unknown) {
+    const axiosErr = err as {
+      response?: { status?: number; data?: UpgradeRequiredBody }
+      message?: string
+    }
+    if (axiosErr.response?.status === 402) {
+      const body = axiosErr.response.data
+      throw new UpgradeRequiredError(
+        body?.plan ?? 'free',
+        body?.upgrade_url ?? '/billing',
+        body?.message ?? 'Faça upgrade para acessar este recurso.',
+        body?.required_plan,
+      )
+    }
+    throw err
+  }
+}
+
 export default api

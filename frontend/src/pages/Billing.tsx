@@ -10,6 +10,8 @@ import {
   BarChart3,
   Flag,
   FolderOpen,
+  Server,
+  MessageCircle,
 } from 'lucide-react'
 import { useProject } from '../components/Layout'
 import { useProjects } from '../hooks/useProjects'
@@ -19,6 +21,19 @@ import {
   buildUpgradeURL,
 } from '../services/billingApi'
 import type { UpgradeRecommendation, PlanSlug } from '../services/billingApi'
+
+// ── Tipos e constantes de billing cycle ───────────────────────────────────────
+
+type BillingCycle = 'monthly' | 'yearly'
+
+const PRICES: Record<BillingCycle, Record<Exclude<PlanSlug, 'free'>, number>> = {
+  monthly: { starter: 399, growth: 1099, pro: 2399 },
+  yearly: {
+    starter: Math.round(383000 / 100 / 12),   // 319
+    growth:  Math.round(1055000 / 100 / 12),   // 879
+    pro:     Math.round(2303000 / 100 / 12),   // 1919
+  },
+} as const
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -138,24 +153,172 @@ function CurrentPlanSection({ recommendation, projectName }: CurrentPlanSectionP
   )
 }
 
+// ── Toggle mensal/anual ───────────────────────────────────────────────────────
+
+interface BillingToggleProps {
+  billing: BillingCycle
+  onChange: (v: BillingCycle) => void
+}
+
+function BillingToggle({ billing, onChange }: BillingToggleProps) {
+  return (
+    <div
+      className="inline-flex items-center rounded-xl border border-white/10 overflow-hidden"
+      role="group"
+      aria-label="Ciclo de cobrança"
+      style={{ background: '#09080f' }}
+    >
+      <button
+        onClick={() => onChange('monthly')}
+        className={[
+          'px-4 py-1.5 text-sm font-medium transition-colors',
+          billing === 'monthly'
+            ? 'text-white'
+            : 'text-slate-400 hover:text-slate-200',
+        ].join(' ')}
+        style={billing === 'monthly' ? { background: '#7c3aed' } : {}}
+        aria-pressed={billing === 'monthly'}
+      >
+        Mensal
+      </button>
+      <button
+        onClick={() => onChange('yearly')}
+        className={[
+          'px-4 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5',
+          billing === 'yearly'
+            ? 'text-white'
+            : 'text-slate-400 hover:text-slate-200',
+        ].join(' ')}
+        style={billing === 'yearly' ? { background: '#7c3aed' } : {}}
+        aria-pressed={billing === 'yearly'}
+      >
+        Anual
+        <span
+          className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+          style={{ background: '#10b98120', color: '#34d399' }}
+        >
+          -20%
+        </span>
+      </button>
+    </div>
+  )
+}
+
+// ── Seção Self-Hosted ─────────────────────────────────────────────────────────
+
+function SelfHostedCard() {
+  const contactUrl =
+    'https://wa.me/5571999999999?text=Olá%2C%20quero%20saber%20mais%20sobre%20o%20Pulse%20Self-Hosted'
+
+  return (
+    <div
+      className="rounded-2xl border border-amber-700/40 p-6 flex flex-col gap-5"
+      style={{ background: '#1a1510' }}
+      aria-label="Plano Self-Hosted"
+    >
+      <div className="flex items-start gap-3">
+        <div
+          className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+          style={{ background: '#92400e20' }}
+        >
+          <Server className="w-4.5 h-4.5 text-amber-400" aria-hidden="true" />
+        </div>
+        <div className="flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-sm font-semibold text-slate-100">Self-Hosted</p>
+            <span
+              className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+              style={{ background: '#92400e40', color: '#fbbf24' }}
+            >
+              Licença única
+            </span>
+          </div>
+          <p className="text-2xl font-bold text-amber-300 mt-1">
+            R$ 50.000
+            <span className="text-xs font-normal text-slate-400"> /ano</span>
+          </p>
+        </div>
+      </div>
+
+      <p className="text-xs text-slate-400 leading-relaxed">
+        Seus dados na sua infraestrutura. Deploy via Docker Compose ou K3s — sem
+        dependência de cloud externa. Controle total sobre retenção e conformidade.
+      </p>
+
+      <ul className="space-y-1.5">
+        {[
+          'Projetos e eventos ilimitados',
+          'Docker Compose ou K3s — sua escolha',
+          'Suporte dedicado de onboarding',
+          'SLA 99,9% garantido em contrato',
+          'SSO / SAML incluído',
+        ].map((f) => (
+          <li key={f} className="flex items-center gap-2 text-xs text-slate-300">
+            <CheckCircle
+              className="w-3.5 h-3.5 flex-shrink-0 text-amber-400"
+              aria-hidden="true"
+            />
+            {f}
+          </li>
+        ))}
+      </ul>
+
+      <a
+        href={contactUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-colors"
+        style={{ background: '#92400e', color: '#fef3c7' }}
+        aria-label="Falar com o time sobre Self-Hosted"
+      >
+        <MessageCircle className="w-4 h-4" aria-hidden="true" />
+        Falar com o time
+        <ExternalLink className="w-3 h-3" aria-hidden="true" />
+      </a>
+
+      <p className="text-[11px] text-slate-500 text-center leading-relaxed">
+        Após o pagamento, você recebe uma{' '}
+        <code className="text-amber-400/80 font-mono">LICENSE_KEY</code> por email
+        para ativar sua instância.
+      </p>
+    </div>
+  )
+}
+
 // ── Seção B — Cards de planos ─────────────────────────────────────────────────
 
 interface PlanCardsProps {
   currentPlan: string
   projectId: string
+  billing: BillingCycle
+  onBillingChange: (v: BillingCycle) => void
 }
 
-function PlanCards({ currentPlan, projectId }: PlanCardsProps) {
+function PlanCards({ currentPlan, projectId, billing, onBillingChange }: PlanCardsProps) {
   const currentRank = planRank(currentPlan)
+
+  const resolvedPrice = (slug: PlanSlug): string => {
+    if (slug === 'free') return 'R$ 0'
+    const price = PRICES[billing][slug]
+    return `R$ ${price.toLocaleString('pt-BR')}`
+  }
+
+  const upgradeUrl = (slug: PlanSlug): string => {
+    const base = buildUpgradeURL(slug, projectId)
+    return billing === 'yearly' ? `${base.replace(`pulse-${slug}`, `pulse-${slug}-annual`)}&billing=yearly` : base
+  }
 
   return (
     <section aria-label="Planos disponíveis">
-      <div className="flex items-center gap-2 mb-4">
-        <TrendingUp className="w-4 h-4 text-violet-400" aria-hidden="true" />
-        <h2 className="text-base font-semibold text-slate-100">Planos</h2>
+      <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
+        <div className="flex items-center gap-2">
+          <TrendingUp className="w-4 h-4 text-violet-400" aria-hidden="true" />
+          <h2 className="text-base font-semibold text-slate-100">Planos</h2>
+        </div>
+        <BillingToggle billing={billing} onChange={onBillingChange} />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {PLAN_DEFINITIONS.map((plan) => {
           const isCurrent = plan.slug === currentPlan
           const isDowngrade = planRank(plan.slug) < currentRank
@@ -194,11 +357,16 @@ function PlanCards({ currentPlan, projectId }: PlanCardsProps) {
               <div>
                 <p className="text-sm font-semibold text-slate-100">{plan.label}</p>
                 <p className="text-2xl font-bold text-slate-100 mt-1">
-                  {plan.priceLabel}
+                  {resolvedPrice(plan.slug)}
                   {plan.priceMonthly !== null && plan.priceMonthly > 0 && (
                     <span className="text-xs font-normal text-slate-400"> /mês</span>
                   )}
                 </p>
+                {plan.slug !== 'free' && billing === 'yearly' && (
+                  <p className="text-[11px] text-emerald-400 mt-0.5">
+                    Cobrado anualmente — economize 20%
+                  </p>
+                )}
               </div>
 
               {/* Limites */}
@@ -241,7 +409,7 @@ function PlanCards({ currentPlan, projectId }: PlanCardsProps) {
                 </div>
               ) : isUpgrade ? (
                 <a
-                  href={buildUpgradeURL(plan.slug, projectId)}
+                  href={upgradeUrl(plan.slug)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-colors"
@@ -263,6 +431,9 @@ function PlanCards({ currentPlan, projectId }: PlanCardsProps) {
           )
         })}
       </div>
+
+      {/* Self-Hosted */}
+      <SelfHostedCard />
     </section>
   )
 }
@@ -377,6 +548,7 @@ export default function Billing() {
   const [recommendation, setRecommendation] = useState<UpgradeRecommendation | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [billing, setBilling] = useState<BillingCycle>('monthly')
 
   const selectedProject = projects.find((p) => p.id === projectId)
 
@@ -476,7 +648,12 @@ export default function Billing() {
             recommendation={recommendation}
             projectName={selectedProject?.name ?? projectId}
           />
-          <PlanCards currentPlan={recommendation.currentPlan} projectId={projectId} />
+          <PlanCards
+            currentPlan={recommendation.currentPlan}
+            projectId={projectId}
+            billing={billing}
+            onBillingChange={setBilling}
+          />
           <BillingHistory />
         </>
       ) : null}

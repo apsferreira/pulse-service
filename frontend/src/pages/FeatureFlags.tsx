@@ -4,8 +4,10 @@ import {
   ChevronDown, ChevronUp, X, Save, AlertCircle, Copy, Check,
   Users, Percent, FlaskConical, Shield, RefreshCw,
 } from 'lucide-react'
-import { flagsApi, type FeatureFlag, type CreateFlagPayload, type UpdateFlagPayload } from '../services/api'
+import { flagsApi, UpgradeRequiredError, type FeatureFlag, type CreateFlagPayload, type UpdateFlagPayload } from '../services/api'
 import { useProject } from '../components/Layout'
+import UpgradeModal from '../components/UpgradeModal'
+import { useUpgradeGate } from '../hooks/useUpgradeGate'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -104,9 +106,10 @@ interface FlagModalProps {
   flag?: FeatureFlag | null
   onClose: () => void
   onSaved: () => void
+  onUpgradeRequired: (err: UpgradeRequiredError) => void
 }
 
-function FlagModal({ flag, onClose, onSaved }: FlagModalProps) {
+function FlagModal({ flag, onClose, onSaved, onUpgradeRequired }: FlagModalProps) {
   const isEdit = !!flag
   const [key, setKey] = useState(flag?.key ?? '')
   const [description, setDescription] = useState(flag?.description ?? '')
@@ -183,6 +186,11 @@ function FlagModal({ flag, onClose, onSaved }: FlagModalProps) {
       onSaved()
       onClose()
     } catch (e: unknown) {
+      if (e instanceof UpgradeRequiredError) {
+        onClose()
+        onUpgradeRequired(e)
+        return
+      }
       const msg = e instanceof Error ? e.message : 'Erro ao salvar flag'
       setError(msg)
     } finally {
@@ -630,6 +638,7 @@ function DeleteConfirm({ flag, onConfirm, onCancel }: { flag: FeatureFlag; onCon
 
 export default function FeatureFlags() {
   const { projectId } = useProject()
+  const { gateState, triggerGate, closeGate } = useUpgradeGate()
   const [flags, setFlags] = useState<FeatureFlag[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -919,8 +928,27 @@ export default function FeatureFlags() {
           flag={modalFlag}
           onClose={() => setModalFlag(undefined)}
           onSaved={() => void fetchFlags()}
+          onUpgradeRequired={(err) => {
+            setModalFlag(undefined)
+            triggerGate({
+              plan: err.plan,
+              upgrade_url: err.upgradeUrl,
+              message: err.message,
+              required_plan: err.required_plan,
+              feature: 'criar uma feature flag',
+            })
+          }}
         />
       )}
+      <UpgradeModal
+        isOpen={gateState.isOpen}
+        onClose={closeGate}
+        currentPlan={gateState.currentPlan}
+        requiredPlan={gateState.requiredPlan}
+        feature={gateState.feature}
+        upgradeUrl={gateState.upgradeUrl}
+        message={gateState.message}
+      />
       {deleteTarget && (
         <DeleteConfirm
           flag={deleteTarget}

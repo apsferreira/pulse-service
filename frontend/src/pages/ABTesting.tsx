@@ -4,9 +4,11 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { FlaskConical, ToggleLeft, TrendingUp, Users, BarChart2, CheckCircle, Clock, Atom } from 'lucide-react'
-import { flagsApi, api } from '../services/api'
+import { flagsApi, api, UpgradeRequiredError } from '../services/api'
 import type { FeatureFlag, FlagVariant } from '../services/api'
 import { useProject } from '../components/Layout'
+import UpgradeModal from '../components/UpgradeModal'
+import { useUpgradeGate } from '../hooks/useUpgradeGate'
 
 // --- BKL-1049: Stat Analyzer Component ---
 
@@ -21,7 +23,11 @@ interface StatResult {
   recommendation: string
 }
 
-function StatAnalyzer() {
+interface StatAnalyzerProps {
+  onUpgradeRequired?: (err: UpgradeRequiredError) => void
+}
+
+function StatAnalyzer({ onUpgradeRequired }: StatAnalyzerProps) {
   const [form, setForm] = useState({
     control_conversions: '',
     control_total: '',
@@ -44,6 +50,10 @@ function StatAnalyzer() {
       })
       setResult(data)
     } catch (err: unknown) {
+      if (err instanceof UpgradeRequiredError) {
+        onUpgradeRequired?.(err)
+        return
+      }
       const e = err as { response?: { data?: { error?: string } }; message?: string }
       setError(e?.response?.data?.error ?? e?.message ?? 'Erro ao analisar')
     } finally {
@@ -467,6 +477,7 @@ function BayesianAnalysis() {
 
 export default function ABTesting() {
   const { projectId, projectSlug } = useProject()
+  const { gateState, triggerGate, closeGate } = useUpgradeGate()
   const [flags, setFlags] = useState<FeatureFlag[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -561,7 +572,17 @@ export default function ABTesting() {
       </div>
 
       {/* BKL-1049: Painel de análise estatística (chi-squared) */}
-      <StatAnalyzer />
+      <StatAnalyzer
+        onUpgradeRequired={(err) =>
+          triggerGate({
+            plan: err.plan,
+            upgrade_url: err.upgradeUrl,
+            message: err.message,
+            required_plan: err.required_plan,
+            feature: 'analisar um experimento A/B',
+          })
+        }
+      />
 
       {/* BKL-1001: Análise Bayesiana (Beta distribution + Monte Carlo) */}
       <BayesianAnalysis />
@@ -618,6 +639,16 @@ export default function ABTesting() {
           ))}
         </div>
       )}
+
+      <UpgradeModal
+        isOpen={gateState.isOpen}
+        onClose={closeGate}
+        currentPlan={gateState.currentPlan}
+        requiredPlan={gateState.requiredPlan}
+        feature={gateState.feature}
+        upgradeUrl={gateState.upgradeUrl}
+        message={gateState.message}
+      />
     </div>
   )
 }

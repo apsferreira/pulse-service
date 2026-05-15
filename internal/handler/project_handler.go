@@ -41,6 +41,24 @@ func (h *ProjectHandler) ListProjects(c *fiber.Ctx) error {
 	return c.JSON(domain.ProjectListResponse{Projects: projects, Total: len(projects)})
 }
 
+// projectPlanLimit retorna o número máximo de projetos permitidos para um plano.
+// -1 significa ilimitado.
+var projectPlanLimit = map[string]int{
+	"free":       1,
+	"starter":    3,
+	"growth":     10,
+	"pro":        -1,
+	"enterprise": -1,
+	"internal":   -1,
+}
+
+// projectPlanUpgrade aponta qual plano fazer upgrade para desbloquear mais projetos.
+var projectPlanUpgrade = map[string]string{
+	"free":    "starter",
+	"starter": "growth",
+	"growth":  "pro",
+}
+
 // CreateProject POST /api/v1/projects
 func (h *ProjectHandler) CreateProject(c *fiber.Ctx) error {
 	var req domain.ProjectCreateRequest
@@ -51,12 +69,51 @@ func (h *ProjectHandler) CreateProject(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(domain.ErrorResponse{Error: "name e slug são obrigatórios"})
 	}
 
+	// billing: enforce limite de projetos por plano
+	// O plano em vigor é determinado pelo projeto de maior plano na instalação
+	projects, listErr := h.repo.List(c.Context())
+	if listErr == nil {
+		currentPlan := "free"
+		for _, p := range projects {
+			if planRank(p.Plan) > planRank(currentPlan) {
+				currentPlan = p.Plan
+			}
+		}
+		limit, ok := projectPlanLimit[currentPlan]
+		if ok && limit >= 0 && len(projects) >= limit {
+			upgradeTo := projectPlanUpgrade[currentPlan]
+			if upgradeTo == "" {
+				upgradeTo = "pro"
+			}
+			return upgradeGate(c, currentPlan, upgradeTo)
+		}
+	}
+
 	project, err := h.repo.Create(c.Context(), req)
 	if err != nil {
 		log.Printf("[project_handler] CreateProject error: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: "failed to create project"})
 	}
 	return c.Status(fiber.StatusCreated).JSON(project)
+}
+
+// planRank retorna um valor numérico para ordenar planos do menor para o maior.
+func planRank(plan string) int {
+	switch plan {
+	case "free":
+		return 0
+	case "starter":
+		return 1
+	case "growth":
+		return 2
+	case "pro":
+		return 3
+	case "enterprise":
+		return 4
+	case "internal":
+		return 5
+	}
+	return 0
 }
 
 // GetProject GET /api/v1/projects/:slug

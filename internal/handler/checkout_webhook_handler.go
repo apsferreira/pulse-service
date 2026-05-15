@@ -14,14 +14,16 @@ import (
 
 // CheckoutWebhookHandler processa confirmações de pagamento vindas do checkout-service.
 type CheckoutWebhookHandler struct {
-	projectRepo  *repository.ProjectRepository
-	serviceToken string
+	projectRepo    *repository.ProjectRepository
+	licenseHandler *LicenseHandler
+	serviceToken   string
 }
 
-func NewCheckoutWebhookHandler(projectRepo *repository.ProjectRepository, serviceToken string) *CheckoutWebhookHandler {
+func NewCheckoutWebhookHandler(projectRepo *repository.ProjectRepository, licenseHandler *LicenseHandler, serviceToken string) *CheckoutWebhookHandler {
 	return &CheckoutWebhookHandler{
-		projectRepo:  projectRepo,
-		serviceToken: serviceToken,
+		projectRepo:    projectRepo,
+		licenseHandler: licenseHandler,
+		serviceToken:   serviceToken,
 	}
 }
 
@@ -35,12 +37,13 @@ func (h *CheckoutWebhookHandler) RegisterRoutes(app *fiber.App) {
 
 // checkoutPayload é o payload esperado do checkout-service.
 type checkoutPayload struct {
-	Event       string `json:"event"`
-	OrderID     string `json:"order_id"`
-	ProductSlug string `json:"product_slug"`
-	PlanSlug    string `json:"plan_slug"`
-	ProjectID   string `json:"project_id"`
-	UserID      string `json:"user_id"`
+	Event         string `json:"event"`
+	OrderID       string `json:"order_id"`
+	ProductSlug   string `json:"product_slug"`
+	PlanSlug      string `json:"plan_slug"`
+	ProjectID     string `json:"project_id"`
+	UserID        string `json:"user_id"`
+	CustomerEmail string `json:"customer_email"`
 }
 
 // planSlugToInternal mapeia slugs do checkout para planos internos do Pulse.
@@ -86,6 +89,19 @@ func (h *CheckoutWebhookHandler) HandleCheckoutConfirmation(c *fiber.Ctx) error 
 
 	log.Printf("[checkout_webhook] plano atualizado project_id=%s plan=%s order=%s",
 		payload.ProjectID, newPlan, payload.OrderID)
+
+	// Para planos self-hosted, gera a licença de instalação
+	if payload.PlanSlug == "pulse-self-hosted" && h.licenseHandler != nil {
+		email := payload.CustomerEmail
+		if email == "" {
+			log.Printf("[checkout_webhook] self-hosted sem customer_email order=%s — licença não gerada", payload.OrderID)
+		} else {
+			if licErr := h.licenseHandler.GenerateForOrder(c, payload.OrderID, email); licErr != nil {
+				// Não é fatal — o plano já foi atualizado; licença pode ser gerada manualmente
+				log.Printf("[checkout_webhook] GenerateForOrder order=%s: %v", payload.OrderID, licErr)
+			}
+		}
+	}
 
 	return c.JSON(fiber.Map{"ok": true})
 }

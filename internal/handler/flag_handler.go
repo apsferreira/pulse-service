@@ -158,10 +158,7 @@ func (h *FlagHandler) CreateFlag(c *fiber.Ctx) error {
 		if err == nil && proj != nil && proj.Plan == "free" {
 			count, cerr := h.flagRepo.CountByProject(c.Context(), projectIDStr)
 			if cerr == nil && count >= freePlanFlagLimit {
-				return c.Status(fiber.StatusPaymentRequired).JSON(fiber.Map{
-					"error":       "Limite de flags atingido no plano Free. Faça upgrade.",
-					"upgrade_url": "/checkout?plan=starter",
-				})
+				return upgradeGate(c, "free", "starter")
 			}
 		}
 	}

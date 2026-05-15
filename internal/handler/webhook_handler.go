@@ -24,6 +24,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/institutoitinerante/pulse-service/internal/middleware"
+	"github.com/institutoitinerante/pulse-service/internal/repository"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -39,6 +40,7 @@ const (
 // WebhookHandler gerencia o registro e disparo de webhooks.
 type WebhookHandler struct {
 	db           *pgxpool.Pool
+	projectRepo  *repository.ProjectRepository
 	serviceToken string
 	httpClient   *http.Client
 }
@@ -49,6 +51,12 @@ func NewWebhookHandler(db *pgxpool.Pool, serviceToken string) *WebhookHandler {
 		serviceToken: serviceToken,
 		httpClient:   &http.Client{Timeout: 10 * time.Second},
 	}
+}
+
+// WithProjectRepo injeta o ProjectRepository para enforcement de limites por plano.
+func (h *WebhookHandler) WithProjectRepo(repo *repository.ProjectRepository) *WebhookHandler {
+	h.projectRepo = repo
+	return h
 }
 
 // RegisterRoutes registra as rotas de webhooks.
@@ -133,6 +141,19 @@ func (h *WebhookHandler) Create(c *fiber.Ctx) error {
 	}
 	if req.ProjectID == "" || req.URL == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "project_id e url são obrigatórios"})
+	}
+
+	// billing: webhooks disponíveis apenas a partir do plano growth
+	if h.projectRepo != nil {
+		proj, perr := h.projectRepo.GetByID(c.Context(), req.ProjectID)
+		if perr == nil && proj != nil {
+			switch proj.Plan {
+			case "free":
+				return upgradeGate(c, proj.Plan, "growth")
+			case "starter":
+				return upgradeGate(c, proj.Plan, "growth")
+			}
+		}
 	}
 	if len(req.Events) == 0 {
 		req.Events = []string{"event.tracked", "flag.evaluated", "health_score.dropped"}

@@ -3,7 +3,7 @@
 // BKL-1001: Tab de análise Bayesiana (Beta distribution + Monte Carlo P(B > A))
 
 import { useState, useEffect, useCallback } from 'react'
-import { FlaskConical, ToggleLeft, TrendingUp, Users, BarChart2, CheckCircle, Clock, Atom, Lock } from 'lucide-react'
+import { FlaskConical, ToggleLeft, TrendingUp, Users, BarChart2, CheckCircle, Clock, Atom, Lock, Info, ArrowRight } from 'lucide-react'
 import { flagsApi, api, UpgradeRequiredError } from '../services/api'
 import type { FeatureFlag, FlagVariant } from '../services/api'
 import { useProject } from '../components/Layout'
@@ -65,12 +65,21 @@ function StatAnalyzer({ onUpgradeRequired }: StatAnalyzerProps) {
   const isValid = ['control_conversions', 'control_total', 'treatment_conversions', 'treatment_total']
     .every((k) => Number(form[k as keyof typeof form]) > 0)
 
+  // Medidor de confiança: 1 - p_value (0 a 1), representado como 0-100%
+  const confidencePct = result ? Math.round((1 - result.p_value) * 100) : null
+
   return (
     <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
-      <h2 className="text-base font-semibold flex items-center gap-2 mb-4">
-        <BarChart2 className="w-4 h-4 text-violet-500" />
-        Analisador Estatístico — Chi-squared Test
-      </h2>
+      {/* Header com badge frequentista */}
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <h2 className="text-base font-semibold flex items-center gap-2">
+          <BarChart2 className="w-4 h-4 text-blue-500" />
+          Analisador Estatístico
+        </h2>
+        <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+          Frequentista — Chi-squared
+        </span>
+      </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
         {[
@@ -86,7 +95,7 @@ function StatAnalyzer({ onUpgradeRequired }: StatAnalyzerProps) {
               min={0}
               value={form[key as keyof typeof form]}
               onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
-              className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+              className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="0"
             />
           </div>
@@ -96,7 +105,7 @@ function StatAnalyzer({ onUpgradeRequired }: StatAnalyzerProps) {
       <button
         onClick={handleAnalyze}
         disabled={!isValid || loading}
-        className="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white text-sm font-medium transition-colors"
+        className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-medium transition-colors"
       >
         {loading ? 'Analisando...' : 'Analisar experimento'}
       </button>
@@ -105,7 +114,7 @@ function StatAnalyzer({ onUpgradeRequired }: StatAnalyzerProps) {
         <p className="mt-3 text-sm text-red-500 dark:text-red-400">{error}</p>
       )}
 
-      {result && (
+      {result && confidencePct !== null && (
         <div className="mt-4 space-y-3">
           {/* Badge de significância */}
           <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold ${
@@ -117,6 +126,37 @@ function StatAnalyzer({ onUpgradeRequired }: StatAnalyzerProps) {
               ? <><CheckCircle className="w-4 h-4" /> Resultado significativo (p &lt; 0,05)</>
               : <><Clock className="w-4 h-4" /> Em coleta (p ≥ 0,05)</>
             }
+          </div>
+
+          {/* Medidor visual de confiança */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-500 dark:text-slate-400">Nível de confiança (1 − p-value)</span>
+              <span className={`font-semibold ${
+                confidencePct >= 95 ? 'text-emerald-600 dark:text-emerald-400' :
+                confidencePct >= 85 ? 'text-amber-600 dark:text-amber-400' :
+                'text-slate-500 dark:text-slate-400'
+              }`}>
+                {confidencePct}%
+              </span>
+            </div>
+            <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${
+                  confidencePct >= 95 ? 'bg-emerald-500' :
+                  confidencePct >= 85 ? 'bg-amber-500' :
+                  'bg-blue-400'
+                }`}
+                style={{ width: `${confidencePct}%` }}
+              />
+            </div>
+            <p className="text-[10px] text-slate-400">
+              {confidencePct >= 95
+                ? 'Confiança suficiente para tomar decisão'
+                : confidencePct >= 85
+                ? 'Quase lá — colete mais dados para confirmar'
+                : 'Insuficiente — continue o experimento'}
+            </p>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -147,7 +187,7 @@ function StatAnalyzer({ onUpgradeRequired }: StatAnalyzerProps) {
 
           {result.recommendation && (
             <p className="text-sm text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 rounded-lg p-3">
-              💡 {result.recommendation}
+              {result.recommendation}
             </p>
           )}
         </div>
@@ -192,13 +232,22 @@ function VariantBar({ variants }: { variants: FlagVariant[] }) {
   )
 }
 
+function getDaysActive(createdAt: string): number {
+  const created = new Date(createdAt)
+  const now = new Date()
+  const diffMs = now.getTime() - created.getTime()
+  return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)))
+}
+
 function FlagCard({ flag }: { flag: FeatureFlag }) {
   const hasVariants = flag.variants && flag.variants.length > 0
   const weightSum = hasVariants ? flag.variants.reduce((acc, v) => acc + v.weight, 0) : 0
   const isBalanced = weightSum === 100
+  const daysActive = getDaysActive(flag.created_at)
+  const rollout = flag.rollout_percentage ?? 100
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 space-y-4">
+    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 space-y-4 hover:shadow-md hover:border-violet-300 dark:hover:border-violet-700 transition-all duration-200">
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -224,20 +273,27 @@ function FlagCard({ flag }: { flag: FeatureFlag }) {
           )}
         </div>
 
-        <span className={`shrink-0 text-xs px-2 py-1 rounded-full font-medium ${
-          flag.enabled
-            ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
-            : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
-        }`}>
-          {flag.enabled ? 'Ativa' : 'Inativa'}
-        </span>
+        <div className="flex flex-col items-end gap-1.5 shrink-0">
+          <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+            flag.enabled
+              ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+          }`}>
+            {flag.enabled ? 'Ativa' : 'Inativa'}
+          </span>
+          {/* Timeline de status: badge "Ativo há X dias" */}
+          <span className="flex items-center gap-1 text-[10px] text-slate-400 dark:text-slate-500">
+            <Clock className="w-3 h-3" />
+            {daysActive === 0 ? 'Criada hoje' : `Ativa há ${daysActive}d`}
+          </span>
+        </div>
       </div>
 
       {/* Rollout info */}
       <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
         <span className="flex items-center gap-1">
           <Users className="w-3.5 h-3.5" />
-          Rollout: <strong className="text-slate-700 dark:text-slate-300">{flag.rollout_percentage ?? 100}%</strong>
+          Rollout: <strong className="text-slate-700 dark:text-slate-300">{rollout}%</strong>
         </span>
         {flag.targeting?.user_ids && flag.targeting.user_ids.length > 0 && (
           <span>{flag.targeting.user_ids.length} user(s) targeted</span>
@@ -245,6 +301,24 @@ function FlagCard({ flag }: { flag: FeatureFlag }) {
         {flag.targeting?.tenant_ids && flag.targeting.tenant_ids.length > 0 && (
           <span>{flag.targeting.tenant_ids.length} tenant(s) targeted</span>
         )}
+      </div>
+
+      {/* Mini funnel de rollout — barra fina */}
+      <div className="space-y-1">
+        <div className="flex items-center justify-between text-[10px] text-slate-400">
+          <span>Cobertura do rollout</span>
+          <span className="font-medium text-slate-600 dark:text-slate-300">{rollout}%</span>
+        </div>
+        <div className="w-full h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-500 ${
+              rollout === 100 ? 'bg-emerald-500' :
+              rollout >= 50 ? 'bg-violet-500' :
+              'bg-amber-500'
+            }`}
+            style={{ width: `${rollout}%` }}
+          />
+        </div>
       </div>
 
       {/* Variants */}
@@ -362,10 +436,16 @@ function BayesianAnalysis() {
 
   return (
     <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
-      <h2 className="text-base font-semibold flex items-center gap-2 mb-4">
-        <Atom className="w-4 h-4 text-violet-500" />
-        Análise Bayesiana — Beta Distribution
-      </h2>
+      {/* Header com badge bayesiana */}
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <h2 className="text-base font-semibold flex items-center gap-2">
+          <Atom className="w-4 h-4 text-violet-500" />
+          Análise Bayesiana
+        </h2>
+        <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
+          Bayesiana — Beta Distribution
+        </span>
+      </div>
 
       <div className="grid sm:grid-cols-2 gap-4 mb-4">
         {(['a', 'b'] as const).map((v) => (
@@ -476,6 +556,32 @@ function BayesianAnalysis() {
   )
 }
 
+// --- Hero metric tooltip ---
+
+function MetricTooltip({ text }: { text: string }) {
+  const [visible, setVisible] = useState(false)
+  return (
+    <span className="relative inline-flex items-center">
+      <button
+        onMouseEnter={() => setVisible(true)}
+        onMouseLeave={() => setVisible(false)}
+        onFocus={() => setVisible(true)}
+        onBlur={() => setVisible(false)}
+        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+        aria-label="Mais informações"
+        type="button"
+      >
+        <Info className="w-3.5 h-3.5" />
+      </button>
+      {visible && (
+        <span className="absolute z-10 bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 rounded-lg bg-slate-900 dark:bg-slate-700 text-white text-xs px-3 py-2 shadow-lg text-center leading-relaxed pointer-events-none">
+          {text}
+        </span>
+      )}
+    </span>
+  )
+}
+
 export default function ABTesting() {
   const { projectId, projectSlug, projectPlan } = useProject()
   const { gateState, triggerGate, closeGate } = useUpgradeGate()
@@ -530,15 +636,46 @@ export default function ABTesting() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-          <FlaskConical className="w-5 h-5 text-violet-500" />
-          A/B Testing
-        </h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-          Experimentos do projeto <span className="font-medium text-violet-500">{projectSlug}</span>
-        </p>
+      {/* Hero section aprimorada */}
+      <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-gradient-to-br from-violet-50 to-slate-50 dark:from-violet-950/20 dark:to-slate-900 p-5">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <FlaskConical className="w-5 h-5 text-violet-500" />
+              A/B Testing
+            </h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+              Experimentos do projeto <span className="font-medium text-violet-500">{projectSlug}</span>
+            </p>
+          </div>
+
+          {/* Resumo rápido — 3 métricas hero */}
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="text-center">
+              <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{activeAB}</p>
+              <div className="flex items-center justify-center gap-1 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                <span>experimentos ativos</span>
+                <MetricTooltip text="Flags A/B com variantes e status habilitado no momento." />
+              </div>
+            </div>
+            <div className="w-px h-10 bg-slate-200 dark:bg-slate-700" />
+            <div className="text-center">
+              <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">0</p>
+              <div className="flex items-center justify-center gap-1 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                <span>conversões testadas (30d)</span>
+                <MetricTooltip text="Total de eventos de conversão registrados nos últimos 30 dias em todos os experimentos ativos." />
+              </div>
+            </div>
+            <div className="w-px h-10 bg-slate-200 dark:bg-slate-700" />
+            <div className="text-center">
+              <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">0%</p>
+              <div className="flex items-center justify-center gap-1 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                <span>usuários em teste</span>
+                <MetricTooltip text="Percentual de usuários únicos que receberam pelo menos uma variante de experimento nos últimos 30 dias." />
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Gate de plano — A/B testing requer starter+ */}
@@ -601,21 +738,24 @@ export default function ABTesting() {
         ))}
       </div>
 
-      {/* BKL-1049: Painel de análise estatística (chi-squared) */}
-      <StatAnalyzer
-        onUpgradeRequired={(err) =>
-          triggerGate({
-            plan: err.plan,
-            upgrade_url: err.upgradeUrl,
-            message: err.message,
-            required_plan: err.required_plan,
-            feature: 'analisar um experimento A/B',
-          })
-        }
-      />
+      {/* Seção de Análise — layout lado a lado */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* BKL-1049: Painel de análise estatística (chi-squared) */}
+        <StatAnalyzer
+          onUpgradeRequired={(err) =>
+            triggerGate({
+              plan: err.plan,
+              upgrade_url: err.upgradeUrl,
+              message: err.message,
+              required_plan: err.required_plan,
+              feature: 'analisar um experimento A/B',
+            })
+          }
+        />
 
-      {/* BKL-1001: Análise Bayesiana (Beta distribution + Monte Carlo) */}
-      <BayesianAnalysis />
+        {/* BKL-1001: Análise Bayesiana (Beta distribution + Monte Carlo) */}
+        <BayesianAnalysis />
+      </div>
 
       {/* Content */}
       {loading && (
@@ -631,7 +771,7 @@ export default function ABTesting() {
         </div>
       )}
 
-      {/* BKL-1051: empty state com instruções de SDK */}
+      {/* BKL-1051: empty state com "como começar" em 3 passos */}
       {!loading && !error && displayed.length === 0 && (
         <div className="rounded-xl border border-dashed border-violet-300 dark:border-violet-700 bg-violet-50/50 dark:bg-violet-950/20 p-10 flex flex-col items-center text-center gap-6">
           <div className="w-16 h-16 rounded-2xl bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center">
@@ -643,10 +783,54 @@ export default function ABTesting() {
             </h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md">
               {filter === 'ab'
-                ? 'Para criar um experimento A/B, edite uma flag e adicione variantes com pesos percentuais (ex: control 50%, challenger 50%).'
-                : 'Crie uma flag de feature para começar a controlar o lançamento de funcionalidades.'}
+                ? 'Para criar um experimento A/B, edite uma flag e adicione variantes com pesos percentuais.'
+                : 'Crie sua primeira flag de feature para controlar o lançamento de funcionalidades.'}
             </p>
           </div>
+
+          {/* Como começar — 3 passos numerados */}
+          <div className="w-full max-w-lg text-left space-y-3">
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide text-center mb-4">
+              Como começar
+            </p>
+            {[
+              {
+                step: '1',
+                title: 'Crie uma flag de feature',
+                description: 'Na aba Feature Flags, crie uma nova flag com uma chave identificadora única.',
+              },
+              {
+                step: '2',
+                title: 'Adicione variantes com pesos',
+                description: 'Edite a flag e adicione variantes (ex: control 50%, challenger 50%). A soma deve ser 100%.',
+              },
+              {
+                step: '3',
+                title: 'Use o SDK no seu código',
+                description: (
+                  <code className="text-violet-500 dark:text-violet-400 font-mono text-xs">
+                    pulse.getVariant(&apos;minha-flag&apos;)
+                  </code>
+                ),
+              },
+            ].map(({ step, title, description }) => (
+              <div key={step} className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
+                  {step}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    {title}
+                    {step !== '3' && <ArrowRight className="w-3.5 h-3.5 text-slate-400" />}
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    {description}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+
           {filter === 'ab' && (
             <div className="w-full max-w-xl text-left space-y-3">
               <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Consultar variante no SDK</p>

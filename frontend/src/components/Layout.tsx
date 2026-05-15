@@ -1,6 +1,6 @@
 import React, { useState, createContext, useContext } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Activity, Zap, Moon, Sun, HeartPulse, FlaskConical, ChevronDown, LogOut, FolderOpen, Plus, Flag, CreditCard } from 'lucide-react'
+import { LayoutDashboard, Activity, Zap, Moon, Sun, FlaskConical, ChevronDown, LogOut, FolderOpen, Plus, Flag, CreditCard, ClipboardList, Globe } from 'lucide-react'
 import { useProjects } from '../hooks/useProjects'
 import { useProjectContext } from '../hooks/useProjectContext'
 import { useAuth } from '../context/AuthContext'
@@ -61,14 +61,33 @@ export default function Layout({ children }: LayoutProps) {
   const projectSlug = selectedProject?.slug ?? null
   const projectPlan = selectedProject?.plan ?? 'free'
 
-  const navItems = [
-    { to: '/', label: 'Feature Flags', icon: Flag, end: true },
-    { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { to: '/uptime', label: 'Uptime', icon: HeartPulse },
-    { to: '/events', label: 'Eventos', icon: Activity },
-    { to: '/ab-testing', label: 'A/B Testing', icon: FlaskConical },
-    { to: '/projects', label: 'Projetos', icon: FolderOpen },
-    { to: '/billing', label: 'Faturamento', icon: CreditCard },
+  type NavItem = { to: string; label: string; icon: React.ElementType; end?: boolean }
+  type NavGroup = { label?: string; items: NavItem[] }
+
+  // Grupos de navegação — produto / observabilidade / conta
+  const navGroups: NavGroup[] = [
+    {
+      items: [
+        { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+        { to: '/', label: 'Feature Flags', icon: Flag, end: true },
+        { to: '/ab-testing', label: 'A/B Testing', icon: FlaskConical },
+        { to: '/events', label: 'Eventos', icon: Activity },
+      ],
+    },
+    {
+      label: 'Observabilidade',
+      items: [
+        { to: '/flags/audit', label: 'Auditoria', icon: ClipboardList },
+        { to: '/status', label: 'Status Page', icon: Globe },
+      ],
+    },
+    {
+      label: 'Conta',
+      items: [
+        { to: '/projects', label: 'Projetos', icon: FolderOpen },
+        { to: '/billing', label: 'Plano & Faturamento', icon: CreditCard },
+      ],
+    },
   ]
 
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -99,13 +118,20 @@ export default function Layout({ children }: LayoutProps) {
               </span>
             </div>
 
-            {/* Desktop nav */}
-            <nav className="hidden md:flex items-center gap-1">
-              {navItems.map(({ to, label, icon: Icon, end }) => (
-                <NavLink key={to} to={to} end={end} className={navLinkClass}>
-                  <Icon className="w-4 h-4" aria-hidden="true" />
-                  {label}
-                </NavLink>
+            {/* Desktop nav — grupos com divisores */}
+            <nav className="hidden md:flex items-center gap-0.5">
+              {navGroups.map((group, gi) => (
+                <React.Fragment key={gi}>
+                  {gi > 0 && (
+                    <div className="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-1.5" aria-hidden="true" />
+                  )}
+                  {group.items.map(({ to, label, icon: Icon, end }) => (
+                    <NavLink key={to} to={to} end={end} className={navLinkClass}>
+                      <Icon className="w-4 h-4" aria-hidden="true" />
+                      {label}
+                    </NavLink>
+                  ))}
+                </React.Fragment>
               ))}
             </nav>
 
@@ -208,18 +234,27 @@ export default function Layout({ children }: LayoutProps) {
 
         {/* Mobile nav */}
         {mobileOpen && (
-          <div className="md:hidden border-t border-slate-200 dark:border-slate-800 px-4 py-2 space-y-1">
-            {navItems.map(({ to, label, icon: Icon, end }) => (
-              <NavLink
-                key={to}
-                to={to}
-                end={end}
-                className={navLinkClass}
-                onClick={() => setMobileOpen(false)}
-              >
-                <Icon className="w-4 h-4" aria-hidden="true" />
-                {label}
-              </NavLink>
+          <div className="md:hidden border-t border-slate-200 dark:border-slate-800 px-4 py-2">
+            {navGroups.map((group, gi) => (
+              <div key={gi} className="mb-1">
+                {group.label && (
+                  <p className="px-3 pt-2 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                    {group.label}
+                  </p>
+                )}
+                {group.items.map(({ to, label, icon: Icon, end }) => (
+                  <NavLink
+                    key={to}
+                    to={to}
+                    end={end}
+                    className={navLinkClass}
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    <Icon className="w-4 h-4" aria-hidden="true" />
+                    {label}
+                  </NavLink>
+                ))}
+              </div>
             ))}
           </div>
         )}
@@ -227,17 +262,16 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Banner plano free */}
       {selectedProject?.plan === 'free' && (
-        <div className="bg-violet-950/60 border-b border-violet-800/40 px-4 py-2 flex items-center justify-between text-sm">
+        <div className="bg-violet-950/60 border-b border-violet-800/40 px-4 py-2 flex items-center justify-between gap-4 text-sm">
           <span className="text-violet-200">
-            Voce esta no plano Free &mdash;{' '}
-            <strong>14 dias gratis</strong> para testar qualquer plano pago
+            Você está no plano Free — <strong>14 dias grátis</strong> para testar qualquer plano pago
           </span>
-          <a
-            href="/billing"
-            className="bg-violet-600 hover:bg-violet-500 text-white px-3 py-1 rounded-lg font-semibold text-xs transition-colors"
+          <NavLink
+            to="/billing"
+            className="flex-shrink-0 bg-violet-600 hover:bg-violet-500 text-white px-3 py-1 rounded-lg font-semibold text-xs transition-colors"
           >
             Ver planos
-          </a>
+          </NavLink>
         </div>
       )}
 

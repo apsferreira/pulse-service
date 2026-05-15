@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"strconv"
 	"time"
@@ -19,6 +20,11 @@ type EventHandler struct {
 	hub          *wshub.Hub
 	rdb          *redis.Client
 	billingURL   string
+	identityRepo userIdentityUpsertRepo
+}
+
+type userIdentityUpsertRepo interface {
+	UpsertByProductUserID(ctx context.Context, product, productUserID, canonicalUserID, email string) error
 }
 
 func NewEventHandler(svc service.EventServicer, serviceToken string) *EventHandler {
@@ -28,6 +34,12 @@ func NewEventHandler(svc service.EventServicer, serviceToken string) *EventHandl
 // WithRedis adiciona o cliente Redis ao EventHandler para quota enforcement (BKL-1077).
 func (h *EventHandler) WithRedis(rdb *redis.Client) *EventHandler {
 	h.rdb = rdb
+	return h
+}
+
+// WithIdentityRepo injeta o repositório de identidades para associar anonymous_id → user_id no identify.
+func (h *EventHandler) WithIdentityRepo(repo userIdentityUpsertRepo) *EventHandler {
+	h.identityRepo = repo
 	return h
 }
 
@@ -175,7 +187,8 @@ func (h *EventHandler) TrackEvent(c *fiber.Ctx) error {
 }
 
 // IdentifyUser godoc
-// POST /api/v1/events/identify — merge anonymous_id com user_id real.
+// POST /api/v1/events/identify — merge anonymous_id com user_id real e registra identidade cross-produto.
+// Campos: anonymous_id, user_id, product (opcional), canonical_user_id (opcional), email (opcional)
 func (h *EventHandler) IdentifyUser(c *fiber.Ctx) error {
 	var req domain.IdentifyRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -188,6 +201,17 @@ func (h *EventHandler) IdentifyUser(c *fiber.Ctx) error {
 	count, err := h.svc.Identify(c.Context(), req)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: err.Error()})
+	}
+
+	// Registra identidade cross-produto se tiver repositório e product definido
+	if h.identityRepo != nil && req.Product != "" {
+		canonicalID := req.CanonicalUserID
+		if canonicalID == "" {
+			canonicalID = req.UserID
+		}
+		go func() {
+			_ = h.identityRepo.UpsertByProductUserID(context.Background(), req.Product, req.UserID, canonicalID, req.Email)
+		}()
 	}
 
 	return c.JSON(fiber.Map{"merged_events": count, "anonymous_id": req.AnonymousID, "user_id": req.UserID})

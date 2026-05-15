@@ -64,6 +64,17 @@ func (r *UserIdentityRepository) FindByCanonical(ctx context.Context, canonicalU
 	return identities, rows.Err()
 }
 
+// UpsertByProductUserID é conveniente para o fluxo de identify: recebe o product_user_id
+// e o canonical_user_id como strings (sem uuid.UUID), usável pelo EventHandler sem importar uuid.
+func (r *UserIdentityRepository) UpsertByProductUserID(ctx context.Context, product, productUserID, canonicalUserIDStr, email string) error {
+	canonicalUserID, err := uuid.Parse(canonicalUserIDStr)
+	if err != nil {
+		// Se não for um UUID válido, gera um determinístico a partir do productUserID
+		canonicalUserID = uuid.NewSHA1(uuid.NameSpaceURL, []byte(product+":"+productUserID))
+	}
+	return r.Upsert(ctx, canonicalUserID, product, productUserID, email)
+}
+
 // FindByProduct retorna o mapeamento para um produto e product_user_id específicos.
 // Retorna nil, nil quando não encontrado.
 func (r *UserIdentityRepository) FindByProduct(ctx context.Context, product, productUserID string) (*domain.UserIdentity, error) {

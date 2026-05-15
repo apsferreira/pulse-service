@@ -286,10 +286,13 @@
 
       _log('identify', userId, traits)
 
-      // Merge anon → user no backend
+      // Merge anon → user no backend + registra identidade cross-produto
       _send('/api/v1/events/identify', {
         user_id: _state.userId,
-        anonymous_id: prevAnon,
+        anonymous_id: prevAnon || '',
+        product: _config.product || '',
+        canonical_user_id: (traits && traits.canonical_user_id) || '',
+        email: (traits && traits.email) || '',
         traits: _state.traits,
         project_key: _config.projectKey,
       })

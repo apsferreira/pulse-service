@@ -94,6 +94,19 @@ export interface UpdateFlagPayload {
   variants?: FlagVariant[]   // BKL-124
 }
 
+export interface FlagPreviewResponse {
+  flag_key: string
+  user_id: string
+  enabled: boolean
+  bucket: number | null        // 0-99; null se sem rollout
+  rollout_percentage: number
+  in_rollout: boolean | null   // null se sem rollout configurado
+  variant: string              // "" se on/off simples
+  reason: 'disabled' | 'targeting_user' | 'targeting_tenant' | 'rollout' | 'rollout_miss' | 'always_on' | 'targeting_miss'
+  is_targeted: boolean
+  preview_url: string          // ?pulse_override[flag_key]=on|off|variant
+}
+
 // ── Flag API calls ───────────────────────────────────────────────────────────
 
 export const flagsApi = {
@@ -101,6 +114,11 @@ export const flagsApi = {
     api.get<FeatureFlag[]>('/flags', { params: projectId ? { project_id: projectId } : {} }),
 
   getByKey: (key: string) => api.get<FeatureFlag>(`/flags/${key}`),
+
+  preview: (key: string, userId: string, tenantId?: string) =>
+    api.get<FlagPreviewResponse>(`/flags/${key}/preview`, {
+      params: { user_id: userId, ...(tenantId ? { tenant_id: tenantId } : {}) },
+    }),
 
   create: (payload: CreateFlagPayload) => api.post<FeatureFlag>('/flags', payload),
 

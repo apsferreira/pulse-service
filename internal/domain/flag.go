@@ -161,6 +161,21 @@ type ReviewApprovalRequest struct {
 	Notes      string             `json:"notes"`
 }
 
+// FlagPreviewResponse é a resposta de GET /api/v1/flags/:key/preview?user_id=xxx.
+// Mostra exatamente em qual grupo o usuário cai e por quê.
+type FlagPreviewResponse struct {
+	FlagKey           string `json:"flag_key"`
+	UserID            string `json:"user_id"`
+	Enabled           bool   `json:"enabled"`       // resultado final da avaliação
+	Bucket            *int   `json:"bucket"`        // 0-99; nil se não houver rollout
+	RolloutPercentage int    `json:"rollout_percentage"`
+	InRollout         *bool  `json:"in_rollout"`    // nil se não há rollout configurado
+	Variant           string `json:"variant"`       // variante selecionada; "" se on/off
+	Reason            string `json:"reason"`        // "disabled|targeting_user|targeting_tenant|rollout|rollout_miss|always_on"
+	IsTargeted        bool   `json:"is_targeted"`   // true se user_id está em targeting.user_ids
+	PreviewURL        string `json:"preview_url"`   // URL de teste para colar no app
+}
+
 // ErrorResponse is used for JSON error responses.
 type ErrorResponse struct {
 	Error string `json:"error"`

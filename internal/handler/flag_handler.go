@@ -63,6 +63,7 @@ func (h *FlagHandler) RegisterRoutes(app *fiber.App) {
 	api.Post("/", h.CreateFlag)
 	api.Get("/", h.ListFlags)
 	api.Get("/:key/evaluate", h.EvaluateFlag) // BKL-1002: evaluate com prompt_variant
+	api.Get("/:key/preview", h.PreviewFlag)   // preview de avaliação: bucket + variante + motivo
 	api.Get("/:key", h.GetFlagByKey)
 	api.Put("/:key", h.UpdateFlag)
 	api.Delete("/:key", h.DeleteFlag)
@@ -320,6 +321,128 @@ func (h *FlagHandler) EvaluateFlag(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(resp)
+}
+
+// PreviewFlag godoc
+// GET /api/v1/flags/:key/preview?user_id=xxx&tenant_id=yyy
+// Mostra exatamente em qual grupo o usuário cai: bucket (0-99), variante, motivo.
+// Usado pelo dashboard para o painel "Testar avaliação" e para gerar links de preview.
+func (h *FlagHandler) PreviewFlag(c *fiber.Ctx) error {
+	key := c.Params("key")
+	if !validKeyPattern.MatchString(key) {
+		return c.Status(fiber.StatusBadRequest).JSON(domain.ErrorResponse{Error: "invalid flag key"})
+	}
+
+	userID := c.Query("user_id")
+	tenantID := c.Query("tenant_id")
+
+	var flag *domain.FeatureFlag
+	var err error
+	if h.flagRepo != nil {
+		flag, err = h.flagRepo.GetByKeyWithPrompt(c.Context(), key)
+	} else {
+		flag, err = h.svc.GetByKey(c.Context(), key)
+	}
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: "failed to load flag"})
+	}
+	if flag == nil {
+		return c.Status(fiber.StatusNotFound).JSON(domain.ErrorResponse{Error: "flag not found"})
+	}
+
+	resp := domain.FlagPreviewResponse{
+		FlagKey:           flag.Key,
+		UserID:            userID,
+		RolloutPercentage: flag.RolloutPercentage,
+	}
+
+	// Flag desabilitada — nada mais a calcular
+	if !flag.Enabled {
+		resp.Enabled = false
+		resp.Reason = "disabled"
+		return c.JSON(resp)
+	}
+
+	hasTargeting := len(flag.Targeting.UserIDs) > 0 || len(flag.Targeting.TenantIDs) > 0
+	hasRollout := flag.RolloutPercentage > 0
+
+	// Sem rollout e sem targeting → always_on para todos
+	if !hasTargeting && !hasRollout {
+		resp.Enabled = true
+		resp.Reason = "always_on"
+		return c.JSON(resp)
+	}
+
+	// Verificar targeting por user_id
+	if userID != "" {
+		for _, id := range flag.Targeting.UserIDs {
+			if id == userID {
+				resp.Enabled = true
+				resp.IsTargeted = true
+				resp.Reason = "targeting_user"
+				resp.Variant = resolveVariant(flag, userID)
+				resp.PreviewURL = buildPreviewURL(flag.Key, resp.Variant, resp.Enabled)
+				return c.JSON(resp)
+			}
+		}
+	}
+
+	// Verificar targeting por tenant_id
+	if tenantID != "" {
+		for _, id := range flag.Targeting.TenantIDs {
+			if id == tenantID {
+				resp.Enabled = true
+				resp.Reason = "targeting_tenant"
+				resp.Variant = resolveVariant(flag, userID)
+				resp.PreviewURL = buildPreviewURL(flag.Key, resp.Variant, resp.Enabled)
+				return c.JSON(resp)
+			}
+		}
+	}
+
+	// Rollout percentual
+	if hasRollout && userID != "" {
+		bucket := service.HashBucket(userID, flag.Key)
+		inRollout := bucket < flag.RolloutPercentage
+		resp.Bucket = &bucket
+		resp.InRollout = &inRollout
+		resp.Enabled = inRollout
+		if inRollout {
+			resp.Reason = "rollout"
+			resp.Variant = resolveVariant(flag, userID)
+		} else {
+			resp.Reason = "rollout_miss"
+		}
+		resp.PreviewURL = buildPreviewURL(flag.Key, resp.Variant, resp.Enabled)
+		return c.JSON(resp)
+	}
+
+	// Tem targeting mas nenhum bateu
+	if hasTargeting {
+		resp.Enabled = false
+		resp.Reason = "targeting_miss"
+	}
+
+	return c.JSON(resp)
+}
+
+// resolveVariant retorna a variante selecionada para o user se houver variantes na flag.
+func resolveVariant(flag *domain.FeatureFlag, userID string) string {
+	if len(flag.Variants) == 0 || userID == "" {
+		return ""
+	}
+	return service.SelectVariantExported(flag.Variants, userID, flag.Key)
+}
+
+// buildPreviewURL monta a URL de query string para forçar o grupo no app.
+func buildPreviewURL(flagKey, variant string, enabled bool) string {
+	if variant != "" {
+		return "?pulse_override[" + flagKey + "]=" + variant
+	}
+	if enabled {
+		return "?pulse_override[" + flagKey + "]=on"
+	}
+	return "?pulse_override[" + flagKey + "]=off"
 }
 
 // GetVariants godoc

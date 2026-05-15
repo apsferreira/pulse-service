@@ -12,6 +12,7 @@ import {
   Clock,
   Monitor,
 } from 'lucide-react'
+import { EmptyState } from '../components/EmptyState'
 import toast from 'react-hot-toast'
 import {
   eventsApi,
@@ -756,42 +757,13 @@ export default function Events() {
             </div>
           )}
 
-          {/* Empty state */}
+          {/* BKL-1051: empty state — instrumente o app com o SDK */}
           {!loading && (!summary || summary.items.length === 0) && (
-            <div className="rounded-xl border border-dashed border-violet-300 dark:border-violet-700 bg-violet-50/50 dark:bg-violet-950/20 p-12 flex flex-col items-center text-center gap-4">
-              <div className="w-16 h-16 rounded-2xl bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center">
-                <Activity className="w-8 h-8 text-violet-500 dark:text-violet-400" aria-hidden="true" />
-              </div>
-              <div className="space-y-1">
-                <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">
-                  Nenhum evento registado nas últimas 24h
-                </h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md">
-                  Os eventos aparecerão aqui quando suas aplicações começarem a enviar dados via SDK.
-                </p>
-              </div>
-              {/* BKL-1051: instrução de SDK no empty state */}
-              <div className="w-full max-w-xl text-left space-y-3">
-                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Rastrear evento via SDK</p>
-                <div className="rounded-lg bg-slate-900 text-slate-100 p-4 text-xs font-mono space-y-1 overflow-x-auto">
-                  <p>{'import PulseClient from "@iit/pulse-sdk";'}</p>
-                  <p>{''}</p>
-                  <p>{'const pulse = new PulseClient({'}</p>
-                  <p>{'  baseURL: "https://pulse.institutoitinerante.com.br",'}</p>
-                  <p>{'});'}</p>
-                  <p>{''}</p>
-                  <p>{'// Evento imediato'}</p>
-                  <p>{'await pulse.trackEvent({'}</p>
-                  <p>{'  event_name: "checkout_completed",'}</p>
-                  <p>{'  user_id: userId,'}</p>
-                  <p>{'  product: "libri",'}</p>
-                  <p>{'});'}</p>
-                  <p>{''}</p>
-                  <p>{'// Ou com batch queue (mais eficiente)'}</p>
-                  <p>{'pulse.queue({ event_name: "page_view", product: "nitro" });'}</p>
-                </div>
-              </div>
-            </div>
+            <EmptyState
+              icon={Activity}
+              title="Nenhum evento registrado"
+              description="Instrumente seu app com o SDK do Pulse para ver eventos aqui."
+            />
           )}
 
           {/* Distribuição por produto — barras horizontais */}

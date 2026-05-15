@@ -1,6 +1,6 @@
 import React, { useState, createContext, useContext } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Activity, Zap, Moon, Sun, FlaskConical, ChevronDown, LogOut, FolderOpen, Plus, Flag, CreditCard, Users, Globe, ExternalLink } from 'lucide-react'
+import { LayoutDashboard, Activity, Zap, Moon, Sun, FlaskConical, ChevronDown, LogOut, FolderOpen, Plus, Flag, CreditCard, Users, Globe, ExternalLink, CheckSquare, Star, DollarSign, Wifi, Play, Database } from 'lucide-react'
 import { useProjects } from '../hooks/useProjects'
 import { useProjectContext } from '../hooks/useProjectContext'
 import { useAuth } from '../context/AuthContext'
@@ -64,20 +64,31 @@ export default function Layout({ children }: LayoutProps) {
   type NavItem = { to: string; label: string; icon: React.ElementType; end?: boolean }
   type NavGroup = { label?: string; items: NavItem[] }
 
-  // Grupos de navegação — produto / observabilidade / conta
+  // Grupos de navegação — produto / analytics / observabilidade / conta
   const navGroups: NavGroup[] = [
     {
       items: [
         { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
         { to: '/', label: 'Feature Flags', icon: Flag, end: true },
         { to: '/ab-testing', label: 'A/B Testing', icon: FlaskConical },
+        { to: '/approvals', label: 'Aprovações', icon: CheckSquare },
+      ],
+    },
+    {
+      label: 'Analytics',
+      items: [
         { to: '/events', label: 'Eventos', icon: Activity },
+        { to: '/users', label: 'Usuários', icon: Users },
+        { to: '/csat', label: 'CSAT / NPS', icon: Star },
+        { to: '/costs', label: 'Custos', icon: DollarSign },
       ],
     },
     {
       label: 'Observabilidade',
       items: [
-        { to: '/users', label: 'Usuários', icon: Users },
+        { to: '/uptime', label: 'Uptime', icon: Wifi },
+        { to: '/replay', label: 'Replay', icon: Play },
+        { to: '/query-explorer', label: 'Query Explorer', icon: Database },
       ],
     },
     {

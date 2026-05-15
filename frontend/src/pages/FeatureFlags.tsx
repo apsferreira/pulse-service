@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import {
   Flag, Plus, Search, Pencil, Trash2, Lock,
   ChevronDown, ChevronUp, X, Save, AlertCircle, Copy, Check,
@@ -635,6 +636,58 @@ function DeleteConfirm({ flag, onConfirm, onCancel }: { flag: FeatureFlag; onCon
   )
 }
 
+// ── DeactivateConfirm ─────────────────────────────────────────────────────────
+
+function DeactivateConfirm({
+  flag,
+  onConfirm,
+  onCancel,
+}: {
+  flag: FeatureFlag
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  return createPortal(
+    <div
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="deactivate-title"
+      aria-describedby="deactivate-desc"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+    >
+      <div className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-2xl shadow-soft-lg border border-slate-200 dark:border-slate-700 p-6 animate-scale-in">
+        <div className="flex items-start gap-3 mb-5">
+          <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
+            <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+          </div>
+          <div>
+            <h3 id="deactivate-title" className="font-semibold text-slate-900 dark:text-slate-100 text-sm">
+              Desativar flag em produção?
+            </h3>
+            <p id="deactivate-desc" className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              Isso irá desabilitar{' '}
+              <code className="font-mono text-amber-600 dark:text-amber-400 text-xs">{flag.key}</code>{' '}
+              imediatamente para todos os usuários. Esta ação pode ser revertida.
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-3 justify-end">
+          <button onClick={onCancel} className="btn-ghost">
+            Cancelar
+          </button>
+          <button
+            onClick={onConfirm}
+            className="px-4 py-2 rounded-lg text-sm font-medium bg-red-600 text-white hover:bg-red-700 transition-colors"
+          >
+            Sim, desativar
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function FeatureFlags() {
@@ -648,6 +701,7 @@ export default function FeatureFlags() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all')
   const [modalFlag, setModalFlag] = useState<FeatureFlag | null | undefined>(undefined)
   const [deleteTarget, setDeleteTarget] = useState<FeatureFlag | null>(null)
+  const [deactivateTarget, setDeactivateTarget] = useState<FeatureFlag | null>(null)
   const [error, setError] = useState('')
   // key → flash class para animação de confirmação de toggle
   const [flashMap, setFlashMap] = useState<Record<string, string>>({})
@@ -690,7 +744,7 @@ export default function FeatureFlags() {
     }, 750)
   }
 
-  const handleToggle = async (flag: FeatureFlag) => {
+  const executeToggle = async (flag: FeatureFlag) => {
     const newEnabled = !flag.enabled
     setTogglingMap((prev) => ({ ...prev, [flag.key]: true }))
     // Otimistic update
@@ -708,6 +762,15 @@ export default function FeatureFlags() {
         delete next[flag.key]
         return next
       })
+    }
+  }
+
+  const handleToggle = (flag: FeatureFlag) => {
+    // Desativar (true → false) requer confirmação; ativar executa imediatamente
+    if (flag.enabled) {
+      setDeactivateTarget(flag)
+    } else {
+      void executeToggle(flag)
     }
   }
 
@@ -972,6 +1035,17 @@ export default function FeatureFlags() {
           flag={deleteTarget}
           onConfirm={handleDelete}
           onCancel={() => setDeleteTarget(null)}
+        />
+      )}
+      {deactivateTarget && (
+        <DeactivateConfirm
+          flag={deactivateTarget}
+          onConfirm={() => {
+            const target = deactivateTarget
+            setDeactivateTarget(null)
+            void executeToggle(target)
+          }}
+          onCancel={() => setDeactivateTarget(null)}
         />
       )}
     </div>

@@ -108,20 +108,77 @@ PulseSDK.track('page_view', { page: '/pricing' }, { anonymousId: 'anon_abc123' }
 
 ---
 
-## identify() — Vincular Usuário Anônimo
+## Identificação anônima e merge após login
 
-Após login, associe `anonymousId` ao `userId` real para unificar a jornada:
+### Como funciona
+
+Todo visitante sem login recebe um `anonymousId` gerado automaticamente e persistido em `localStorage`. Isso garante que:
+
+1. O mesmo visitante sempre cai no **mesmo bucket** de rollout entre sessões
+2. Todos os eventos pré-login ficam associados a um ID consistente
+3. Após o login, um único `identify()` retroativamente une os eventos ao usuário real
+
+```
+Visita 1 → anonymousId: "anon_x7k2p9"
+  track('page_view')     → user_id: "anon_x7k2p9"
+  track('cta_click')     → user_id: "anon_x7k2p9"
+
+Login → userId: "user_123"
+  identify({ anonymous_id: "anon_x7k2p9", user_id: "user_123" })
+  → UPDATE events SET user_id='user_123' WHERE user_id='anon:anon_x7k2p9'
+  → Todos os eventos anteriores agora pertencem a "user_123"
+
+Eventos seguintes → user_id: "user_123" (direto, sem anonymousId)
+```
+
+### Gerar e persistir o anonymousId (JS/TS)
+
+O SDK expõe um helper para isso. Guarde o ID retornado e passe-o nos eventos enquanto o usuário não estiver logado:
 
 ```typescript
-PulseSDK.identify({
-  userId: 'user_123',
-  anonymousId: 'anon_abc123', // opcional
-  traits: {
-    email: 'user@empresa.com',
-    plan: 'growth',
-  },
-})
+// utils/identity.ts
+const ANON_KEY = 'pulse_anonymous_id'
+
+export function getAnonymousId(): string {
+  const existing = localStorage.getItem(ANON_KEY)
+  if (existing) return existing
+  const id = 'anon_' + crypto.randomUUID()
+  localStorage.setItem(ANON_KEY, id)
+  return id
+}
+
+export function clearAnonymousId(): void {
+  localStorage.removeItem(ANON_KEY)
+}
 ```
+
+### identify() — merge após login
+
+```typescript
+import { getAnonymousId, clearAnonymousId } from './utils/identity'
+
+// Após login bem-sucedido:
+async function onLoginSuccess(userId: string) {
+  const anonymousId = getAnonymousId()
+
+  await pulse.identify({
+    anonymous_id: anonymousId,
+    user_id: userId,
+  })
+  // → { merged_events: 12, anonymous_id: "anon_...", user_id: "user_123" }
+
+  // Limpa o anonymousId — a partir daqui usar user_id diretamente
+  clearAnonymousId()
+}
+```
+
+### Rollout determinístico com usuários anônimos
+
+O bucket de rollout é calculado por `sha256(userId + ":" + flagKey) % 100`. Com o `anonymousId` fixo em `localStorage`, o visitante sempre cai no mesmo grupo — mesmo voltando dias depois. Após o `identify()`, o mesmo usuário mantém consistência porque o `user_id` real passa a ser o identificador.
+
+> **Sites sem login** (ex: landing pages): use o `anonymousId` como `user_id` nos eventos. Não há merge posterior, mas o rastreamento é consistente por dispositivo.
+
+> **Apps com login** (Librinho, Nitro, SocialMake): chame `identify()` no callback de login, antes de redirecionar para a tela autenticada.
 
 ---
 

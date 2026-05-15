@@ -39,7 +39,7 @@ Leia esses cabeçalhos para implementar alertas proativos antes de atingir o lim
 ### Verificar quota via API
 
 ```bash
-curl -s "https://pulse-api.institutoitinerante.com.br/api/v1/quota" \
+curl -s "https://pulse.institutoitinerante.com.br/api/v1/quota" \
   -H "X-Service-Token: $SERVICE_TOKEN" | python3 -m json.tool
 ```
 
@@ -65,7 +65,7 @@ O SDK JavaScript faz retry automático com backoff exponencial para erros de red
 ```typescript
 // Implementar handler de quota no SDK
 const pulse = new PulseSDK({
-  apiUrl: 'https://pulse-api.institutoitinerante.com.br',
+  apiUrl: 'https://pulse.institutoitinerante.com.br',
   product: 'minha-app',
   serviceToken: process.env.PULSE_SERVICE_TOKEN!,
   onError: (error) => {
@@ -104,7 +104,7 @@ Antes de fazer upgrade, analise quais eventos realmente importam para decisões 
 
 ```bash
 # Ver os eventos mais frequentes dos últimos 7 dias
-curl "https://pulse-api.institutoitinerante.com.br/api/v1/events/summary?product=minha-app&days=7" \
+curl "https://pulse.institutoitinerante.com.br/api/v1/events/summary?product=minha-app&days=7" \
   -H "X-Service-Token: $SERVICE_TOKEN"
 ```
 

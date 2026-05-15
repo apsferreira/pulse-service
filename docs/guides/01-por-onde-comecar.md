@@ -67,7 +67,7 @@ Com o SDK instalado, inicialize e dispare um evento:
 import { PulseSDK } from '@pulse/js'
 
 const pulse = new PulseSDK({
-  apiUrl: 'https://pulse-api.institutoitinerante.com.br',
+  apiUrl: 'https://pulse.institutoitinerante.com.br',
   product: 'minha-app',       // slug do projeto
   serviceToken: process.env.PULSE_SERVICE_TOKEN,
   userId: 'user-123',         // opcional, mas recomendado
@@ -89,7 +89,7 @@ Vá ao dashboard → **Eventos** e confirme que o evento aparece na lista. Se n�
 Via API:
 
 ```bash
-export PULSE_API=https://pulse-api.institutoitinerante.com.br
+export PULSE_API=https://pulse.institutoitinerante.com.br
 export SERVICE_TOKEN=seu-token-aqui
 
 curl -X POST $PULSE_API/api/v1/flags \

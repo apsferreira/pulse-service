@@ -318,7 +318,7 @@ func main() {
 	app.Static("/static", "./frontend/public")
 
 	// BKL-1072: SDK IIFE via CDN — sem bundler necessário.
-	// Uso: <script src="https://pulse-api.institutoitinerante.com.br/sdk/pulse.js"></script>
+	// Uso: <script src="https://pulse.institutoitinerante.com.br/sdk/pulse.js"></script>
 	// ou:  <script src=".../sdk/pulse.min.js"></script>
 	app.Static("/sdk", "./frontend/public/sdk")
 

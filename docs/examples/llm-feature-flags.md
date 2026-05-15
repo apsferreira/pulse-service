@@ -6,7 +6,7 @@ O backend consulta o Pulse para decidir qual prompt usar para cada usuário.
 ## Configurar uma flag com prompt_variant
 
 ```bash
-curl -X PUT https://pulse-api.institutoitinerante.com.br/api/v1/flags/attend-system-prompt \
+curl -X PUT https://pulse.institutoitinerante.com.br/api/v1/flags/attend-system-prompt \
   -H "X-Service-Token: $SERVICE_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -117,7 +117,7 @@ Use o SQL Explorer (BKL-993) para comparar métricas entre variantes:
 
 ```bash
 # Conta mensagens por grupo (flag ativa vs. inativa) nos últimos 7 dias
-curl -X POST https://pulse-api.institutoitinerante.com.br/api/v1/projects/$PROJECT_ID/query \
+curl -X POST https://pulse.institutoitinerante.com.br/api/v1/projects/$PROJECT_ID/query \
   -H "X-Service-Token: $SERVICE_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{

@@ -44,10 +44,10 @@ Campos gerados pelo servidor (não enviar):
 
 **Auth:** `X-Project-Key` (api_key do projeto — mesma usada para avaliar flags)
 **Endpoint:** `POST /api/v1/ingest`
-**Base URL (prod):** `https://pulse-api.institutoitinerante.com.br`
+**Base URL (prod):** `https://pulse.institutoitinerante.com.br`
 
 ```bash
-curl -X POST https://pulse-api.institutoitinerante.com.br/api/v1/ingest \
+curl -X POST https://pulse.institutoitinerante.com.br/api/v1/ingest \
   -H "X-Project-Key: pulse_libri_xxxxxxxxxxxx" \
   -H "Content-Type: application/json" \
   -d '{
@@ -81,11 +81,11 @@ O endpoint retorna `202` — o evento é processado de forma assíncrona. Falhas
 <script>
   window.PulseSDK_config = {
     projectKey: 'pulse_site_xxxxxxxxxxxx',
-    apiUrl: 'https://pulse-api.institutoitinerante.com.br',
+    apiUrl: 'https://pulse.institutoitinerante.com.br',
     userId: '{{ user.id }}' // ou session_id para usuários anônimos
   }
 </script>
-<script src="https://pulse-api.institutoitinerante.com.br/sdk/pulse.min.js" async></script>
+<script src="https://pulse.institutoitinerante.com.br/sdk/pulse.min.js" async></script>
 ```
 
 Após o carregamento:
@@ -135,7 +135,7 @@ SDK completo com React Native e Go: [`pulse-service/docs/guides/sdk-reference.md
 ### Catraca Virtual — check-in em eventos
 
 ```bash
-curl -X POST https://pulse-api.institutoitinerante.com.br/api/v1/ingest \
+curl -X POST https://pulse.institutoitinerante.com.br/api/v1/ingest \
   -H "X-Project-Key: pulse_catraca_xxxxxxxxxxxx" \
   -H "Content-Type: application/json" \
   -d '{
@@ -156,7 +156,7 @@ Usado para: auditoria de presença, relatório pós-evento, análise de horário
 ### SocialMake — geração de conteúdo por IA
 
 ```bash
-curl -X POST https://pulse-api.institutoitinerante.com.br/api/v1/ingest \
+curl -X POST https://pulse.institutoitinerante.com.br/api/v1/ingest \
   -H "X-Project-Key: pulse_sm_xxxxxxxxxxxx" \
   -H "Content-Type: application/json" \
   -d '{
@@ -191,7 +191,7 @@ Usado para: funil de aquisição, análise de campanhas, páginas mais visitadas
 ### Librinho — scan de ISBN
 
 ```bash
-curl -X POST https://pulse-api.institutoitinerante.com.br/api/v1/ingest \
+curl -X POST https://pulse.institutoitinerante.com.br/api/v1/ingest \
   -H "X-Project-Key: pulse_libri_xxxxxxxxxxxx" \
   -H "Content-Type: application/json" \
   -d '{

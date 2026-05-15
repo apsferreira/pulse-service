@@ -613,7 +613,7 @@ function EmbedTab({ surveys }: { surveys: Survey[] }) {
   const snippet = `<script>
   window.PulseCsat = { surveyId: "${selectedId || 'SURVEY_ID'}" };
 </script>
-<script src="https://pulse-api.institutoitinerante.com.br/public/csat/widget.js" async></script>`
+<script src="https://pulse.institutoitinerante.com.br/public/csat/widget.js" async></script>`
 
   function handleCopy() {
     navigator.clipboard.writeText(snippet).then(() => {

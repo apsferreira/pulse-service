@@ -19,7 +19,7 @@ public struct PulseConfig {
 
     public init(
         projectKey: String,
-        apiUrl: String = "https://pulse-api.institutoitinerante.com.br/api/v1",
+        apiUrl: String = "https://pulse.institutoitinerante.com.br/api/v1",
         batchSize: Int = 10,
         flushInterval: TimeInterval = 30,
         debug: Bool = false

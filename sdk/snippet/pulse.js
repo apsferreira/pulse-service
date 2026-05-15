@@ -2,8 +2,8 @@
  * Pulse Snippet — tracking para qualquer site HTML.
  *
  * Uso:
- *   <script src="https://pulse-api.institutoitinerante.com.br/sdk/pulse.js"
- *           data-pulse-url="https://pulse-api.institutoitinerante.com.br"
+ *   <script src="https://pulse.institutoitinerante.com.br/sdk/pulse.js"
+ *           data-pulse-url="https://pulse.institutoitinerante.com.br"
  *           data-pulse-product="meu-site"></script>
  *
  * Após carregar, use window.pulse:
@@ -19,7 +19,7 @@
     return scripts[scripts.length - 1]
   })()
 
-  var BASE_URL = (script && script.getAttribute('data-pulse-url')) || 'https://pulse-api.institutoitinerante.com.br'
+  var BASE_URL = (script && script.getAttribute('data-pulse-url')) || 'https://pulse.institutoitinerante.com.br'
   var PRODUCT  = (script && script.getAttribute('data-pulse-product')) || 'default'
   var ANON_KEY = 'pulse_anon_id'
   var CACHE_TTL = 5 * 60 * 1000 // 5 min

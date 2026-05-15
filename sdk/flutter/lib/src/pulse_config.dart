@@ -19,7 +19,7 @@ class PulseConfig {
     required this.projectKey,
     this.userId,
     this.debug = false,
-    this.apiUrl = 'https://pulse-api.institutoitinerante.com.br/api/v1',
+    this.apiUrl = 'https://pulse.institutoitinerante.com.br/api/v1',
   });
 
   PulseConfig copyWith({String? userId}) {

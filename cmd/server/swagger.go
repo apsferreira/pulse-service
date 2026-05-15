@@ -11,7 +11,7 @@
 // @contact.url    https://institutoitinerante.com.br
 // @contact.email  contato@institutoitinerante.com.br
 //
-// @host      pulse-api.institutoitinerante.com.br
+// @host      pulse.institutoitinerante.com.br
 // @BasePath  /api/v1
 //
 // @securityDefinitions.apikey ServiceToken

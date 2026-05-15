@@ -21,10 +21,10 @@ A distribuição é feita por hash consistente do `user_id` + `flag_key`. Não h
 ## Criar uma flag com variantes
 
 **Auth:** `X-Service-Token` (token admin do serviço)
-**Base URL (prod):** `https://pulse-api.institutoitinerante.com.br`
+**Base URL (prod):** `https://pulse.institutoitinerante.com.br`
 
 ```bash
-curl -X POST https://pulse-api.institutoitinerante.com.br/api/v1/flags \
+curl -X POST https://pulse.institutoitinerante.com.br/api/v1/flags \
   -H "X-Service-Token: $SERVICE_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -72,7 +72,7 @@ Consequências práticas:
 **Auth:** `X-Project-Key` (api_key do projeto)
 
 ```bash
-curl "https://pulse-api.institutoitinerante.com.br/flags?user_id=user-123&project_id=<uuid>" \
+curl "https://pulse.institutoitinerante.com.br/flags?user_id=user-123&project_id=<uuid>" \
   -H "X-Project-Key: pulse_sm_xxxxxxxxxxxx"
 ```
 
@@ -98,7 +98,7 @@ Resposta:
 ### 1. Criar a flag
 
 ```bash
-curl -X POST https://pulse-api.institutoitinerante.com.br/api/v1/flags \
+curl -X POST https://pulse.institutoitinerante.com.br/api/v1/flags \
   -H "X-Service-Token: $SERVICE_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -136,7 +136,7 @@ function CTAButton({ userId }: { userId: string }) {
 Quando o usuário converte, rastrear com o mesmo `user_id`:
 
 ```bash
-curl -X POST https://pulse-api.institutoitinerante.com.br/api/v1/ingest \
+curl -X POST https://pulse.institutoitinerante.com.br/api/v1/ingest \
   -H "X-Project-Key: pulse_sm_xxxxxxxxxxxx" \
   -H "Content-Type: application/json" \
   -d '{
@@ -176,7 +176,7 @@ Após atingir significância estatística, promova a variante vencedora:
 
 ```bash
 # Fixar 100% no treatment (vencedor)
-curl -X PUT https://pulse-api.institutoitinerante.com.br/api/v1/flags/cta_plano_growth \
+curl -X PUT https://pulse.institutoitinerante.com.br/api/v1/flags/cta_plano_growth \
   -H "X-Service-Token: $SERVICE_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{

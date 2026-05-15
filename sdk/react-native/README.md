@@ -31,7 +31,7 @@ export default function App() {
   return (
     <PulseProvider
       config={{
-        apiUrl: 'https://pulse-api.institutoitinerante.com.br',
+        apiUrl: 'https://pulse.institutoitinerante.com.br',
         projectKey: 'YOUR_PROJECT_KEY',
         serviceToken: 'YOUR_SERVICE_TOKEN',
       }}

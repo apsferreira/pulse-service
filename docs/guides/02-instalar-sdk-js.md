@@ -29,7 +29,7 @@ Requisitos: Node.js 18+ ou ambiente de browser moderno (Chrome 90+, Firefox 88+,
 import { PulseSDK } from '@pulse/js'
 
 const pulse = new PulseSDK({
-  apiUrl: 'https://pulse-api.institutoitinerante.com.br',
+  apiUrl: 'https://pulse.institutoitinerante.com.br',
   product: 'minha-app',                        // slug do projeto no dashboard
   serviceToken: process.env.PULSE_SERVICE_TOKEN,
   userId: 'user-123',                          // recomendado para rollout consistente
@@ -64,7 +64,7 @@ VITE_PULSE_PRODUCT=minha-app
 
 ```typescript
 const pulse = new PulseSDK({
-  apiUrl: 'https://pulse-api.institutoitinerante.com.br',
+  apiUrl: 'https://pulse.institutoitinerante.com.br',
   product: import.meta.env.VITE_PULSE_PRODUCT,
   serviceToken: import.meta.env.VITE_PULSE_TOKEN,
 })
@@ -79,7 +79,7 @@ NEXT_PUBLIC_PULSE_PRODUCT=minha-app
 
 ```typescript
 const pulse = new PulseSDK({
-  apiUrl: 'https://pulse-api.institutoitinerante.com.br',
+  apiUrl: 'https://pulse.institutoitinerante.com.br',
   product: process.env.NEXT_PUBLIC_PULSE_PRODUCT!,
   serviceToken: process.env.NEXT_PUBLIC_PULSE_TOKEN!,
 })
@@ -105,7 +105,7 @@ export const { PulseProvider, useFeatureFlag, usePulse } = createPulseContext()
 import { PulseProvider } from './hooks/usePulse'
 
 const pulseConfig = {
-  apiUrl: 'https://pulse-api.institutoitinerante.com.br',
+  apiUrl: 'https://pulse.institutoitinerante.com.br',
   product: import.meta.env.VITE_PULSE_PRODUCT,
   serviceToken: import.meta.env.VITE_PULSE_TOKEN,
   userId: currentUser?.id,
@@ -163,7 +163,7 @@ import type { GetServerSideProps } from 'next'
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   // Avaliação server-side via API direta (sem SDK de browser)
   const res = await fetch(
-    `https://pulse-api.institutoitinerante.com.br/api/v1/flags?product=minha-app`,
+    `https://pulse.institutoitinerante.com.br/api/v1/flags?product=minha-app`,
     { headers: { 'X-Service-Token': process.env.PULSE_SERVICE_TOKEN! } }
   )
   const flags = await res.json()
@@ -200,7 +200,7 @@ Em Astro, componentes `.astro` são renderizados no servidor por padrão. Use co
 // src/pages/index.astro
 // Avaliação server-side (sem SDK JS)
 const res = await fetch(
-  `https://pulse-api.institutoitinerante.com.br/api/v1/flags?product=minha-app`,
+  `https://pulse.institutoitinerante.com.br/api/v1/flags?product=minha-app`,
   { headers: { 'X-Service-Token': import.meta.env.PULSE_SERVICE_TOKEN } }
 )
 const flags = await res.json()

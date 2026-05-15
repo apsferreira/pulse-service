@@ -777,7 +777,7 @@ export default function Events() {
                   <p>{'import PulseClient from "@iit/pulse-sdk";'}</p>
                   <p>{''}</p>
                   <p>{'const pulse = new PulseClient({'}</p>
-                  <p>{'  baseURL: "https://pulse-api.institutoitinerante.com.br",'}</p>
+                  <p>{'  baseURL: "https://pulse.institutoitinerante.com.br",'}</p>
                   <p>{'});'}</p>
                   <p>{''}</p>
                   <p>{'// Evento imediato'}</p>

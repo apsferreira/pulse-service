@@ -20,16 +20,16 @@ Apenas dois valores:
 | Item | Exemplo |
 |------|---------|
 | API key (projectKey) | `pulse_<hex32>` — gerada na migration 009 ou via `POST /api/v1/projects` |
-| URL da API | `https://pulse-api.institutoitinerante.com.br` (hoje interno, sem CF Tunnel público) |
+| URL da API | `https://pulse.institutoitinerante.com.br` (hoje interno, sem CF Tunnel público) |
 
 Para produtos com frontend web, adicionar o script tag no HTML:
 
 ```html
-<script src="https://pulse-api.institutoitinerante.com.br/sdk/pulse.js"></script>
+<script src="https://pulse.institutoitinerante.com.br/sdk/pulse.js"></script>
 <script>
   pulse.init({
     projectKey: 'pulse_SEU_KEY_AQUI',
-    apiUrl: 'https://pulse-api.institutoitinerante.com.br'
+    apiUrl: 'https://pulse.institutoitinerante.com.br'
   })
   pulse.identify('user_uuid', { plan: 'growth', name: 'João' })
 </script>
@@ -146,7 +146,7 @@ O SDK envia `X-Pulse-Key` em todo request. O middleware resolve o `project_id` a
        // injetar no router/handler via DI
 
 [ ] 4. Para frontend web — adicionar script tag
-       <script src="https://pulse-api.institutoitinerante.com.br/sdk/pulse.js"></script>
+       <script src="https://pulse.institutoitinerante.com.br/sdk/pulse.js"></script>
        pulse.init({ projectKey: os.env.VITE_PULSE_KEY, apiUrl: ... })
 
 [ ] 5. Verificar que eventos chegam

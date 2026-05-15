@@ -37,7 +37,7 @@ class PulseClient:
         ID do projeto no pulse-service.
     api_url : str
         URL base do pulse-service
-        (ex: "https://pulse-api.institutoitinerante.com.br").
+        (ex: "https://pulse.institutoitinerante.com.br").
     flush_interval : float
         Intervalo de flush automatico em segundos (default: 5.0).
     max_batch_size : int

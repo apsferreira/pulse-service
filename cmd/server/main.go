@@ -370,6 +370,8 @@ func main() {
 	userIdentityRepo := repository.NewUserIdentityRepository(pool)
 	userIdentityHandler := handler.NewUserIdentityHandler(userIdentityRepo, cfg.ServiceToken)
 	userIdentityHandler.RegisterRoutes(app)
+	// Injeta identityRepo no eventHandler para associar anonymous_id → user_id no POST /events/identify
+	eventHandler.WithIdentityRepo(userIdentityRepo)
 
 	// Página de Usuários — lista + timeline + identidades cross-produto
 	userInsightsHandler := handler.NewUserInsightsHandler(pool, cfg.ServiceToken)

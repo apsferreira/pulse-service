@@ -49,9 +49,11 @@ type TrackEventRequest struct {
 // IdentifyRequest vincula um anonymous_id a um user_id real.
 // Usado apos login/signup para unificar a jornada do usuario.
 type IdentifyRequest struct {
-	AnonymousID string `json:"anonymous_id"`
-	UserID      string `json:"user_id"`
-	Product     string `json:"product,omitempty"`
+	AnonymousID     string `json:"anonymous_id"`
+	UserID          string `json:"user_id"`
+	Product         string `json:"product,omitempty"`
+	CanonicalUserID string `json:"canonical_user_id,omitempty"`
+	Email           string `json:"email,omitempty"`
 }
 
 // EventCountItem represents a count grouped by event_name.

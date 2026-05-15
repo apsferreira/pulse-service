@@ -27,7 +27,7 @@ Para referência completa da API de A/B testing, veja também [ab-testing.md](./
 ## Passo 1 — Criar o experimento
 
 ```bash
-curl -X POST https://pulse-api.institutoitinerante.com.br/api/v1/experiments \
+curl -X POST https://pulse.institutoitinerante.com.br/api/v1/experiments \
   -H "X-Service-Token: $SERVICE_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -105,7 +105,7 @@ Não analise os resultados antes de atingir o `min_sample_size` por variante. Ol
 Verifique o progresso:
 
 ```bash
-curl "https://pulse-api.institutoitinerante.com.br/api/v1/experiments/exp_abc123/results" \
+curl "https://pulse.institutoitinerante.com.br/api/v1/experiments/exp_abc123/results" \
   -H "X-Service-Token: $SERVICE_TOKEN"
 ```
 
@@ -165,13 +165,13 @@ O p-value responde à pergunta: **"se não houvesse diferença real entre as var
 
 ```bash
 # 1. Marcar o experimento como concluído
-curl -X PATCH https://pulse-api.institutoitinerante.com.br/api/v1/experiments/exp_abc123 \
+curl -X PATCH https://pulse.institutoitinerante.com.br/api/v1/experiments/exp_abc123 \
   -H "X-Service-Token: $SERVICE_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{ "status": "completed", "winner": "verde" }'
 
 # 2. Fazer rollout da variante vencedora para 100%
-curl -X PATCH https://pulse-api.institutoitinerante.com.br/api/v1/flags/FLAG_ID \
+curl -X PATCH https://pulse.institutoitinerante.com.br/api/v1/flags/FLAG_ID \
   -H "X-Service-Token: $SERVICE_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{ "rollout_percentage": 100 }'
@@ -183,13 +183,13 @@ curl -X PATCH https://pulse-api.institutoitinerante.com.br/api/v1/flags/FLAG_ID 
 
 ```bash
 # Encerrar experimento sem vencedor
-curl -X PATCH https://pulse-api.institutoitinerante.com.br/api/v1/experiments/exp_abc123 \
+curl -X PATCH https://pulse.institutoitinerante.com.br/api/v1/experiments/exp_abc123 \
   -H "X-Service-Token: $SERVICE_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{ "status": "completed", "winner": "controle" }'
 
 # Desativar a flag da nova variante
-curl -X PATCH https://pulse-api.institutoitinerante.com.br/api/v1/flags/FLAG_ID \
+curl -X PATCH https://pulse.institutoitinerante.com.br/api/v1/flags/FLAG_ID \
   -H "X-Service-Token: $SERVICE_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{ "enabled": false }'

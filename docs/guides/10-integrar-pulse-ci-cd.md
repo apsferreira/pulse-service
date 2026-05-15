@@ -29,7 +29,7 @@ Você pode gerenciar flags diretamente da pipeline com `curl`:
 
 ```bash
 # Criar flag (idempotente — retorna 200 se já existe)
-curl -X POST https://pulse-api.institutoitinerante.com.br/api/v1/flags \
+curl -X POST https://pulse.institutoitinerante.com.br/api/v1/flags \
   -H "X-Service-Token: $PULSE_SERVICE_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -41,13 +41,13 @@ curl -X POST https://pulse-api.institutoitinerante.com.br/api/v1/flags \
   }'
 
 # Atualizar percentual de rollout
-curl -X PATCH https://pulse-api.institutoitinerante.com.br/api/v1/flags/FLAG_ID \
+curl -X PATCH https://pulse.institutoitinerante.com.br/api/v1/flags/FLAG_ID \
   -H "X-Service-Token: $PULSE_SERVICE_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{ "rollout_percentage": 5 }'
 
 # Rollback instantâneo (desativar flag)
-curl -X PATCH https://pulse-api.institutoitinerante.com.br/api/v1/flags/FLAG_ID \
+curl -X PATCH https://pulse.institutoitinerante.com.br/api/v1/flags/FLAG_ID \
   -H "X-Service-Token: $PULSE_SERVICE_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{ "enabled": false, "rollout_percentage": 0 }'
@@ -68,7 +68,7 @@ on:
     branches: [main]
 
 env:
-  PULSE_API: https://pulse-api.institutoitinerante.com.br
+  PULSE_API: https://pulse.institutoitinerante.com.br
   FLAG_NAME: nova_feature_v2
   PRODUCT: minha-app
 
@@ -135,7 +135,7 @@ on:
         default: "true"
 
 env:
-  PULSE_API: https://pulse-api.institutoitinerante.com.br
+  PULSE_API: https://pulse.institutoitinerante.com.br
   PRODUCT: minha-app
 
 jobs:
@@ -195,7 +195,7 @@ on:
         required: true
 
 env:
-  PULSE_API: https://pulse-api.institutoitinerante.com.br
+  PULSE_API: https://pulse.institutoitinerante.com.br
   PRODUCT: minha-app
 
 jobs:

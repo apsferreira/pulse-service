@@ -77,7 +77,7 @@ class Pulse {
     required String projectKey,
     String? userId,
     bool debug = false,
-    String apiUrl = 'https://pulse-api.institutoitinerante.com.br/api/v1',
+    String apiUrl = 'https://pulse.institutoitinerante.com.br/api/v1',
     http.Client? httpClient,
   }) async {
     if (projectKey.isEmpty) {

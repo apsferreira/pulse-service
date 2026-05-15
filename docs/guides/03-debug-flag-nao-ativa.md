@@ -31,7 +31,7 @@ Se `rollout_percentage` for `0`, **a flag está tecnicamente habilitada mas nenh
 ```bash
 # Teste direto na API — deve retornar 200, não 401
 curl -s -o /dev/null -w "%{http_code}" \
-  https://pulse-api.institutoitinerante.com.br/api/v1/flags?product=minha-app \
+  https://pulse.institutoitinerante.com.br/api/v1/flags?product=minha-app \
   -H "X-Service-Token: seu-token-aqui"
 ```
 
@@ -105,7 +105,7 @@ O SDK JS lê esse parâmetro automaticamente — funciona sem nenhuma configura�
 **Para checar em qual bucket um `userId` específico cai**, use o endpoint de preview:
 
 ```bash
-curl "https://pulse-api.institutoitinerante.com.br/api/v1/flags/nome-da-flag/preview?user_id=user-123" \
+curl "https://pulse.institutoitinerante.com.br/api/v1/flags/nome-da-flag/preview?user_id=user-123" \
   -H "X-Service-Token: $SERVICE_TOKEN"
 # → {"bucket": 34, "rollout_percentage": 50, "in_rollout": true, "reason": "rollout"}
 ```
@@ -158,7 +158,7 @@ O audit log registra toda avaliação de flag, incluindo por que foi negada.
 
 ```bash
 # Ver últimas 20 avaliações da flag
-curl "https://pulse-api.institutoitinerante.com.br/api/v1/flags/audit?product=minha-app&flag=minha_flag&limit=20" \
+curl "https://pulse.institutoitinerante.com.br/api/v1/flags/audit?product=minha-app&flag=minha_flag&limit=20" \
   -H "X-Service-Token: $SERVICE_TOKEN"
 ```
 
@@ -202,7 +202,7 @@ curl "https://pulse-api.institutoitinerante.com.br/api/v1/flags/audit?product=mi
 
 ```bash
 # Script de diagnóstico rápido
-PULSE_API=https://pulse-api.institutoitinerante.com.br
+PULSE_API=https://pulse.institutoitinerante.com.br
 TOKEN=seu-token
 PRODUCT=minha-app
 FLAG=minha_flag

@@ -17,7 +17,7 @@ const STEPS = [
 import PulseClient from "@iit/pulse-sdk";
 
 const pulse = new PulseClient({
-  baseURL: "https://pulse-api.institutoitinerante.com.br",
+  baseURL: "https://pulse.institutoitinerante.com.br",
 });`,
   },
   {

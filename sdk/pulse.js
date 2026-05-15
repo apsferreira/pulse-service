@@ -3,9 +3,9 @@
  * Instituto Itinerante de Tecnologia
  *
  * Usage (CDN / script tag):
- *   <script src="https://pulse-api.institutoitinerante.com.br/sdk/pulse.js"></script>
+ *   <script src="https://pulse.institutoitinerante.com.br/sdk/pulse.js"></script>
  *   <script>
- *     pulse.init({ projectKey: 'YOUR_PROJECT_KEY', apiUrl: 'https://pulse-api.institutoitinerante.com.br' })
+ *     pulse.init({ projectKey: 'YOUR_PROJECT_KEY', apiUrl: 'https://pulse.institutoitinerante.com.br' })
  *     pulse.identify('user_123', { name: 'João', plan: 'growth' })
  *     pulse.track('button_clicked', { button: 'signup' })
  *     pulse.isEnabled('new-checkout').then(enabled => { if (enabled) showNewCheckout() })

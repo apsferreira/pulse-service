@@ -11,7 +11,7 @@ package br.com.institutoitinerante.pulse
  */
 data class PulseConfig(
     val projectKey: String,
-    val apiUrl: String = "https://pulse-api.institutoitinerante.com.br/api/v1",
+    val apiUrl: String = "https://pulse.institutoitinerante.com.br/api/v1",
     val batchSize: Int = 10,
     val flushIntervalMs: Long = 30_000,
     val debug: Boolean = false

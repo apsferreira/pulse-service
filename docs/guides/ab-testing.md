@@ -39,7 +39,7 @@ return <CheckoutButton color="blue" />  // fallback
 ### Passo 2: Criar a Flag com Variantes
 
 ```bash
-export PULSE_API=https://pulse-api.institutoitinerante.com.br
+export PULSE_API=https://pulse.institutoitinerante.com.br
 export SERVICE_TOKEN=seu-token
 
 curl -X POST $PULSE_API/api/v1/flags \
@@ -109,7 +109,7 @@ export function CheckoutButton({ userId }) {
 
   useEffect(() => {
     const pulse = new PulseSDK({
-      apiUrl: 'https://pulse-api.institutoitinerante.com.br',
+      apiUrl: 'https://pulse.institutoitinerante.com.br',
       product: 'libri',
       userId
     })
@@ -149,7 +149,7 @@ export function CheckoutButton({ userId }) {
 export function CheckoutSuccess({ userId, orderId, variant }) {
   useEffect(() => {
     const pulse = new PulseSDK({
-      apiUrl: 'https://pulse-api.institutoitinerante.com.br',
+      apiUrl: 'https://pulse.institutoitinerante.com.br',
       product: 'libri',
       userId
     })

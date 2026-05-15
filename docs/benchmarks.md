@@ -156,7 +156,7 @@ docker run --rm -i grafana/k6 run - < k6/load-test.js
 ```bash
 cd /Users/antonio.ferreira/projects/pulse-service
 
-PULSE_URL=https://pulse-api.institutoitinerante.com.br \
+PULSE_URL=https://pulse.institutoitinerante.com.br \
 SERVICE_TOKEN=<seu-token> \
 PROJECT_ID=<uuid-do-projeto> \
 k6 run k6/load-test.js

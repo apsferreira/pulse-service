@@ -37,7 +37,7 @@ GET /api/v1/events
 FROM=$(date -u -v-7d +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u --date="7 days ago" +"%Y-%m-%dT%H:%M:%SZ")
 TO=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-curl -s "https://pulse-api.institutoitinerante.com.br/api/v1/events?product=minha-app&from=$FROM&to=$TO&limit=500" \
+curl -s "https://pulse.institutoitinerante.com.br/api/v1/events?product=minha-app&from=$FROM&to=$TO&limit=500" \
   -H "X-Service-Token: $SERVICE_TOKEN" | python3 -m json.tool
 ```
 
@@ -85,7 +85,7 @@ curl -s "https://pulse-api.institutoitinerante.com.br/api/v1/events?product=minh
 
 ```bash
 # Primeira página
-RESPONSE=$(curl -s "https://pulse-api.institutoitinerante.com.br/api/v1/events?product=minha-app&limit=1000" \
+RESPONSE=$(curl -s "https://pulse.institutoitinerante.com.br/api/v1/events?product=minha-app&limit=1000" \
   -H "X-Service-Token: $SERVICE_TOKEN")
 
 # Verificar se há mais páginas
@@ -94,7 +94,7 @@ CURSOR=$(echo $RESPONSE | python3 -c "import sys,json; d=json.load(sys.stdin); p
 
 # Próxima página
 if [ "$HAS_MORE" = "True" ]; then
-  curl -s "https://pulse-api.institutoitinerante.com.br/api/v1/events?product=minha-app&limit=1000&cursor=$CURSOR" \
+  curl -s "https://pulse.institutoitinerante.com.br/api/v1/events?product=minha-app&limit=1000&cursor=$CURSOR" \
     -H "X-Service-Token: $SERVICE_TOKEN"
 fi
 ```
@@ -125,7 +125,7 @@ GET /api/v1/flags/audit
 ### Exemplo
 
 ```bash
-curl -s "https://pulse-api.institutoitinerante.com.br/api/v1/flags/audit?product=minha-app&action=evaluated&limit=100" \
+curl -s "https://pulse.institutoitinerante.com.br/api/v1/flags/audit?product=minha-app&action=evaluated&limit=100" \
   -H "X-Service-Token: $SERVICE_TOKEN"
 ```
 
@@ -173,7 +173,7 @@ Para o plano Starter+, use o endpoint de exportação CSV:
 
 ```bash
 # Baixar CSV de eventos
-curl -s "https://pulse-api.institutoitinerante.com.br/api/v1/events/export?product=minha-app&format=csv&from=2026-04-01T00:00:00Z" \
+curl -s "https://pulse.institutoitinerante.com.br/api/v1/events/export?product=minha-app&format=csv&from=2026-04-01T00:00:00Z" \
   -H "X-Service-Token: $SERVICE_TOKEN" \
   -o eventos_abril_2026.csv
 
@@ -197,7 +197,7 @@ Use o Apps Script para importar eventos do Pulse diretamente em uma planilha:
 // Cole este código e configure o trigger para rodar diariamente
 
 const PULSE_TOKEN = PropertiesService.getScriptProperties().getProperty('PULSE_TOKEN')
-const PULSE_API = 'https://pulse-api.institutoitinerante.com.br'
+const PULSE_API = 'https://pulse.institutoitinerante.com.br'
 const PRODUCT = 'minha-app'
 
 function importarEventos() {
@@ -249,7 +249,7 @@ import requests, psycopg2, json, os
 from datetime import datetime, timedelta
 
 PULSE_TOKEN = os.environ['PULSE_TOKEN']
-PULSE_API = 'https://pulse-api.institutoitinerante.com.br'
+PULSE_API = 'https://pulse.institutoitinerante.com.br'
 DB_URL = os.environ['DATABASE_URL']
 
 def fetch_events(product: str, from_date: str, to_date: str):

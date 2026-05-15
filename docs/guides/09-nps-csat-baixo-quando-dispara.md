@@ -23,7 +23,7 @@ O widget é exibido em overlay após eventos-gatilho configurados no dashboard. 
 ```typescript
 // Inicializar com suporte a NPS/CSAT
 const pulse = new PulseSDK({
-  apiUrl: 'https://pulse-api.institutoitinerante.com.br',
+  apiUrl: 'https://pulse.institutoitinerante.com.br',
   product: 'minha-app',
   serviceToken: process.env.PULSE_SERVICE_TOKEN!,
   userId: currentUser.id,
@@ -95,7 +95,7 @@ health_score = (
 
 ```bash
 # Health score de um tenant específico
-curl "https://pulse-api.institutoitinerante.com.br/api/v1/health/tenant-456?product=minha-app" \
+curl "https://pulse.institutoitinerante.com.br/api/v1/health/tenant-456?product=minha-app" \
   -H "X-Service-Token: $SERVICE_TOKEN"
 ```
 
@@ -130,7 +130,7 @@ curl "https://pulse-api.institutoitinerante.com.br/api/v1/health/tenant-456?prod
 
 ```bash
 # Tenants com health score abaixo de 60 (em risco de churn)
-curl "https://pulse-api.institutoitinerante.com.br/api/v1/health?product=minha-app&max_score=60&limit=20" \
+curl "https://pulse.institutoitinerante.com.br/api/v1/health?product=minha-app&max_score=60&limit=20" \
   -H "X-Service-Token: $SERVICE_TOKEN"
 ```
 
@@ -202,7 +202,7 @@ app.post('/webhooks/pulse-alert', async (req, res) => {
 
 ```bash
 # Ver histórico de health score dos últimos 30 dias
-curl "https://pulse-api.institutoitinerante.com.br/api/v1/health/tenant-456/history?product=minha-app&days=30" \
+curl "https://pulse.institutoitinerante.com.br/api/v1/health/tenant-456/history?product=minha-app&days=30" \
   -H "X-Service-Token: $SERVICE_TOKEN"
 ```
 
@@ -213,7 +213,7 @@ Um tenant com `trend: declining` por mais de 7 dias e `health_score < 50` está 
 ## Configurar thresholds personalizados
 
 ```bash
-curl -X PATCH https://pulse-api.institutoitinerante.com.br/api/v1/settings/alerts \
+curl -X PATCH https://pulse.institutoitinerante.com.br/api/v1/settings/alerts \
   -H "X-Service-Token: $SERVICE_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{

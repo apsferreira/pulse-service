@@ -146,9 +146,9 @@ func (r *CSATRepository) GetNPS(ctx context.Context, surveyID uuid.UUID, from, t
 	err = r.db.QueryRow(ctx,
 		`SELECT
 			COUNT(*) AS total,
-			SUM(CASE WHEN score >= 9 THEN 1 ELSE 0 END) AS promoters,
-			SUM(CASE WHEN score BETWEEN 7 AND 8 THEN 1 ELSE 0 END) AS passives,
-			SUM(CASE WHEN score <= 6 THEN 1 ELSE 0 END) AS detractors,
+			COALESCE(SUM(CASE WHEN score >= 9 THEN 1 ELSE 0 END), 0) AS promoters,
+			COALESCE(SUM(CASE WHEN score BETWEEN 7 AND 8 THEN 1 ELSE 0 END), 0) AS passives,
+			COALESCE(SUM(CASE WHEN score <= 6 THEN 1 ELSE 0 END), 0) AS detractors,
 			COALESCE(AVG(score::float), 0) AS avg_score
 		 FROM csat_responses
 		 WHERE survey_id = $1 AND created_at BETWEEN $2 AND $3`,
@@ -168,7 +168,7 @@ func (r *CSATRepository) GetNPS(ctx context.Context, surveyID uuid.UUID, from, t
 		Product:    survey.Product,
 		Total:      total,
 		Promoters:  promoters,
-		Passives:   passives,
+		Neutrals:   passives,
 		Detractors: detractors,
 		NPS:        nps,
 		AvgScore:   avgScore,

@@ -108,6 +108,20 @@ func (r *MABRepository) GetExperimentByID(ctx context.Context, id uuid.UUID) (*d
 	return &exp, nil
 }
 
+// CountExperiments retorna o número de experimentos MAB ativos em um projeto.
+// Usado pelo gating de plano no MABHandler.
+func (r *MABRepository) CountExperiments(ctx context.Context, projectID uuid.UUID) (int, error) {
+	var n int
+	err := r.db.QueryRow(ctx,
+		`SELECT COUNT(*) FROM mab_experiments WHERE project_id = $1 AND is_active = true`,
+		projectID,
+	).Scan(&n)
+	if err != nil {
+		return 0, fmt.Errorf("mab_repository: CountExperiments: %w", err)
+	}
+	return n, nil
+}
+
 // ListExperiments lista todos os experimentos de um projeto, sem variantes.
 func (r *MABRepository) ListExperiments(ctx context.Context, projectID uuid.UUID) ([]domain.MABExperiment, error) {
 	rows, err := r.db.Query(ctx,

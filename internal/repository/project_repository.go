@@ -308,6 +308,17 @@ func applyHealthConfigDefaults(cfg *domain.ProjectHealthConfig) {
 	}
 }
 
+// Count retorna o número de projetos ativos.
+// Usado pelo gating de plano no ProjectHandler (criação de projetos).
+func (r *ProjectRepository) Count(ctx context.Context) (int, error) {
+	var n int
+	err := r.db.QueryRow(ctx, `SELECT COUNT(*) FROM projects WHERE is_active = true`).Scan(&n)
+	if err != nil {
+		return 0, fmt.Errorf("project_repository: Count: %w", err)
+	}
+	return n, nil
+}
+
 func scanProject(row pgx.Row) (*domain.Project, error) {
 	p := &domain.Project{}
 	err := row.Scan(&p.ID, &p.Name, &p.Slug, &p.APIKey, &p.Description, &p.Plan, &p.DataRetentionDays, &p.IsActive, &p.CreatedAt, &p.UpdatedAt)

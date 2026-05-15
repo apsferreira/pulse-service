@@ -258,12 +258,17 @@ func main() {
 	upgradeHandler.RegisterRoutes(app)
 
 	// BKL-1078: Webhooks para eventos de produto (HMAC-SHA256, n8n/Make/Zapier/Slack/Datadog)
-	webhookHandler := handler.NewWebhookHandler(pool, cfg.ServiceToken)
+	webhookHandler := handler.NewWebhookHandler(pool, cfg.ServiceToken).WithProjectRepo(projectRepo)
 	webhookHandler.RegisterRoutes(app)
 	flagHandler.WithWebhookHandler(webhookHandler) // dispara flag.toggled ao atualizar flag
 
+	// licenças self-hosted — geração via webhook do checkout + validação na inicialização
+	licenseRepo := repository.NewLicenseRepository(pool)
+	licenseHandler := handler.NewLicenseHandler(licenseRepo, cfg.ServiceToken)
+	licenseHandler.RegisterRoutes(app)
+
 	// billing: recebe confirmação de pagamento do checkout-service e atualiza plano
-	checkoutWebhookHandler := handler.NewCheckoutWebhookHandler(projectRepo, cfg.ServiceToken)
+	checkoutWebhookHandler := handler.NewCheckoutWebhookHandler(projectRepo, licenseHandler, cfg.ServiceToken)
 	checkoutWebhookHandler.RegisterRoutes(app)
 
 	// BKL-1058: Funis de conversão server-side (POST /api/v1/funnels/analyze)
@@ -353,7 +358,7 @@ func main() {
 
 	// BKL-1154: Multi-Armed Bandits epsilon-greedy — otimização automática de variantes A/B
 	mabRepo := repository.NewMABRepository(pool)
-	mabHandler := handler.NewMABHandler(mabRepo, cfg.ServiceToken)
+	mabHandler := handler.NewMABHandler(mabRepo, cfg.ServiceToken).WithProjectRepo(projectRepo)
 	mabHandler.RegisterRoutes(app)
 
 	// BKL-763: mapeamento cross-produto de identidade de usuário

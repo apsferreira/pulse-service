@@ -13,11 +13,18 @@ import (
 // MABHandler expõe endpoints de Multi-Armed Bandits epsilon-greedy. BKL-1154.
 type MABHandler struct {
 	repo         *repository.MABRepository
+	projectRepo  *repository.ProjectRepository
 	serviceToken string
 }
 
 func NewMABHandler(repo *repository.MABRepository, serviceToken string) *MABHandler {
 	return &MABHandler{repo: repo, serviceToken: serviceToken}
+}
+
+// WithProjectRepo injeta o ProjectRepository para enforcement de limites por plano.
+func (h *MABHandler) WithProjectRepo(repo *repository.ProjectRepository) *MABHandler {
+	h.projectRepo = repo
+	return h
 }
 
 // RegisterRoutes monta as rotas MAB no app Fiber.
@@ -31,6 +38,23 @@ func (h *MABHandler) RegisterRoutes(app *fiber.App) {
 	base.Post("/:flagKey/events", h.RecordEvent)
 	base.Post("/:flagKey/recalculate", h.RecalculateWeights)
 	base.Patch("/:flagKey/active", h.SetActive)
+}
+
+// mabPlanExperimentLimit define o número máximo de experimentos MAB por plano.
+// -1 significa ilimitado.
+var mabPlanExperimentLimit = map[string]int{
+	"free":       0,
+	"starter":    2,
+	"growth":     -1,
+	"pro":        -1,
+	"enterprise": -1,
+	"internal":   -1,
+}
+
+// mabPlanUpgrade aponta qual plano fazer upgrade para desbloquear experimentos.
+var mabPlanUpgrade = map[string]string{
+	"free":    "starter",
+	"starter": "growth",
 }
 
 // CreateExperiment godoc
@@ -53,6 +77,27 @@ func (h *MABHandler) CreateExperiment(c *fiber.Ctx) error {
 	}
 	if req.Epsilon < 0 || req.Epsilon > 1 {
 		return c.Status(fiber.StatusBadRequest).JSON(domain.ErrorResponse{Error: "epsilon deve estar entre 0 e 1"})
+	}
+
+	// billing: enforce limite de experimentos por plano
+	if h.projectRepo != nil {
+		proj, perr := h.projectRepo.GetByID(c.Context(), projectID.String())
+		if perr == nil && proj != nil {
+			limit, ok := mabPlanExperimentLimit[proj.Plan]
+			if ok && limit == 0 {
+				return upgradeGate(c, proj.Plan, "starter")
+			}
+			if ok && limit > 0 {
+				count, cerr := h.repo.CountExperiments(c.Context(), projectID)
+				if cerr == nil && count >= limit {
+					upgradeTo := mabPlanUpgrade[proj.Plan]
+					if upgradeTo == "" {
+						upgradeTo = "growth"
+					}
+					return upgradeGate(c, proj.Plan, upgradeTo)
+				}
+			}
+		}
 	}
 
 	exp, err := h.repo.CreateExperiment(c.Context(), projectID, &req)

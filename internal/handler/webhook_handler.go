@@ -143,14 +143,12 @@ func (h *WebhookHandler) Create(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "project_id e url são obrigatórios"})
 	}
 
-	// billing: webhooks disponíveis apenas a partir do plano growth
+	// billing: webhooks disponíveis apenas a partir do plano growth (enterprise/internal: bypass)
 	if h.projectRepo != nil {
 		proj, perr := h.projectRepo.GetByID(c.Context(), req.ProjectID)
-		if perr == nil && proj != nil {
+		if perr == nil && proj != nil && !isUnlimitedPlan(proj.Plan) {
 			switch proj.Plan {
-			case "free":
-				return upgradeGate(c, proj.Plan, "growth")
-			case "starter":
+			case "free", "starter":
 				return upgradeGate(c, proj.Plan, "growth")
 			}
 		}

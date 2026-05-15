@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
-  Flag, Plus, Search, Pencil, Trash2,
+  Flag, Plus, Search, Pencil, Trash2, Lock,
   ChevronDown, ChevronUp, X, Save, AlertCircle, Copy, Check,
   Users, Percent, FlaskConical, Shield, RefreshCw,
 } from 'lucide-react'
@@ -8,6 +8,7 @@ import { flagsApi, UpgradeRequiredError, type FeatureFlag, type CreateFlagPayloa
 import { useProject } from '../components/Layout'
 import UpgradeModal from '../components/UpgradeModal'
 import { useUpgradeGate } from '../hooks/useUpgradeGate'
+import { usePlanGate } from '../hooks/usePlanGate'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -637,8 +638,9 @@ function DeleteConfirm({ flag, onConfirm, onCancel }: { flag: FeatureFlag; onCon
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function FeatureFlags() {
-  const { projectId } = useProject()
+  const { projectId, projectPlan } = useProject()
   const { gateState, triggerGate, closeGate } = useUpgradeGate()
+  const canCreateFlags = usePlanGate('starter')
   const [flags, setFlags] = useState<FeatureFlag[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -760,9 +762,25 @@ export default function FeatureFlags() {
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
           </button>
-          <button onClick={() => setModalFlag(null)} className="btn-primary flex items-center gap-2">
-            <Plus className="w-4 h-4" /> Nova Flag
-          </button>
+          {!canCreateFlags && projectPlan === 'free' && flags.length >= 5 ? (
+            <button
+              onClick={() => triggerGate({
+                plan: 'free',
+                required_plan: 'starter',
+                upgrade_url: 'https://checkout-api.institutoitinerante.com.br/checkout?plan=pulse-starter',
+                message: 'Disponível no plano Starter (R$399/mês). Comece com 14 dias grátis.',
+                feature: 'criar mais de 5 flags',
+              })}
+              className="btn-primary flex items-center gap-2 opacity-80"
+              title="Limite de flags do plano free atingido"
+            >
+              <Lock className="w-4 h-4" /> Nova Flag
+            </button>
+          ) : (
+            <button onClick={() => setModalFlag(null)} className="btn-primary flex items-center gap-2">
+              <Plus className="w-4 h-4" /> Nova Flag
+            </button>
+          )}
         </div>
       </div>
 

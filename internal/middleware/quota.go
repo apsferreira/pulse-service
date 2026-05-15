@@ -47,9 +47,9 @@ func QuotaEnforcement(rdb *redis.Client, billingURL string) fiber.Handler {
 			return c.Next()
 		}
 
-		// Pro: sem limite
+		// Pro/enterprise/internal: sem limite de quota
 		plan := getProjectPlan(c)
-		if plan == "pro" {
+		if plan == "pro" || plan == "enterprise" || plan == "internal" {
 			return c.Next()
 		}
 
@@ -99,7 +99,7 @@ func QuotaEnforcement(rdb *redis.Client, billingURL string) fiber.Handler {
 // Útil para endpoints de status/dashboard.
 func QuotaStatus(rdb *redis.Client, projectID, plan string) (consumed, limit int64, resetAt time.Time) {
 	resetAt = endOfMonth()
-	if plan == "pro" {
+	if plan == "pro" || plan == "enterprise" || plan == "internal" {
 		return 0, -1, resetAt // -1 = ilimitado
 	}
 

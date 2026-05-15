@@ -167,7 +167,7 @@ func (h *FlagHandler) CreateFlag(c *fiber.Ctx) error {
 	if req.ProjectID != nil && h.flagRepo != nil && h.projectRepo != nil {
 		projectIDStr := req.ProjectID.String()
 		proj, err := h.projectRepo.GetByID(c.Context(), projectIDStr)
-		if err == nil && proj != nil && proj.Plan == "free" {
+		if err == nil && proj != nil && !isUnlimitedPlan(proj.Plan) && proj.Plan == "free" {
 			count, cerr := h.flagRepo.CountByProject(c.Context(), projectIDStr)
 			if cerr == nil && count >= freePlanFlagLimit {
 				return upgradeGate(c, "free", "starter")

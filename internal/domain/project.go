@@ -11,9 +11,10 @@ type Project struct {
 	Description       string    `json:"description,omitempty"`
 	Plan              string    `json:"plan"`                // BKL-1077: free|starter|growth|pro
 	DataRetentionDays int       `json:"data_retention_days"` // BKL-1037: 90=free, 180=starter/growth, 365=pro
-	IsActive          bool      `json:"is_active"`
-	CreatedAt         time.Time `json:"created_at"`
-	UpdatedAt         time.Time `json:"updated_at"`
+	IsActive         bool       `json:"is_active"`
+	SDKConnectedAt   *time.Time `json:"sdk_connected_at"` // null = SDK ainda não conectou
+	CreatedAt        time.Time  `json:"created_at"`
+	UpdatedAt        time.Time  `json:"updated_at"`
 }
 
 // HealthConfigWeights define os pesos de cada dimensão no cálculo do health score. BKL-998.

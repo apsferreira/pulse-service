@@ -37,9 +37,10 @@ func (e *ErrApprovalRequired) Error() string {
 }
 
 type FlagService struct {
-	repo           *repository.FlagRepository
-	redis          *redis.Client
-	approvalRepo   *repository.FlagApprovalRepository  // BKL-990: nil-safe
+	repo         *repository.FlagRepository
+	redis        *redis.Client
+	approvalRepo *repository.FlagApprovalRepository   // BKL-990: nil-safe
+	evalRepo     *repository.FlagEvaluationRepository // BKL-1074: nil-safe
 }
 
 func NewFlagService(repo *repository.FlagRepository, redis *redis.Client) *FlagService {
@@ -49,6 +50,12 @@ func NewFlagService(repo *repository.FlagRepository, redis *redis.Client) *FlagS
 // WithApprovalRepo injeta o repositório de approvals para o fluxo BKL-990.
 func (s *FlagService) WithApprovalRepo(approvalRepo *repository.FlagApprovalRepository) *FlagService {
 	s.approvalRepo = approvalRepo
+	return s
+}
+
+// WithEvalRepo injeta o repositório de audit log de avaliações. BKL-1074.
+func (s *FlagService) WithEvalRepo(evalRepo *repository.FlagEvaluationRepository) *FlagService {
+	s.evalRepo = evalRepo
 	return s
 }
 
@@ -258,11 +265,56 @@ func (s *FlagService) EvaluateFlags(ctx context.Context, userID, tenantID, proje
 
 	result := make(map[string]bool, len(flags))
 	for _, f := range flags {
-		result[f.Key] = evaluateFlagWithPrereqs(f, userID, tenantID, flagMap)
+		evaluated := evaluateFlagWithPrereqs(f, userID, tenantID, flagMap)
+		result[f.Key] = evaluated
 		metrics.RecordFlagEvaluation() // BKL-1053
+
+		// BKL-1074: registra avaliação no audit log de forma assíncrona
+		if s.evalRepo != nil {
+			eval := &domain.FlagEvaluation{
+				FlagKey:  f.Key,
+				Result:   evaluated,
+				Reason:   determineFlagReason(f, userID, tenantID),
+			}
+			if projectID != "" {
+				eval.ProjectID = &projectID
+			}
+			if userID != "" {
+				eval.UserID = &userID
+			}
+			if tenantID != "" {
+				eval.TenantID = &tenantID
+			}
+			go func(e *domain.FlagEvaluation) {
+				if err := s.evalRepo.Record(context.Background(), e); err != nil {
+					log.Printf("audit log: Record: %v", err)
+				}
+			}(eval)
+		}
 	}
 
 	return domain.FlagsMapResponse{Flags: result}, nil
+}
+
+// determineFlagReason retorna o motivo da avaliação para o audit log.
+func determineFlagReason(f domain.FeatureFlag, userID, tenantID string) domain.FlagEvaluationReason {
+	if !f.Enabled {
+		return domain.ReasonDisabled
+	}
+	for _, id := range f.Targeting.UserIDs {
+		if id == userID {
+			return domain.ReasonTargetingUser
+		}
+	}
+	for _, id := range f.Targeting.TenantIDs {
+		if id == tenantID {
+			return domain.ReasonTargetingTenant
+		}
+	}
+	if f.RolloutPercentage > 0 {
+		return domain.ReasonRollout
+	}
+	return domain.ReasonDefault
 }
 
 // evaluateFlagWithPrereqs verifica prerequisites antes da avaliação principal. BKL-1039.

@@ -94,10 +94,15 @@ func (h *UpgradeHandler) Recommend(c *fiber.Ctx) error {
 	return c.JSON(rec)
 }
 
-// getProjectPlan retorna o plano atual do projeto.
+// getProjectPlan retorna o plano atual do projeto via JOIN com accounts.
 func (h *UpgradeHandler) getProjectPlan(ctx context.Context, projectID string) (string, error) {
 	var plan string
-	err := h.db.QueryRow(ctx, `SELECT COALESCE(plan, 'free') FROM projects WHERE id = $1`, projectID).Scan(&plan)
+	err := h.db.QueryRow(ctx, `
+		SELECT COALESCE(a.plan, 'free')
+		FROM projects p
+		JOIN accounts a ON a.email = p.owner_email
+		WHERE p.id = $1
+	`, projectID).Scan(&plan)
 	if err != nil {
 		return "", fmt.Errorf("upgrade: getProjectPlan: %w", err)
 	}

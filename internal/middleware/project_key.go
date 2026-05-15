@@ -58,7 +58,8 @@ func ValidateProjectKey(db *pgxpool.Pool) fiber.Handler {
 
 		c.Locals("project_id", project.ID)
 		c.Locals("project", project)
-		c.Locals("project_plan", project.Plan) // BKL-1077: injetado para quota + rate limit
+		c.Locals("project_plan", project.Plan)       // BKL-1077: injetado para quota + rate limit
+		c.Locals("account_email", project.OwnerEmail) // quota por conta
 		return c.Next()
 	}
 }
@@ -75,10 +76,16 @@ func newProjectKeyRepo(db *pgxpool.Pool) *projectKeyRepo {
 func (r *projectKeyRepo) GetByAPIKey(ctx context.Context, apiKey string) (*domain.Project, error) {
 	var p domain.Project
 	err := r.db.QueryRow(ctx,
-		`SELECT id, name, slug, api_key, COALESCE(description, ''), COALESCE(plan, 'free'), COALESCE(data_retention_days, 90), is_active, sdk_connected_at, created_at, updated_at
-		 FROM projects WHERE api_key = $1`,
+		`SELECT p.id, p.name, p.slug, p.api_key, COALESCE(p.description, ''),
+		        p.owner_email, COALESCE(a.plan, 'free'), COALESCE(a.data_retention_days, 90),
+		        p.is_active, p.sdk_connected_at, p.created_at, p.updated_at
+		 FROM projects p
+		 JOIN accounts a ON a.email = p.owner_email
+		 WHERE p.api_key = $1`,
 		apiKey,
-	).Scan(&p.ID, &p.Name, &p.Slug, &p.APIKey, &p.Description, &p.Plan, &p.DataRetentionDays, &p.IsActive, &p.SDKConnectedAt, &p.CreatedAt, &p.UpdatedAt)
+	).Scan(&p.ID, &p.Name, &p.Slug, &p.APIKey, &p.Description,
+		&p.OwnerEmail, &p.Plan, &p.DataRetentionDays,
+		&p.IsActive, &p.SDKConnectedAt, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		if isNoRows(err) {
 			return nil, nil

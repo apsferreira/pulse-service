@@ -6,6 +6,7 @@ import "time"
 // O plano é definido por conta (email), não por projeto individual.
 type Account struct {
 	Email             string    `json:"email"`
+	Slug              *string   `json:"slug,omitempty"`
 	Plan              string    `json:"plan"`
 	DataRetentionDays int       `json:"data_retention_days"`
 	CreatedAt         time.Time `json:"created_at"`

@@ -725,15 +725,6 @@ function ProjectCard({ project, onClick }: ProjectCardProps) {
               <CheckCircle className="w-3.5 h-3.5" aria-hidden="true" />
               SDK conectado
             </span>
-            <Link
-              to={`/status/${project.slug}`}
-              onClick={(e) => e.stopPropagation()}
-              className="flex items-center gap-1 text-xs text-slate-500 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
-              title="Ver status page pública"
-            >
-              <Globe className="w-3.5 h-3.5" aria-hidden="true" />
-              Status
-            </Link>
           </>
         ) : (
           <span className="flex items-center gap-1 text-xs text-amber-500 dark:text-amber-400">
@@ -887,6 +878,14 @@ export default function Projects() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Link
+            to="/status"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-slate-500 hover:text-violet-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-violet-400 dark:hover:bg-slate-800 transition-colors"
+            aria-label="Ver status page pública dos serviços"
+          >
+            <Globe className="w-4 h-4" aria-hidden="true" />
+            Status Page
+          </Link>
           <button
             onClick={() => void fetchProjects()}
             disabled={loading}

@@ -88,15 +88,15 @@ function OverallBanner({ statuses }: { statuses: MonitorStatus[] }) {
   )
 }
 
-interface SlugResponse {
-  project_slug: string
+interface AccountStatusResponse {
+  account_slug: string
   monitors: MonitorStatus[]
 }
 
 export default function StatusPage() {
   const { slug } = useParams<{ slug?: string }>()
   const [statuses, setStatuses] = useState<MonitorStatus[]>([])
-  const [projectSlug, setProjectSlug] = useState<string | null>(null)
+  const [accountSlug, setAccountSlug] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
@@ -105,10 +105,10 @@ export default function StatusPage() {
     setLoading(true)
     setError(null)
     if (slug) {
-      fetchPublic<SlugResponse>(`/status/${slug}`)
+      fetchPublic<AccountStatusResponse>(`/status/${slug}`)
         .then(data => {
           setStatuses(data.monitors ?? [])
-          setProjectSlug(data.project_slug)
+          setAccountSlug(data.account_slug)
           setLastUpdated(new Date())
         })
         .catch(() => setError('Não foi possível carregar os dados de status.'))
@@ -117,7 +117,7 @@ export default function StatusPage() {
       fetchPublic<MonitorStatus[]>('/monitors')
         .then(data => {
           setStatuses(data ?? [])
-          setProjectSlug(null)
+          setAccountSlug(null)
           setLastUpdated(new Date())
         })
         .catch(() => setError('Não foi possível carregar os dados de status.'))
@@ -142,7 +142,7 @@ export default function StatusPage() {
             <div className="w-8 h-8 rounded-lg bg-[#0097D6] flex items-center justify-center text-white font-bold text-sm">IIT</div>
             <div>
               <h1 className="text-base font-bold text-[#0D1B26]">
-                {projectSlug ? `Status — ${projectSlug}` : 'Instituto Itinerante de Tecnologia'}
+                {accountSlug ? `Status dos Serviços — ${accountSlug}` : 'Instituto Itinerante de Tecnologia'}
               </h1>
               <p className="text-xs text-slate-500">Status dos Serviços</p>
             </div>

@@ -96,19 +96,20 @@ func (h *MonitorHandler) DeleteMonitor(c *fiber.Ctx) error {
 
 // GetStatusBySlug godoc
 // GET /api/v1/status/:slug
+// Retorna todos os monitors ativos de todos os projetos da conta identificada pelo slug.
 func (h *MonitorHandler) GetStatusBySlug(c *fiber.Ctx) error {
 	slug := c.Params("slug")
 	if slug == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(domain.ErrorResponse{Error: "missing slug"})
 	}
 
-	statuses, err := h.svc.ListByProjectSlug(c.Context(), slug)
+	statuses, err := h.svc.ListByAccountSlug(c.Context(), slug)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: err.Error()})
 	}
 
 	return c.JSON(fiber.Map{
-		"project_slug": slug,
+		"account_slug": slug,
 		"monitors":     statuses,
 	})
 }

@@ -63,17 +63,15 @@ interface CurrentPlanSectionProps {
 }
 
 function CurrentPlanSection({ recommendation, projectName }: CurrentPlanSectionProps) {
-  const {
-    currentPlan,
-    quotaUsage,
-    activeFlagsCount,
-    projectsCount,
-    eventsUsed,
-    eventsLimit,
-  } = recommendation
+  const currentPlan = recommendation.current_plan
+  const quota = recommendation.quota_usage
+  const usagePct = Math.min(Math.round(quota?.events_pct ?? 0), 100)
+  const eventsUsed = quota?.events_last_30d ?? 0
+  const eventsLimit = quota?.events_limit ?? 10000
+  const activeFlagsCount = quota?.flags_used ?? 0
+  const projectsCount = quota?.projects_used ?? 0
 
   const planDef = PLAN_DEFINITIONS.find((p) => p.slug === currentPlan)
-  const usagePct = Math.min(Math.round(quotaUsage), 100)
 
   return (
     <section
@@ -563,16 +561,17 @@ export default function Billing() {
       // Quando a API ainda não existe, montar dados mínimos a partir do projeto local
       if ((err as { response?: { status?: number } }).response?.status === 404 || !e.response) {
         const fallback: UpgradeRecommendation = {
-          currentPlan: (selectedProject?.plan ?? 'free') as PlanSlug,
-          quotaUsage: 0,
-          shouldUpgrade: false,
-          recommendedPlan: null,
-          upgradeURL: null,
-          callToAction: null,
-          activeFlagsCount: 0,
-          projectsCount: projects.length,
-          eventsUsed: 0,
-          eventsLimit: 10000,
+          current_plan: selectedProject?.plan ?? 'free',
+          recommended_plan: selectedProject?.plan ?? 'free',
+          should_upgrade: false,
+          triggers: [],
+          quota_usage: {
+            flags_used: 0, flags_limit: 5, flags_pct: 0,
+            events_last_30d: 0, events_limit: 10000, events_pct: 0,
+            projects_used: projects.length, projects_limit: 1, projects_pct: 0,
+          },
+          call_to_action: '',
+          upgrade_url: '',
         }
         setRecommendation(fallback)
       } else {
@@ -649,7 +648,7 @@ export default function Billing() {
             projectName={selectedProject?.name ?? projectId}
           />
           <PlanCards
-            currentPlan={recommendation.currentPlan}
+            currentPlan={recommendation.current_plan}
             projectId={projectId}
             billing={billing}
             onBillingChange={setBilling}

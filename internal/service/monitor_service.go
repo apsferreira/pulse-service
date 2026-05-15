@@ -236,6 +236,27 @@ func (s *MonitorService) ListByProjectSlug(ctx context.Context, slug string) ([]
 	return statuses, nil
 }
 
+// ListByAccountSlug returns all active monitors across all projects of the given account slug,
+// each enriched with their last check result and 24h uptime stats.
+func (s *MonitorService) ListByAccountSlug(ctx context.Context, accountSlug string) ([]domain.MonitorStatus, error) {
+	monitors, err := s.repo.GetByAccountSlug(ctx, accountSlug)
+	if err != nil {
+		return nil, fmt.Errorf("monitor_service: ListByAccountSlug: %w", err)
+	}
+
+	statuses := make([]domain.MonitorStatus, 0, len(monitors))
+	for _, m := range monitors {
+		ms, err := s.buildStatus(ctx, m)
+		if err != nil {
+			log.Printf("monitor_service: ListByAccountSlug build status for %s: %v", m.ID, err)
+			statuses = append(statuses, domain.MonitorStatus{Monitor: m})
+			continue
+		}
+		statuses = append(statuses, ms)
+	}
+	return statuses, nil
+}
+
 // buildStatus assembles a MonitorStatus by fetching last check and 24h stats.
 func (s *MonitorService) buildStatus(ctx context.Context, m domain.Monitor) (domain.MonitorStatus, error) {
 	lastCheck, err := s.repo.GetLastCheck(ctx, m.ID)

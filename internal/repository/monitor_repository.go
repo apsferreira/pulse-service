@@ -256,6 +256,37 @@ func (r *MonitorRepository) GetByProjectSlug(ctx context.Context, slug string) (
 	return monitors, nil
 }
 
+// GetByAccountSlug returns all active monitors belonging to any project owned by the account
+// identified by slug. Results are ordered by project name then monitor name.
+func (r *MonitorRepository) GetByAccountSlug(ctx context.Context, accountSlug string) ([]domain.Monitor, error) {
+	rows, err := r.db.Query(ctx,
+		`SELECT m.id, m.name, m.url, m.method, m.interval_seconds, m.timeout_seconds, m.is_active, m.created_at, m.updated_at
+		 FROM monitors m
+		 JOIN projects p ON p.id = m.project_id
+		 JOIN accounts a ON a.email = p.owner_email
+		 WHERE a.slug = $1 AND m.is_active = true
+		 ORDER BY p.name ASC, m.name ASC`,
+		accountSlug,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("monitor_repository: GetByAccountSlug: %w", err)
+	}
+	defer rows.Close()
+
+	var monitors []domain.Monitor
+	for rows.Next() {
+		var m domain.Monitor
+		if err := rows.Scan(&m.ID, &m.Name, &m.URL, &m.Method, &m.IntervalSeconds, &m.TimeoutSeconds, &m.IsActive, &m.CreatedAt, &m.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("monitor_repository: GetByAccountSlug scan: %w", err)
+		}
+		monitors = append(monitors, m)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("monitor_repository: GetByAccountSlug rows: %w", err)
+	}
+	return monitors, nil
+}
+
 // GetUptimeStats returns uptime % and avg response time for the last 24h for a given monitor.
 func (r *MonitorRepository) GetUptimeStats(ctx context.Context, monitorID string) (uptime float64, avgResponseMs float64, err error) {
 	since := time.Now().UTC().Add(-24 * time.Hour)

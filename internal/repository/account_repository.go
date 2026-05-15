@@ -69,6 +69,26 @@ func (r *AccountRepository) GetPlanByEmail(ctx context.Context, email string) (s
 	return plan, nil
 }
 
+// GetSlugByEmail retorna o slug de uma conta pelo email.
+// Retorna "", nil se o email não existir ou o slug ainda for NULL.
+func (r *AccountRepository) GetSlugByEmail(ctx context.Context, email string) (string, error) {
+	var slug *string
+	err := r.db.QueryRow(ctx,
+		`SELECT slug FROM accounts WHERE email = $1`,
+		email,
+	).Scan(&slug)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", nil
+		}
+		return "", fmt.Errorf("account_repository: GetSlugByEmail: %w", err)
+	}
+	if slug == nil {
+		return "", nil
+	}
+	return *slug, nil
+}
+
 // UpdatePlan atualiza o plano de uma conta e recalcula data_retention_days.
 // Upsert: cria a conta se não existir.
 func (r *AccountRepository) UpdatePlan(ctx context.Context, email, newPlan string) error {

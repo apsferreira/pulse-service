@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strconv"
 )
 
 // Config holds all runtime configuration for pulse-service.
@@ -26,21 +27,25 @@ type Config struct {
 	// JWTSecret é usado para assinar tokens no modo local.
 	// Se vazio, usa ServiceToken como fallback.
 	JWTSecret string
+	// InsightsAgentIntervalHours define o intervalo de execução do agente autônomo de insights.
+	// BKL-insights: default 6 horas, configurável via INSIGHTS_AGENT_INTERVAL_HOURS.
+	InsightsAgentIntervalHours int
 }
 
 // Load reads configuration from environment variables, applying defaults where appropriate.
 // Default Redis URL uses DB 6 for feature flags cache.
 func Load() *Config {
 	cfg := &Config{
-		DatabaseURL:    getEnv("DATABASE_URL", ""),
-		RedisURL:       getEnv("REDIS_URL", "redis://localhost:6379/6"),
-		ServiceToken:   getEnv("SERVICE_TOKEN", ""),
-		Port:           getEnv("PORT", "3050"),
-		LogLevel:       getEnv("LOG_LEVEL", "info"),
-		AllowedOrigins: getEnv("PULSE_ALLOWED_ORIGINS", "*"),
-		BillingURL:     getEnv("PULSE_BILLING_URL", ""),
-		AuthMode:       getEnv("PULSE_AUTH_MODE", "external"),
-		JWTSecret:      getEnv("PULSE_JWT_SECRET", ""),
+		DatabaseURL:                getEnv("DATABASE_URL", ""),
+		RedisURL:                   getEnv("REDIS_URL", "redis://localhost:6379/6"),
+		ServiceToken:               getEnv("SERVICE_TOKEN", ""),
+		Port:                       getEnv("PORT", "3050"),
+		LogLevel:                   getEnv("LOG_LEVEL", "info"),
+		AllowedOrigins:             getEnv("PULSE_ALLOWED_ORIGINS", "*"),
+		BillingURL:                 getEnv("PULSE_BILLING_URL", ""),
+		AuthMode:                   getEnv("PULSE_AUTH_MODE", "external"),
+		JWTSecret:                  getEnv("PULSE_JWT_SECRET", ""),
+		InsightsAgentIntervalHours: getEnvInt("INSIGHTS_AGENT_INTERVAL_HOURS", 6),
 	}
 	// Fallback: se JWTSecret não foi definido, usa ServiceToken como secret.
 	// Só entra em vigor no modo local; não expõe o ServiceToken em nenhum log.
@@ -53,6 +58,15 @@ func Load() *Config {
 func getEnv(key, defaultValue string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
+	}
+	return defaultValue
+}
+
+func getEnvInt(key string, defaultValue int) int {
+	if v := os.Getenv(key); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			return n
+		}
 	}
 	return defaultValue
 }

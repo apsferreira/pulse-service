@@ -14,6 +14,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	fiberSwagger "github.com/swaggo/fiber-swagger"
+	"github.com/institutoitinerante/pulse-service/internal/agent"
 	"github.com/institutoitinerante/pulse-service/internal/handler"
 	_ "github.com/institutoitinerante/pulse-service/docs/swagger"
 	custommw "github.com/institutoitinerante/pulse-service/internal/middleware"
@@ -337,6 +338,13 @@ func main() {
 
 	// BKL-1037: Retention purge — deleta eventos mais antigos que data_retention_days de cada projeto (1x/dia)
 	go retentionpurge.Start(jobCtx, pool, 24*time.Hour)
+
+	// BKL-insights: Agente autônomo de análise de feature flags e eventos
+	projectInsightRepo := repository.NewProjectInsightRepository(pool)
+	insightsAgent := agent.NewInsightsAgent(projectInsightRepo, cfg.InsightsAgentIntervalHours)
+	go insightsAgent.Start(jobCtx)
+	projectInsightHandler := handler.NewProjectInsightHandler(projectInsightRepo, insightsAgent, cfg.ServiceToken)
+	projectInsightHandler.RegisterRoutes(app)
 
 	// BKL-1153: Segments Avançados — targeting por atributo composto para feature flags
 	segmentRepo := repository.NewSegmentRepository(pool)

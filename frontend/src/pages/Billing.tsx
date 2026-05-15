@@ -24,225 +24,186 @@ import {
 } from '../services/billingApi'
 import type { UpgradeRecommendation, PlanSlug } from '../services/billingApi'
 
-// ── Tipos e constantes de billing cycle ───────────────────────────────────────
+// ── Tipos e constantes ────────────────────────────────────────────────────────
 
 type BillingCycle = 'monthly' | 'yearly'
 
 const PRICES: Record<BillingCycle, Record<Exclude<PlanSlug, 'free'>, number>> = {
   monthly: { starter: 399, growth: 1099, pro: 2399 },
   yearly: {
-    starter: Math.round(383000 / 100 / 12),   // 319
-    growth:  Math.round(1055000 / 100 / 12),   // 879
-    pro:     Math.round(2303000 / 100 / 12),   // 1919
+    starter: Math.round(383000 / 100 / 12),
+    growth:  Math.round(1055000 / 100 / 12),
+    pro:     Math.round(2303000 / 100 / 12),
   },
 } as const
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
 const PLAN_RANK: Record<PlanSlug, number> = { free: 0, starter: 1, growth: 2, pro: 3 }
+function planRank(slug: string): number { return PLAN_RANK[slug as PlanSlug] ?? 0 }
 
-function planRank(slug: string): number {
-  return PLAN_RANK[slug as PlanSlug] ?? 0
+const PLAN_LABELS: Record<string, string> = {
+  free: 'Free', starter: 'Starter', growth: 'Growth',
+  pro: 'Pro', enterprise: 'Enterprise', internal: 'Internal',
 }
 
-function quotaColor(pct: number): string {
+function quotaBarColor(pct: number): string {
   if (pct >= 90) return 'bg-red-500'
   if (pct >= 70) return 'bg-amber-400'
   return 'bg-violet-500'
 }
 
 function quotaTextColor(pct: number): string {
-  if (pct >= 90) return 'text-red-400'
-  if (pct >= 70) return 'text-amber-400'
-  return 'text-violet-400'
+  if (pct >= 90) return 'text-red-600 dark:text-red-400'
+  if (pct >= 70) return 'text-amber-600 dark:text-amber-400'
+  return 'text-violet-600 dark:text-violet-400'
 }
 
-// ── Seção A — Plano atual ─────────────────────────────────────────────────────
+// ── Plano atual ───────────────────────────────────────────────────────────────
 
-interface CurrentPlanSectionProps {
+function CurrentPlanSection({
+  recommendation,
+  projectName,
+}: {
   recommendation: UpgradeRecommendation
   projectName: string
-}
-
-function CurrentPlanSection({ recommendation, projectName }: CurrentPlanSectionProps) {
+}) {
   const currentPlan = recommendation.current_plan
   const quota = recommendation.quota_usage
   const usagePct = Math.min(Math.round(quota?.events_pct ?? 0), 100)
   const eventsUsed = quota?.events_last_30d ?? 0
   const eventsLimit = quota?.events_limit ?? 10000
-  const activeFlagsCount = quota?.flags_used ?? 0
-  const projectsCount = quota?.projects_used ?? 0
-
-  const planDef = PLAN_DEFINITIONS.find((p) => p.slug === currentPlan)
+  const isUnlimited = ['pro', 'enterprise', 'internal'].includes(currentPlan)
 
   return (
     <section
-      className="rounded-2xl border border-white/10 p-6 space-y-5"
-      style={{ background: '#110f1a' }}
+      className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 space-y-5"
       aria-label="Plano atual"
     >
       <div className="flex items-center gap-3">
-        <div
-          className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-          style={{ background: '#8B5CF620' }}
-        >
-          <CreditCard className="w-4.5 h-4.5" style={{ color: '#8B5CF6' }} aria-hidden="true" />
+        <div className="w-9 h-9 rounded-lg bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center flex-shrink-0">
+          <CreditCard className="w-4 h-4 text-violet-600 dark:text-violet-400" aria-hidden="true" />
         </div>
-        <div>
-          <h2 className="text-base font-semibold text-slate-100">Plano atual</h2>
-          <p className="text-xs text-slate-400">{projectName}</p>
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">Plano atual</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{projectName}</p>
         </div>
-
-        <span
-          className="ml-auto inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold"
-          style={{ background: '#8B5CF620', color: '#a78bfa' }}
-        >
-          {planDef?.label ?? currentPlan}
+        <span className={`ml-auto inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+          currentPlan === 'enterprise' || currentPlan === 'internal'
+            ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+            : currentPlan === 'pro'
+            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+            : currentPlan === 'growth'
+            ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300'
+            : currentPlan === 'starter'
+            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+            : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+        }`}>
+          {PLAN_LABELS[currentPlan] ?? currentPlan}
         </span>
       </div>
 
       {/* Quota de eventos */}
       <div>
         <div className="flex items-center justify-between mb-1.5">
-          <span className="text-xs font-medium text-slate-400">Eventos usados este mês</span>
+          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            Eventos usados este mês
+          </span>
           <span className={`text-xs font-semibold tabular-nums ${quotaTextColor(usagePct)}`}>
-            {usagePct}%
+            {isUnlimited ? '∞' : `${usagePct}%`}
           </span>
         </div>
-        <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
+        <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
           <div
-            className={`h-full rounded-full transition-all ${quotaColor(usagePct)}`}
-            style={{ width: `${usagePct}%` }}
+            className={`h-full rounded-full transition-all ${isUnlimited ? 'bg-emerald-500' : quotaBarColor(usagePct)}`}
+            style={{ width: isUnlimited ? '100%' : `${usagePct}%` }}
             role="progressbar"
             aria-valuenow={usagePct}
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-label={`${usagePct}% da quota de eventos utilizada`}
           />
         </div>
-        <p className="mt-1 text-xs text-slate-500">
+        <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
           {eventsUsed.toLocaleString('pt-BR')} /{' '}
-          {eventsLimit > 0 ? eventsLimit.toLocaleString('pt-BR') : '∞'} eventos
+          {isUnlimited ? '∞' : eventsLimit.toLocaleString('pt-BR')} eventos
         </p>
       </div>
 
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-3">
-        <div
-          className="rounded-xl p-3 flex items-center gap-3"
-          style={{ background: '#09080f' }}
-        >
-          <Flag className="w-4 h-4 text-violet-400 flex-shrink-0" aria-hidden="true" />
-          <div>
-            <p className="text-xs text-slate-500">Flags ativas</p>
-            <p className="text-lg font-bold text-slate-100 tabular-nums">{activeFlagsCount}</p>
+        {[
+          { icon: Flag, label: 'Flags ativas', value: quota?.flags_used ?? 0 },
+          { icon: FolderOpen, label: 'Projetos', value: quota?.projects_used ?? 0 },
+        ].map(({ icon: Icon, label, value }) => (
+          <div key={label} className="rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-3 flex items-center gap-3">
+            <Icon className="w-4 h-4 text-violet-500 flex-shrink-0" aria-hidden="true" />
+            <div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
+              <p className="text-lg font-bold text-slate-900 dark:text-slate-100 tabular-nums">{value}</p>
+            </div>
           </div>
-        </div>
-        <div
-          className="rounded-xl p-3 flex items-center gap-3"
-          style={{ background: '#09080f' }}
-        >
-          <FolderOpen className="w-4 h-4 text-violet-400 flex-shrink-0" aria-hidden="true" />
-          <div>
-            <p className="text-xs text-slate-500">Projetos</p>
-            <p className="text-lg font-bold text-slate-100 tabular-nums">{projectsCount}</p>
-          </div>
-        </div>
+        ))}
       </div>
     </section>
   )
 }
 
-// ── Toggle mensal/anual ───────────────────────────────────────────────────────
+// ── Toggle mensal / anual ─────────────────────────────────────────────────────
 
-interface BillingToggleProps {
-  billing: BillingCycle
-  onChange: (v: BillingCycle) => void
-}
-
-function BillingToggle({ billing, onChange }: BillingToggleProps) {
+function BillingToggle({ billing, onChange }: { billing: BillingCycle; onChange: (v: BillingCycle) => void }) {
   return (
     <div
-      className="inline-flex items-center rounded-xl border border-white/10 overflow-hidden"
+      className="inline-flex items-center rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 p-0.5"
       role="group"
       aria-label="Ciclo de cobrança"
-      style={{ background: '#09080f' }}
     >
-      <button
-        onClick={() => onChange('monthly')}
-        className={[
-          'px-4 py-1.5 text-sm font-medium transition-colors',
-          billing === 'monthly'
-            ? 'text-white'
-            : 'text-slate-400 hover:text-slate-200',
-        ].join(' ')}
-        style={billing === 'monthly' ? { background: '#7c3aed' } : {}}
-        aria-pressed={billing === 'monthly'}
-      >
-        Mensal
-      </button>
-      <button
-        onClick={() => onChange('yearly')}
-        className={[
-          'px-4 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5',
-          billing === 'yearly'
-            ? 'text-white'
-            : 'text-slate-400 hover:text-slate-200',
-        ].join(' ')}
-        style={billing === 'yearly' ? { background: '#7c3aed' } : {}}
-        aria-pressed={billing === 'yearly'}
-      >
-        Anual
-        <span
-          className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
-          style={{ background: '#10b98120', color: '#34d399' }}
+      {(['monthly', 'yearly'] as const).map((v) => (
+        <button
+          key={v}
+          onClick={() => onChange(v)}
+          aria-pressed={billing === v}
+          className={[
+            'px-3 py-1 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5',
+            billing === v
+              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm'
+              : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200',
+          ].join(' ')}
         >
-          -20%
-        </span>
-      </button>
+          {v === 'monthly' ? 'Mensal' : 'Anual'}
+          {v === 'yearly' && (
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+              -20%
+            </span>
+          )}
+        </button>
+      ))}
     </div>
   )
 }
 
-// ── Seção Self-Hosted ─────────────────────────────────────────────────────────
+// ── Self-Hosted card ──────────────────────────────────────────────────────────
 
 function SelfHostedCard() {
-  const contactUrl =
-    'https://wa.me/5571999999999?text=Olá%2C%20quero%20saber%20mais%20sobre%20o%20Pulse%20Self-Hosted'
-
   return (
-    <div
-      className="rounded-2xl border border-amber-700/40 p-6 flex flex-col gap-5"
-      style={{ background: '#1a1510' }}
-      aria-label="Plano Self-Hosted"
-    >
+    <div className="rounded-xl border border-amber-200 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-900/10 p-6 flex flex-col gap-4">
       <div className="flex items-start gap-3">
-        <div
-          className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-          style={{ background: '#92400e20' }}
-        >
-          <Server className="w-4.5 h-4.5 text-amber-400" aria-hidden="true" />
+        <div className="w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center flex-shrink-0">
+          <Server className="w-4 h-4 text-amber-600 dark:text-amber-400" aria-hidden="true" />
         </div>
         <div className="flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-sm font-semibold text-slate-100">Self-Hosted</p>
-            <span
-              className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-              style={{ background: '#92400e40', color: '#fbbf24' }}
-            >
+            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Self-Hosted</p>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-200 text-amber-800 dark:bg-amber-800/60 dark:text-amber-300">
               Licença única
             </span>
           </div>
-          <p className="text-2xl font-bold text-amber-300 mt-1">
+          <p className="text-2xl font-bold text-amber-700 dark:text-amber-400 mt-1">
             R$ 50.000
-            <span className="text-xs font-normal text-slate-400"> /ano</span>
+            <span className="text-xs font-normal text-slate-500 dark:text-slate-400"> /ano</span>
           </p>
         </div>
       </div>
 
-      <p className="text-xs text-slate-400 leading-relaxed">
-        Seus dados na sua infraestrutura. Deploy via Docker Compose ou K3s — sem
-        dependência de cloud externa. Controle total sobre retenção e conformidade.
+      <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+        Seus dados na sua infraestrutura. Deploy via Docker Compose ou K3s — sem dependência de cloud externa.
       </p>
 
       <ul className="space-y-1.5">
@@ -253,48 +214,40 @@ function SelfHostedCard() {
           'SLA 99,9% garantido em contrato',
           'SSO / SAML incluído',
         ].map((f) => (
-          <li key={f} className="flex items-center gap-2 text-xs text-slate-300">
-            <CheckCircle
-              className="w-3.5 h-3.5 flex-shrink-0 text-amber-400"
-              aria-hidden="true"
-            />
+          <li key={f} className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
+            <CheckCircle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" aria-hidden="true" />
             {f}
           </li>
         ))}
       </ul>
 
       <a
-        href={contactUrl}
+        href="https://wa.me/5571999999999?text=Olá%2C%20quero%20saber%20mais%20sobre%20o%20Pulse%20Self-Hosted"
         target="_blank"
         rel="noopener noreferrer"
-        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-colors"
-        style={{ background: '#92400e', color: '#fef3c7' }}
-        aria-label="Falar com o time sobre Self-Hosted"
+        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold bg-amber-600 hover:bg-amber-500 text-white transition-colors"
       >
         <MessageCircle className="w-4 h-4" aria-hidden="true" />
         Falar com o time
         <ExternalLink className="w-3 h-3" aria-hidden="true" />
       </a>
-
-      <p className="text-[11px] text-slate-500 text-center leading-relaxed">
-        Após o pagamento, você recebe uma{' '}
-        <code className="text-amber-400/80 font-mono">LICENSE_KEY</code> por email
-        para ativar sua instância.
-      </p>
     </div>
   )
 }
 
-// ── Seção B — Cards de planos ─────────────────────────────────────────────────
+// ── Cards de planos ───────────────────────────────────────────────────────────
 
-interface PlanCardsProps {
+function PlanCards({
+  currentPlan,
+  projectId,
+  billing,
+  onBillingChange,
+}: {
   currentPlan: string
   projectId: string
   billing: BillingCycle
   onBillingChange: (v: BillingCycle) => void
-}
-
-function PlanCards({ currentPlan, projectId, billing, onBillingChange }: PlanCardsProps) {
+}) {
   const currentRank = planRank(currentPlan)
 
   const resolvedPrice = (slug: PlanSlug): string => {
@@ -305,20 +258,22 @@ function PlanCards({ currentPlan, projectId, billing, onBillingChange }: PlanCar
 
   const upgradeUrl = (slug: PlanSlug): string => {
     const base = buildUpgradeURL(slug, projectId)
-    return billing === 'yearly' ? `${base.replace(`pulse-${slug}`, `pulse-${slug}-annual`)}&billing=yearly` : base
+    return billing === 'yearly'
+      ? `${base.replace(`pulse-${slug}`, `pulse-${slug}-annual`)}&billing=yearly`
+      : base
   }
 
   return (
     <section aria-label="Planos disponíveis">
       <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
         <div className="flex items-center gap-2">
-          <TrendingUp className="w-4 h-4 text-violet-400" aria-hidden="true" />
-          <h2 className="text-base font-semibold text-slate-100">Planos</h2>
+          <TrendingUp className="w-4 h-4 text-violet-500" aria-hidden="true" />
+          <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">Planos</h2>
         </div>
         <BillingToggle billing={billing} onChange={onBillingChange} />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
         {PLAN_DEFINITIONS.map((plan) => {
           const isCurrent = plan.slug === currentPlan
           const isDowngrade = planRank(plan.slug) < currentRank
@@ -328,83 +283,68 @@ function PlanCards({ currentPlan, projectId, billing, onBillingChange }: PlanCar
             <div
               key={plan.slug}
               className={[
-                'relative rounded-2xl border p-5 flex flex-col gap-4 transition-all',
-                plan.highlighted && !isCurrent
-                  ? 'border-violet-500/60 shadow-lg shadow-violet-900/20'
-                  : 'border-white/10',
+                'relative rounded-xl border p-5 flex flex-col gap-4 bg-white dark:bg-slate-900 transition-all',
+                isCurrent
+                  ? 'border-violet-400 dark:border-violet-600 ring-1 ring-violet-400/30 dark:ring-violet-600/30'
+                  : plan.highlighted
+                  ? 'border-violet-300 dark:border-violet-700 shadow-md shadow-violet-100 dark:shadow-violet-900/20'
+                  : 'border-slate-200 dark:border-slate-700',
               ].join(' ')}
-              style={{ background: '#110f1a' }}
             >
-              {plan.highlighted && (
-                <div
-                  className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-xs font-semibold"
-                  style={{ background: '#8B5CF6', color: '#fff' }}
-                >
-                  Mais popular
+              {(plan.highlighted || isCurrent) && (
+                <div className={`absolute -top-2.5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${
+                  isCurrent
+                    ? 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600'
+                    : 'bg-violet-600 text-white'
+                }`}>
+                  {isCurrent ? 'Plano atual' : 'Mais popular'}
                 </div>
               )}
 
-              {isCurrent && (
-                <div
-                  className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-xs font-semibold"
-                  style={{ background: '#1e293b', color: '#94a3b8', border: '1px solid #334155' }}
-                >
-                  Plano atual
-                </div>
-              )}
-
-              {/* Header */}
               <div>
-                <p className="text-sm font-semibold text-slate-100">{plan.label}</p>
-                <p className="text-2xl font-bold text-slate-100 mt-1">
-                  {resolvedPrice(plan.slug)}
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{plan.label}</p>
+                <div className="flex items-baseline gap-1 mt-1">
+                  <span className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                    {resolvedPrice(plan.slug)}
+                  </span>
                   {plan.priceMonthly !== null && plan.priceMonthly > 0 && (
-                    <span className="text-xs font-normal text-slate-400"> /mês</span>
+                    <span className="text-xs text-slate-400">/mês</span>
                   )}
-                </p>
+                </div>
                 {plan.slug !== 'free' && billing === 'yearly' && (
-                  <p className="text-[11px] text-emerald-400 mt-0.5">
-                    Cobrado anualmente — economize 20%
+                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-0.5">
+                    Economize 20% no anual
                   </p>
                 )}
               </div>
 
-              {/* Limites */}
               <ul className="space-y-1.5 flex-1">
-                <li className="flex items-center gap-2 text-xs text-slate-300">
-                  <BarChart3 className="w-3.5 h-3.5 text-violet-400 flex-shrink-0" aria-hidden="true" />
-                  {plan.eventsLabel}
-                </li>
-                <li className="flex items-center gap-2 text-xs text-slate-300">
-                  <Flag className="w-3.5 h-3.5 text-violet-400 flex-shrink-0" aria-hidden="true" />
-                  {plan.flagsLabel}
-                </li>
-                <li className="flex items-center gap-2 text-xs text-slate-300">
-                  <FolderOpen className="w-3.5 h-3.5 text-violet-400 flex-shrink-0" aria-hidden="true" />
-                  {plan.projectsLabel}
-                </li>
-
-                <li className="pt-2 border-t border-white/5">
-                  <ul className="space-y-1">
-                    {plan.features.map((f) => (
-                      <li key={f} className="flex items-start gap-1.5 text-xs text-slate-400">
-                        <CheckCircle
-                          className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0 mt-px"
-                          aria-hidden="true"
-                        />
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-                </li>
+                {[
+                  { icon: BarChart3, label: plan.eventsLabel },
+                  { icon: Flag, label: plan.flagsLabel },
+                  { icon: FolderOpen, label: plan.projectsLabel },
+                ].map(({ icon: Icon, label }) => (
+                  <li key={label} className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                    <Icon className="w-3.5 h-3.5 text-violet-500 flex-shrink-0" aria-hidden="true" />
+                    {label}
+                  </li>
+                ))}
+                {plan.features.length > 0 && (
+                  <li className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <ul className="space-y-1">
+                      {plan.features.map((f) => (
+                        <li key={f} className="flex items-start gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                          <CheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0 mt-px" aria-hidden="true" />
+                          {f}
+                        </li>
+                      ))}
+                    </ul>
+                  </li>
+                )}
               </ul>
 
-              {/* CTA */}
               {isCurrent ? (
-                <div
-                  className="w-full text-center py-2 rounded-lg text-xs font-medium text-slate-400"
-                  style={{ background: '#09080f' }}
-                >
+                <div className="w-full text-center py-2 rounded-lg text-xs font-medium text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-800">
                   Plano atual
                 </div>
               ) : isUpgrade ? (
@@ -412,18 +352,14 @@ function PlanCards({ currentPlan, projectId, billing, onBillingChange }: PlanCar
                   href={upgradeUrl(plan.slug)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-colors"
-                  style={{ background: '#8B5CF6', color: '#fff' }}
-                  aria-label={`Fazer upgrade para o plano ${plan.label}`}
+                  className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold bg-violet-600 hover:bg-violet-500 text-white transition-colors"
+                  aria-label={`Fazer upgrade para ${plan.label}`}
                 >
                   Fazer upgrade
                   <ExternalLink className="w-3 h-3" aria-hidden="true" />
                 </a>
               ) : isDowngrade ? (
-                <div
-                  className="w-full text-center py-2 rounded-lg text-xs font-medium text-slate-500"
-                  style={{ background: '#09080f' }}
-                >
+                <div className="w-full text-center py-2 rounded-lg text-xs font-medium text-slate-300 dark:text-slate-600 bg-slate-50 dark:bg-slate-800 cursor-not-allowed">
                   Plano inferior
                 </div>
               ) : null}
@@ -432,36 +368,22 @@ function PlanCards({ currentPlan, projectId, billing, onBillingChange }: PlanCar
         })}
       </div>
 
-      {/* Self-Hosted */}
       <SelfHostedCard />
     </section>
   )
 }
 
-// ── Seção C — Histórico de cobranças ─────────────────────────────────────────
-
-const PLAN_LABELS: Record<string, string> = {
-  free: 'Free',
-  starter: 'Starter',
-  growth: 'Growth',
-  pro: 'Pro',
-  enterprise: 'Enterprise',
-  internal: 'Internal',
-}
+// ── Histórico de cobranças ────────────────────────────────────────────────────
 
 interface HistoryItem {
   id: string
   project_id: string
-  project_name: string
-  project_slug: string
+  project_name: string | null
+  project_slug: string | null
   from_plan: string
   to_plan: string
   checkout_order_id: string
   created_at: string
-}
-
-interface BillingHistoryResponse {
-  history: HistoryItem[]
 }
 
 function BillingHistory() {
@@ -470,10 +392,8 @@ function BillingHistory() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    setLoading(true)
-    setError(null)
     api
-      .get<BillingHistoryResponse>('/billing/history')
+      .get<{ history: HistoryItem[] }>('/billing/history')
       .then((r) => setItems(r.data.history ?? []))
       .catch((err) => {
         const e = err as { response?: { data?: { error?: string } }; message?: string }
@@ -485,85 +405,56 @@ function BillingHistory() {
   return (
     <section aria-label="Histórico de cobranças">
       <div className="flex items-center gap-2 mb-4">
-        <Receipt className="w-4 h-4 text-violet-400" aria-hidden="true" />
-        <h2 className="text-base font-semibold text-slate-100">Histórico de cobranças</h2>
+        <Receipt className="w-4 h-4 text-violet-500" aria-hidden="true" />
+        <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">Histórico de cobranças</h2>
       </div>
 
-      <div
-        className="rounded-2xl border border-white/10 overflow-hidden"
-        style={{ background: '#110f1a' }}
-      >
+      <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
         {loading ? (
-          <div className="flex items-center justify-center gap-2 py-10 text-xs text-slate-500">
-            <RefreshCw className="w-4 h-4 animate-spin" aria-hidden="true" />
+          <div className="flex items-center justify-center gap-2 py-10 text-xs text-slate-400">
+            <RefreshCw className="w-4 h-4 animate-spin" />
             Carregando histórico...
           </div>
         ) : error ? (
-          <div className="px-4 py-8 text-center">
-            <p className="text-sm text-red-400">{error}</p>
-          </div>
+          <div className="px-4 py-8 text-center text-sm text-red-500 dark:text-red-400">{error}</div>
         ) : items.length === 0 ? (
-          <div className="px-4 py-10 text-center">
-            <div className="flex flex-col items-center gap-2">
-              <Receipt className="w-8 h-8 text-slate-700" aria-hidden="true" />
-              <p className="text-sm text-slate-500">Nenhuma cobrança encontrada</p>
-              <p className="text-xs text-slate-600">
-                As cobranças aparecerão aqui após o primeiro ciclo de faturamento.
-              </p>
-            </div>
+          <div className="px-4 py-10 text-center flex flex-col items-center gap-2">
+            <Receipt className="w-8 h-8 text-slate-300 dark:text-slate-600" />
+            <p className="text-sm text-slate-500">Nenhuma cobrança encontrada</p>
+            <p className="text-xs text-slate-400 dark:text-slate-600">
+              As cobranças aparecerão aqui após o primeiro ciclo de faturamento.
+            </p>
           </div>
         ) : (
-          <table className="w-full text-sm" role="table">
-            <thead>
-              <tr className="border-b border-white/10">
-                <th
-                  scope="col"
-                  className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider"
-                >
-                  Data
-                </th>
-                <th
-                  scope="col"
-                  className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider"
-                >
-                  Projeto
-                </th>
-                <th
-                  scope="col"
-                  className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider"
-                >
-                  De → Para
-                </th>
-                <th
-                  scope="col"
-                  className="px-4 py-3 text-right text-xs font-semibold text-slate-400 uppercase tracking-wider"
-                >
-                  Order ID
-                </th>
+          <table className="w-full text-sm">
+            <thead className="border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+              <tr>
+                {['Data', 'Projeto', 'Mudança de plano', 'Order ID'].map((h) => (
+                  <th key={h} scope="col" className="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    {h}
+                  </th>
+                ))}
               </tr>
             </thead>
-            <tbody>
-              {items.map((item, idx) => (
-                <tr
-                  key={item.id}
-                  className={idx < items.length - 1 ? 'border-b border-white/5' : ''}
-                >
-                  <td className="px-4 py-3 text-xs text-slate-300 whitespace-nowrap">
+            <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
+              {items.map((item) => (
+                <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                  <td className="px-4 py-3 text-xs text-slate-600 dark:text-slate-300 whitespace-nowrap">
                     {new Date(item.created_at).toLocaleDateString('pt-BR')}
                   </td>
                   <td className="px-4 py-3">
-                    <p className="text-xs font-medium text-slate-200">{item.project_name}</p>
-                    <p className="text-[11px] text-slate-500 font-mono">{item.project_slug}</p>
+                    <p className="text-xs font-medium text-slate-800 dark:text-slate-200">{item.project_name ?? '—'}</p>
+                    <p className="text-[11px] text-slate-400 font-mono">{item.project_slug ?? ''}</p>
                   </td>
                   <td className="px-4 py-3">
-                    <span className="inline-flex items-center gap-1.5 text-xs text-slate-300">
-                      <span className="text-slate-400">{PLAN_LABELS[item.from_plan] ?? item.from_plan}</span>
-                      <ArrowRight className="w-3 h-3 text-violet-400 flex-shrink-0" aria-hidden="true" />
-                      <span className="font-medium text-violet-300">{PLAN_LABELS[item.to_plan] ?? item.to_plan}</span>
+                    <span className="inline-flex items-center gap-1.5 text-xs">
+                      <span className="text-slate-500 dark:text-slate-400">{PLAN_LABELS[item.from_plan] ?? item.from_plan}</span>
+                      <ArrowRight className="w-3 h-3 text-violet-500 flex-shrink-0" />
+                      <span className="font-semibold text-violet-600 dark:text-violet-400">{PLAN_LABELS[item.to_plan] ?? item.to_plan}</span>
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right">
-                    <code className="text-[11px] font-mono text-slate-500">
+                  <td className="px-4 py-3">
+                    <code className="text-[11px] font-mono text-slate-400 dark:text-slate-500">
                       {item.checkout_order_id || '—'}
                     </code>
                   </td>
@@ -577,39 +468,18 @@ function BillingHistory() {
   )
 }
 
-// ── Skeleton de carregamento ──────────────────────────────────────────────────
+// ── Skeleton ──────────────────────────────────────────────────────────────────
 
 function BillingSkeleton() {
   return (
     <div className="space-y-8 animate-pulse">
-      <div className="rounded-2xl border border-white/10 p-6 h-48" style={{ background: '#110f1a' }} />
+      <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 h-48" />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[1, 2, 3, 4].map((i) => (
-          <div
-            key={i}
-            className="rounded-2xl border border-white/10 p-5 h-64"
-            style={{ background: '#110f1a' }}
-          />
+          <div key={i} className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 h-64" />
         ))}
       </div>
-      <div className="rounded-2xl border border-white/10 p-6 h-32" style={{ background: '#110f1a' }} />
-    </div>
-  )
-}
-
-// ── Estado: sem projeto selecionado ──────────────────────────────────────────
-
-function NoProjectSelected() {
-  return (
-    <div
-      className="rounded-2xl border border-white/10 p-12 text-center"
-      style={{ background: '#110f1a' }}
-    >
-      <FolderOpen className="w-10 h-10 text-slate-700 mx-auto mb-3" aria-hidden="true" />
-      <p className="text-sm font-medium text-slate-400">Nenhum projeto selecionado</p>
-      <p className="text-xs text-slate-600 mt-1">
-        Selecione um projeto no seletor do topo para ver o faturamento.
-      </p>
+      <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 h-32" />
     </div>
   )
 }
@@ -633,10 +503,9 @@ export default function Billing() {
       const data = await billingApi.getRecommendation(id)
       setRecommendation(data)
     } catch (err) {
-      const e = err as { response?: { data?: { error?: string } }; message?: string }
-      // Quando a API ainda não existe, montar dados mínimos a partir do projeto local
-      if ((err as { response?: { status?: number } }).response?.status === 404 || !e.response) {
-        const fallback: UpgradeRecommendation = {
+      const e = err as { response?: { data?: { error?: string }; status?: number }; message?: string }
+      if (e.response?.status === 404 || !e.response) {
+        setRecommendation({
           current_plan: selectedProject?.plan ?? 'free',
           recommended_plan: selectedProject?.plan ?? 'free',
           should_upgrade: false,
@@ -648,8 +517,7 @@ export default function Billing() {
           },
           call_to_action: '',
           upgrade_url: '',
-        }
-        setRecommendation(fallback)
+        })
       } else {
         setError(e?.response?.data?.error ?? e?.message ?? 'Falha ao carregar dados de faturamento')
       }
@@ -659,37 +527,28 @@ export default function Billing() {
   }, [selectedProject, projects.length])
 
   useEffect(() => {
-    if (projectId) {
-      void fetchRecommendation(projectId)
-    } else {
-      setRecommendation(null)
-    }
+    if (projectId) void fetchRecommendation(projectId)
+    else setRecommendation(null)
   }, [projectId, fetchRecommendation])
 
   return (
-    <div style={{ background: '#09080f', minHeight: '100%' }} className="space-y-8 pb-8">
+    <div className="space-y-8">
       {/* Cabeçalho */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div
-            className="w-9 h-9 rounded-lg flex items-center justify-center"
-            style={{ background: '#8B5CF620' }}
-          >
-            <CreditCard className="w-4.5 h-4.5" style={{ color: '#8B5CF6' }} aria-hidden="true" />
+          <div className="w-9 h-9 rounded-lg bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center">
+            <CreditCard className="w-4 h-4 text-violet-600 dark:text-violet-400" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-slate-100">Faturamento</h1>
-            <p className="text-sm text-slate-400 mt-0.5">
-              Gerencie seu plano e acompanhe o consumo
-            </p>
+            <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Faturamento</h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Gerencie seu plano e acompanhe o consumo</p>
           </div>
         </div>
-
         {projectId && (
           <button
             onClick={() => void fetchRecommendation(projectId)}
             disabled={loading}
-            className="p-2 rounded-lg text-slate-400 hover:bg-white/5 transition-colors disabled:opacity-50"
+            className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
             aria-label="Recarregar dados de faturamento"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -699,21 +558,20 @@ export default function Billing() {
 
       {/* Conteúdo */}
       {!projectId ? (
-        <NoProjectSelected />
+        <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-12 text-center">
+          <FolderOpen className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+          <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Nenhum projeto selecionado</p>
+          <p className="text-xs text-slate-400 dark:text-slate-600 mt-1">
+            Selecione um projeto no seletor do topo para ver o faturamento.
+          </p>
+        </div>
       ) : loading ? (
         <BillingSkeleton />
       ) : error ? (
-        <div
-          className="rounded-2xl border border-red-900/40 p-6 text-center"
-          style={{ background: '#110f1a' }}
-          role="alert"
-        >
-          <AlertTriangle className="w-8 h-8 text-red-500 mx-auto mb-2" aria-hidden="true" />
-          <p className="text-sm text-red-400">{error}</p>
-          <button
-            onClick={() => void fetchRecommendation(projectId)}
-            className="mt-3 text-xs text-red-300 underline"
-          >
+        <div className="rounded-xl border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/10 p-6 text-center" role="alert">
+          <AlertTriangle className="w-8 h-8 text-red-500 mx-auto mb-2" />
+          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+          <button onClick={() => void fetchRecommendation(projectId)} className="mt-3 text-xs text-red-500 underline">
             Tentar novamente
           </button>
         </div>

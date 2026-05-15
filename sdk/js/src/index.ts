@@ -125,6 +125,26 @@ export class PulseError extends Error {
   }
 }
 
+// --- URL override helper ---
+
+/**
+ * Lê ?pulse_override[flag_key]=on|off|variant_name da URL atual.
+ * Permite forçar um grupo de flag sem alterar o backend — útil para QA e demos.
+ * Retorna null se não há override para a flag.
+ */
+function getUrlOverride(flagKey: string): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    // Suporta ?pulse_override[flag_key]=valor
+    const val = params.get(`pulse_override[${flagKey}]`);
+    if (val !== null) return val.toLowerCase();
+  } catch {
+    // Ambiente sem URLSearchParams (ex: Node antigo) — ignora
+  }
+  return null;
+}
+
 // --- Client ---
 
 // BKL-1054: chave do localStorage para flags de fallback
@@ -259,6 +279,17 @@ export class PulseClient {
    */
   async isEnabled(key: string, defaultValue?: boolean): Promise<boolean> {
     validateKey(key);
+
+    // pulse_override[flag_key]=on|off|variant — override por URL para testes e QA.
+    // Funciona apenas no browser. Lido a cada chamada para refletir mudanças de URL.
+    if (typeof window !== "undefined") {
+      const override = getUrlOverride(key);
+      if (override === "on") return true;
+      if (override === "off") return false;
+      // Qualquer outro valor (nome de variante) é interpretado como ON
+      if (override !== null) return true;
+    }
+
     if (this.cachedFlags === null) {
       await this.getFlags();
     }
@@ -271,6 +302,17 @@ export class PulseClient {
       return defaultValue ?? this.defaults[key] ?? false;
     }
     return this.cachedFlags[key] === true;
+  }
+
+  /**
+   * Retorna o nome da variante forçada por URL, se houver.
+   * Útil quando o override é um nome de variante (ex: ?pulse_override[flag]=challenger).
+   */
+  getUrlVariantOverride(key: string): string | null {
+    if (typeof window === "undefined") return null;
+    const val = getUrlOverride(key);
+    if (val === null || val === "on" || val === "off") return null;
+    return val;
   }
 
   /**

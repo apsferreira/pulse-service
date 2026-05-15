@@ -392,6 +392,9 @@ func hashBucket(userID, flagKey string) int {
 	return int(num % 100)
 }
 
+// HashBucket é a versão exportada de hashBucket para uso no handler de preview.
+func HashBucket(userID, flagKey string) int { return hashBucket(userID, flagKey) }
+
 // GetVariants retorna a variante A/B selecionada para cada flag com variantes configuradas. BKL-094.
 // BKL-1027: filtra por projectID para isolar variantes por tenant.
 // BKL-1039: verifica prerequisites antes de incluir a variante.
@@ -462,6 +465,11 @@ func selectVariant(variants []domain.FlagVariant, userID, flagKey string) string
 		}
 	}
 	return variants[len(variants)-1].Key
+}
+
+// SelectVariantExported é a versão exportada de selectVariant para uso no handler de preview.
+func SelectVariantExported(variants []domain.FlagVariant, userID, flagKey string) string {
+	return selectVariant(variants, userID, flagKey)
 }
 
 // invalidateCache deletes the flags map cache key for a given project.

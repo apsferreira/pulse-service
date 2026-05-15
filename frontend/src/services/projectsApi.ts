@@ -10,6 +10,7 @@ export interface Project {
   plan: string
   mau_current?: number
   is_active: boolean
+  sdk_connected_at: string | null
   created_at: string
   updated_at?: string
 }

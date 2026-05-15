@@ -81,6 +81,19 @@ export interface TrackEventRequest {
   properties?: Record<string, unknown>;
 }
 
+export interface IdentifyRequest {
+  /** ID anônimo gerado antes do login (ex: "anon_x7k2p9...") */
+  anonymous_id: string;
+  /** ID real do usuário após autenticação */
+  user_id: string;
+}
+
+export interface IdentifyResponse {
+  merged_events: number;
+  anonymous_id: string;
+  user_id: string;
+}
+
 // BKL-1047: batch queue de eventos — acumula eventos e faz flush automático.
 export interface BatchQueueOptions {
   /** Intervalo de flush em ms (default: 5000) */
@@ -338,6 +351,23 @@ export class PulseClient {
       throw new PulseError("event_name is required");
     }
     return this.request<TrackEventResponse>("POST", "/api/v1/events/track", event);
+  }
+
+  /**
+   * Vincula um anonymousId ao userId real após login.
+   * Retroativamente associa todos os eventos pré-login ao usuário identificado.
+   *
+   * Fluxo típico:
+   *   1. Visitante acumula eventos com anonymousId (gerado no localStorage)
+   *   2. Usuário faz login → app obtém o userId real
+   *   3. Chama identify({ anonymous_id, user_id }) — merge retroativo no backend
+   *   4. A partir desse ponto, passar user_id nos eventos seguintes
+   */
+  async identify(req: IdentifyRequest): Promise<IdentifyResponse> {
+    if (!req.anonymous_id || !req.user_id) {
+      throw new PulseError("anonymous_id e user_id são obrigatórios");
+    }
+    return this.request<IdentifyResponse>("POST", "/api/v1/events/identify", req);
   }
 
   /**

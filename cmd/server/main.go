@@ -221,6 +221,8 @@ func main() {
 	// BKL-990: injeta approvalRepo no flagSvc para intercepção de require_approval=true
 	flagApprovalRepo := repository.NewFlagApprovalRepository(pool)
 	flagSvc.WithApprovalRepo(flagApprovalRepo)
+	// BKL-1074: injeta evalRepo no flagSvc para gravar audit log de avaliações
+	flagSvc.WithEvalRepo(flagEvalRepo)
 	flagApprovalHandler := handler.NewFlagApprovalHandler(flagApprovalRepo, cfg.ServiceToken)
 	flagApprovalHandler.RegisterRoutes(app)
 

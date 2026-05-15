@@ -21,18 +21,33 @@ O Pulse é uma plataforma de **product analytics e feature flags** que você ins
 
 ### Arquitetura
 
-```
-┌──────────────────────────────────────────────────────┐
-│                   pulse-backend (Go/Fiber)            │
-│  REST API  ·  SSE (flag stream)  ·  WebSocket (events)│
-│  Porta padrão: 3015                                   │
-└──────────┬─────────────────────────┬─────────────────┘
-           │                         │
-    ┌──────▼──────┐           ┌──────▼──────┐
-    │ PostgreSQL  │           │   Redis 7   │
-    │ (dados perm)│           │ (cache flags│
-    │             │           │  rate-limit)│
-    └─────────────┘           └─────────────┘
+```mermaid
+graph TB
+    subgraph Clientes
+        SDK[SDK JS/React/RN/Go]
+        Browser[Dashboard Browser]
+    end
+
+    subgraph pulse-backend Go/Fiber porta 3015
+        API[REST API\nadmin SERVICE_TOKEN\npublico X-Project-Key]
+        SSE[SSE /flags/stream\nflag updates tempo real]
+        WS[WebSocket /ws\neventos tempo real]
+        CDN[CDN /sdk/pulse.js]
+    end
+
+    subgraph Storage
+        PG[(PostgreSQL\ndados persistentes)]
+        Redis[(Redis DB6\ncache de flags\nrate-limit)]
+    end
+
+    Browser -->|HTTPS| API
+    Browser -->|EventSource| SSE
+    Browser -->|ws| WS
+    SDK -->|X-Project-Key| API
+    SDK -->|script tag| CDN
+    API --> PG
+    API --> Redis
+    SSE --> Redis
 ```
 
 O backend expõe:
@@ -185,11 +200,32 @@ PULSE_AUTH_MODE=local
 PULSE_JWT_SECRET=seu-secret-jwt-aqui   # openssl rand -hex 32 (opcional — usa SERVICE_TOKEN como fallback)
 ```
 
-Fluxo:
-1. `POST /api/v1/auth/setup` → cria primeiro admin (só funciona se não há usuários)
-2. `POST /api/v1/auth/login` → retorna JWT (válido por 24h)
-3. `GET /api/v1/auth/me` → valida token e retorna dados do usuário
-4. `POST /api/v1/auth/logout` → stateless (cliente descarta o token)
+```mermaid
+sequenceDiagram
+    participant U as Usuário
+    participant F as pulse-frontend
+    participant B as pulse-backend
+    participant DB as PostgreSQL
+
+    Note over B,DB: Primeiro acesso — tabela pulse_users vazia
+    U->>F: Acessa o dashboard
+    F->>B: POST /api/v1/auth/setup
+    B->>DB: INSERT pulse_users (admin)
+    B-->>F: JWT token
+    F-->>U: Redireciona para dashboard
+
+    Note over U,DB: Acessos subsequentes
+    U->>F: Login email + senha
+    F->>B: POST /api/v1/auth/login
+    B->>DB: Valida credenciais
+    B-->>F: JWT (24h)
+    F-->>U: Dashboard carregado
+
+    U->>F: Requisição autenticada
+    F->>B: GET /api/v1/... Bearer JWT
+    B->>B: Valida JWT com PULSE_JWT_SECRET
+    B-->>F: Dados
+```
 
 ### Opção B — Auth Externo (OAuth via auth-service)
 
@@ -200,7 +236,21 @@ PULSE_AUTH_MODE=external
 PULSE_AUTH_URL=https://auth.suaempresa.com
 ```
 
-Fluxo: o frontend redireciona para `PULSE_AUTH_URL` que completa o OAuth e emite um token aceito pelo Pulse.
+```mermaid
+sequenceDiagram
+    participant U as Usuário
+    participant F as pulse-frontend
+    participant A as auth-service externo
+    participant B as pulse-backend
+
+    U->>F: Acessa o dashboard
+    F->>A: Redireciona para PULSE_AUTH_URL
+    U->>A: Login SSO/OAuth
+    A-->>F: Redirect com token OAuth
+    F->>B: Requisições com token OAuth
+    B->>A: Valida token (opcional)
+    B-->>F: Dados autorizados
+```
 
 ---
 
@@ -427,6 +477,33 @@ X-Service-Token: seu-token-secreto-aqui
 
 O Pulse notifica clientes imediatamente quando uma flag muda, sem polling. Heartbeats a cada 30s mantêm a conexão viva.
 
+```mermaid
+sequenceDiagram
+    participant SDK as SDK/Cliente
+    participant B as pulse-backend
+    participant Redis as Redis cache
+    participant DB as PostgreSQL
+
+    SDK->>B: GET /flags?user_id=X&project_id=Y
+    B->>Redis: GET pulse:flags:project_id:map
+    alt Cache hit TTL 5min
+        Redis-->>B: flags em cache
+    else Cache miss
+        B->>DB: SELECT * FROM feature_flags WHERE project_id=Y
+        DB-->>B: flags do projeto
+        B->>Redis: SET pulse:flags:project_id:map TTL 300s
+    end
+    B->>B: Avalia cada flag para user_id X
+    Note over B: rollout hash, targeting, prerequisites
+    B-->>SDK: {flags: {flag-a: true, flag-b: false}}
+    B->>DB: INSERT flag_evaluations (audit log async)
+
+    Note over SDK,Redis: Flag atualizada no dashboard
+    SDK->>B: GET /flags/stream (SSE)
+    B-->>SDK: event: flag_updated data: {key, enabled}
+    SDK->>SDK: Atualiza estado local sem novo request
+```
+
 ---
 
 ## Segurança
@@ -472,18 +549,39 @@ server {
 
 ## Atualização
 
+```mermaid
+flowchart TD
+    A[Verificar CHANGELOG\nnova versão disponível] --> B[Fazer backup do banco]
+    B --> C[docker pull nova imagem]
+    C --> D{Há novas migrations?}
+    D -->|Sim| E[Aplicar migrations\nem ordem numérica]
+    D -->|Não| F[docker compose up -d]
+    E --> F
+    F --> G[Verificar GET /health]
+    G --> H{Retornou status ok?}
+    H -->|Sim| I[Atualização concluída]
+    H -->|Não| J[docker logs pulse-backend\nDiagnóstico]
+    J --> K[Rollback:\ndocker compose up -d com tag anterior]
+```
+
 ```bash
-# Baixar nova imagem
+# 1. Backup antes de tudo
+docker exec pulse-postgres pg_dump -U pulse pulse_db > backup-$(date +%Y%m%d).sql
+
+# 2. Baixar nova imagem
 docker pull ghcr.io/seu-org/pulse-service:latest
 docker pull ghcr.io/seu-org/pulse-frontend:latest
 
-# Aplicar novas migrations (verifique o CHANGELOG)
+# 3. Aplicar novas migrations (verifique o CHANGELOG)
 for f in migrations/NEW_*.sql; do
   docker exec -i pulse-postgres psql -U pulse -d pulse_db < "$f"
 done
 
-# Reiniciar
+# 4. Reiniciar
 docker compose -f docker-compose.selfhosted.yml up -d
+
+# 5. Validar
+curl http://localhost:3015/health
 ```
 
 Em produção, prefira tags semânticas em vez de `latest`:

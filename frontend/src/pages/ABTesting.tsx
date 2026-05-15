@@ -3,12 +3,13 @@
 // BKL-1001: Tab de análise Bayesiana (Beta distribution + Monte Carlo P(B > A))
 
 import { useState, useEffect, useCallback } from 'react'
-import { FlaskConical, ToggleLeft, TrendingUp, Users, BarChart2, CheckCircle, Clock, Atom } from 'lucide-react'
+import { FlaskConical, ToggleLeft, TrendingUp, Users, BarChart2, CheckCircle, Clock, Atom, Lock } from 'lucide-react'
 import { flagsApi, api, UpgradeRequiredError } from '../services/api'
 import type { FeatureFlag, FlagVariant } from '../services/api'
 import { useProject } from '../components/Layout'
 import UpgradeModal from '../components/UpgradeModal'
 import { useUpgradeGate } from '../hooks/useUpgradeGate'
+import { usePlanGate } from '../hooks/usePlanGate'
 
 // --- BKL-1049: Stat Analyzer Component ---
 
@@ -476,8 +477,9 @@ function BayesianAnalysis() {
 }
 
 export default function ABTesting() {
-  const { projectId, projectSlug } = useProject()
+  const { projectId, projectSlug, projectPlan } = useProject()
   const { gateState, triggerGate, closeGate } = useUpgradeGate()
+  const canUseAB = usePlanGate('starter')
   const [flags, setFlags] = useState<FeatureFlag[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -538,6 +540,34 @@ export default function ABTesting() {
           Experimentos do projeto <span className="font-medium text-violet-500">{projectSlug}</span>
         </p>
       </div>
+
+      {/* Gate de plano — A/B testing requer starter+ */}
+      {!canUseAB && (
+        <div className="rounded-xl border border-violet-500/30 bg-violet-950/30 p-5 flex items-start gap-4">
+          <div className="w-10 h-10 rounded-xl bg-violet-900/50 flex items-center justify-center flex-shrink-0">
+            <Lock className="w-5 h-5 text-violet-400" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-violet-200">A/B Testing disponível no plano Starter</p>
+            <p className="text-xs text-violet-300/70 mt-1">
+              Crie experimentos com múltiplas variantes, análise estatística com p-value e Monte Carlo.
+              Plano atual: <span className="font-medium capitalize">{projectPlan}</span>.
+            </p>
+          </div>
+          <button
+            onClick={() => triggerGate({
+              plan: projectPlan,
+              required_plan: 'starter',
+              upgrade_url: 'https://checkout-api.institutoitinerante.com.br/checkout?plan=pulse-starter',
+              message: 'Disponível no plano Starter (R$399/mês). Comece com 14 dias grátis.',
+              feature: 'usar A/B Testing',
+            })}
+            className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-violet-600 hover:bg-violet-500 transition-colors"
+          >
+            Ver planos
+          </button>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

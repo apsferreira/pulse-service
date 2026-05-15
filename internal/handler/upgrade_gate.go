@@ -44,3 +44,9 @@ func isPaidPlan(plan string) bool {
 	}
 	return false
 }
+
+// isUnlimitedPlan retorna true para planos sem gating de quota ou features.
+// enterprise e internal têm acesso irrestrito — self-hosted ou contrato especial.
+func isUnlimitedPlan(plan string) bool {
+	return plan == "pro" || plan == "enterprise" || plan == "internal"
+}

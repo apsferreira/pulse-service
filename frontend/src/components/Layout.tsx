@@ -13,12 +13,14 @@ interface LayoutProps {
 export interface ProjectCtxValue {
   projectId: string | null
   projectSlug: string | null
+  projectPlan: string
   setProjectId: (id: string | null) => void
 }
 
 export const ProjectCtx = createContext<ProjectCtxValue>({
   projectId: null,
   projectSlug: null,
+  projectPlan: 'free',
   setProjectId: () => {},
 })
 
@@ -57,6 +59,7 @@ export default function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuth()
   const selectedProject = projects.find((p) => p.id === projectId)
   const projectSlug = selectedProject?.slug ?? null
+  const projectPlan = selectedProject?.plan ?? 'free'
 
   const navItems = [
     { to: '/', label: 'Feature Flags', icon: Flag, end: true },
@@ -77,7 +80,7 @@ export default function Layout({ children }: LayoutProps) {
     ].join(' ')
 
   return (
-    <ProjectCtx.Provider value={{ projectId, projectSlug, setProjectId }}>
+    <ProjectCtx.Provider value={{ projectId, projectSlug, projectPlan, setProjectId }}>
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
       {/* Top bar */}
       <header className="sticky top-0 z-40 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-soft">

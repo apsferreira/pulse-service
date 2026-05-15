@@ -371,6 +371,10 @@ func main() {
 	userIdentityHandler := handler.NewUserIdentityHandler(userIdentityRepo, cfg.ServiceToken)
 	userIdentityHandler.RegisterRoutes(app)
 
+	// Página de Usuários — lista + timeline + identidades cross-produto
+	userInsightsHandler := handler.NewUserInsightsHandler(pool, cfg.ServiceToken)
+	userInsightsHandler.RegisterRoutes(app)
+
 	// BKL-865: Anomaly detection em métricas de eventos
 	anomalySvc := service.NewAnomalyService(pool)
 	anomalyHandler := handler.NewAnomalyHandler(anomalySvc, cfg.ServiceToken)

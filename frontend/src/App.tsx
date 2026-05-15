@@ -12,6 +12,7 @@ import Costs from './pages/Costs'
 import CSAT from './pages/CSAT'
 import LandingPage from './pages/LandingPage'
 import FlagAudit from './pages/FlagAudit'
+import UsersPage from './pages/Users'
 import Pricing from './pages/Pricing'
 import StatusPage from './pages/StatusPage'
 import LoginPage from './pages/LoginPage'
@@ -53,6 +54,7 @@ function App() {
                     <Route path="/costs" element={<Costs />} />
                     <Route path="/csat" element={<CSAT />} />
                     <Route path="/flags/audit" element={<FlagAudit />} />
+                    <Route path="/users" element={<UsersPage />} />
                     <Route path="/north-star" element={<NorthStarPage />} />
                     <Route path="/query-explorer" element={<QueryExplorer />} />
                     <Route path="/projects" element={<Projects />} />

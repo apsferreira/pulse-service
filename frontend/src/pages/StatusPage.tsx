@@ -1,6 +1,7 @@
 // BKL-1068: Status page pública — uptime dos serviços IIT sem autenticação.
-// Acesso: /status (rota pública registrada no App.tsx)
+// Acesso: /status (global) ou /status/:slug (filtrado por projeto)
 import { useEffect, useState } from 'react'
+import { useParams } from 'react-router-dom'
 import { CheckCircle2, XCircle, Clock, AlertCircle, RefreshCw } from 'lucide-react'
 import type { MonitorStatus } from '../services/pulseApi'
 
@@ -87,8 +88,15 @@ function OverallBanner({ statuses }: { statuses: MonitorStatus[] }) {
   )
 }
 
+interface SlugResponse {
+  project_slug: string
+  monitors: MonitorStatus[]
+}
+
 export default function StatusPage() {
+  const { slug } = useParams<{ slug?: string }>()
   const [statuses, setStatuses] = useState<MonitorStatus[]>([])
+  const [projectSlug, setProjectSlug] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
@@ -96,13 +104,25 @@ export default function StatusPage() {
   const load = () => {
     setLoading(true)
     setError(null)
-    fetchPublic<MonitorStatus[]>('/monitors')
-      .then(data => {
-        setStatuses(data ?? [])
-        setLastUpdated(new Date())
-      })
-      .catch(() => setError('Não foi possível carregar os dados de status.'))
-      .finally(() => setLoading(false))
+    if (slug) {
+      fetchPublic<SlugResponse>(`/status/${slug}`)
+        .then(data => {
+          setStatuses(data.monitors ?? [])
+          setProjectSlug(data.project_slug)
+          setLastUpdated(new Date())
+        })
+        .catch(() => setError('Não foi possível carregar os dados de status.'))
+        .finally(() => setLoading(false))
+    } else {
+      fetchPublic<MonitorStatus[]>('/monitors')
+        .then(data => {
+          setStatuses(data ?? [])
+          setProjectSlug(null)
+          setLastUpdated(new Date())
+        })
+        .catch(() => setError('Não foi possível carregar os dados de status.'))
+        .finally(() => setLoading(false))
+    }
   }
 
   useEffect(() => {
@@ -110,7 +130,8 @@ export default function StatusPage() {
     // Auto-refresh a cada 60s
     const id = setInterval(load, 60_000)
     return () => clearInterval(id)
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug])
 
   return (
     <div className="min-h-screen bg-[#F5F8FA] font-sans">
@@ -120,7 +141,9 @@ export default function StatusPage() {
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-[#0097D6] flex items-center justify-center text-white font-bold text-sm">IIT</div>
             <div>
-              <h1 className="text-base font-bold text-[#0D1B26]">Instituto Itinerante de Tecnologia</h1>
+              <h1 className="text-base font-bold text-[#0D1B26]">
+                {projectSlug ? `Status — ${projectSlug}` : 'Instituto Itinerante de Tecnologia'}
+              </h1>
               <p className="text-xs text-slate-500">Status dos Serviços</p>
             </div>
           </div>

@@ -272,6 +272,10 @@ func main() {
 	checkoutWebhookHandler := handler.NewCheckoutWebhookHandler(projectRepo, licenseHandler, cfg.ServiceToken)
 	checkoutWebhookHandler.RegisterRoutes(app)
 
+	// billing: histórico de mudanças de plano (plan_changes)
+	billingHistoryHandler := handler.NewBillingHistoryHandler(pool, cfg.ServiceToken)
+	billingHistoryHandler.RegisterRoutes(app)
+
 	// BKL-1058: Funis de conversão server-side (POST /api/v1/funnels/analyze)
 	funnelHandler := handler.NewFunnelHandler(pool, cfg.ServiceToken)
 	funnelHandler.RegisterRoutes(app)

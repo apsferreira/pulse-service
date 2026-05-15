@@ -65,6 +65,7 @@ type ProjectUpdateRequest struct {
 	Name        *string `json:"name,omitempty"`
 	Description *string `json:"description,omitempty"`
 	IsActive    *bool   `json:"is_active,omitempty"`
+	Plan        *string `json:"plan,omitempty"` // BKL-billing: free|starter|growth|pro|enterprise|internal
 }
 
 // ProjectListResponse agrupa projetos com total.

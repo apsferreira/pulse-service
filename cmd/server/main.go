@@ -104,6 +104,7 @@ func main() {
 	// Wire up layers — projects (BKL-099)
 	projectRepo := repository.NewProjectRepository(pool)
 	projectHandler := handler.NewProjectHandler(projectRepo, cfg.ServiceToken)
+	flagHandler.WithProjectRepo(projectRepo) // billing: gating de flags por plano
 
 	// Wire up layers — environments (BKL-1075)
 	environmentRepo := repository.NewEnvironmentRepository(pool)
@@ -259,6 +260,10 @@ func main() {
 	webhookHandler := handler.NewWebhookHandler(pool, cfg.ServiceToken)
 	webhookHandler.RegisterRoutes(app)
 	flagHandler.WithWebhookHandler(webhookHandler) // dispara flag.toggled ao atualizar flag
+
+	// billing: recebe confirmação de pagamento do checkout-service e atualiza plano
+	checkoutWebhookHandler := handler.NewCheckoutWebhookHandler(projectRepo, cfg.ServiceToken)
+	checkoutWebhookHandler.RegisterRoutes(app)
 
 	// BKL-1058: Funis de conversão server-side (POST /api/v1/funnels/analyze)
 	funnelHandler := handler.NewFunnelHandler(pool, cfg.ServiceToken)

@@ -253,6 +253,20 @@ func (r *FlagRepository) ActivateScheduledFlags(ctx context.Context) (int, int, 
 }
 
 // Delete removes a feature flag by key.
+// CountByProject retorna a quantidade de feature flags ativas em um projeto.
+// Usado para enforcement de limite de plano (ex: free = max 5 flags).
+func (r *FlagRepository) CountByProject(ctx context.Context, projectID string) (int, error) {
+	var count int
+	err := r.db.QueryRow(ctx,
+		`SELECT COUNT(*) FROM feature_flags WHERE project_id = $1::uuid`,
+		projectID,
+	).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("repository: CountByProject: %w", err)
+	}
+	return count, nil
+}
+
 func (r *FlagRepository) Delete(ctx context.Context, key string) error {
 	result, err := r.db.Exec(ctx, `DELETE FROM feature_flags WHERE key = $1`, key)
 	if err != nil {

@@ -16,7 +16,8 @@ var validKeyPattern = regexp.MustCompile(`^[a-zA-Z0-9_\-\.]{2,100}$`)
 
 type FlagHandler struct {
 	svc            service.FlagServicer
-	flagRepo       *repository.FlagRepository // BKL-1002: acesso direto para GetByKeyWithPrompt
+	flagRepo       *repository.FlagRepository    // BKL-1002: acesso direto para GetByKeyWithPrompt
+	projectRepo    *repository.ProjectRepository // billing: gating por plano
 	serviceToken   string
 	sseBroker      *FlagSSEBroker  // BKL-991: notifica subscribers SSE após updates
 	webhookHandler *WebhookHandler // BKL-1078: dispara webhook flag.toggled ao atualizar flag
@@ -29,6 +30,12 @@ func NewFlagHandler(svc service.FlagServicer, serviceToken string) *FlagHandler 
 // WithFlagRepo injeta o FlagRepository para operações que precisam de acesso direto. BKL-1002.
 func (h *FlagHandler) WithFlagRepo(repo *repository.FlagRepository) *FlagHandler {
 	h.flagRepo = repo
+	return h
+}
+
+// WithProjectRepo injeta o ProjectRepository para enforcement de limites por plano.
+func (h *FlagHandler) WithProjectRepo(repo *repository.ProjectRepository) *FlagHandler {
+	h.projectRepo = repo
 	return h
 }
 
@@ -129,6 +136,9 @@ func (h *FlagHandler) GetFlagByKey(c *fiber.Ctx) error {
 	return c.JSON(flag)
 }
 
+// freePlanFlagLimit é o número máximo de feature flags permitidas no plano free.
+const freePlanFlagLimit = 5
+
 // CreateFlag godoc
 // POST /api/v1/flags
 func (h *FlagHandler) CreateFlag(c *fiber.Ctx) error {
@@ -139,6 +149,21 @@ func (h *FlagHandler) CreateFlag(c *fiber.Ctx) error {
 
 	if !validKeyPattern.MatchString(req.Key) {
 		return c.Status(fiber.StatusBadRequest).JSON(domain.ErrorResponse{Error: "key must be 2-100 chars, alphanumeric/underscore/hyphen/dot only"})
+	}
+
+	// billing: enforce limite de flags por plano quando project_id informado
+	if req.ProjectID != nil && h.flagRepo != nil && h.projectRepo != nil {
+		projectIDStr := req.ProjectID.String()
+		proj, err := h.projectRepo.GetByID(c.Context(), projectIDStr)
+		if err == nil && proj != nil && proj.Plan == "free" {
+			count, cerr := h.flagRepo.CountByProject(c.Context(), projectIDStr)
+			if cerr == nil && count >= freePlanFlagLimit {
+				return c.Status(fiber.StatusPaymentRequired).JSON(fiber.Map{
+					"error":       "Limite de flags atingido no plano Free. Faça upgrade.",
+					"upgrade_url": "/checkout?plan=starter",
+				})
+			}
+		}
 	}
 
 	flag, err := h.svc.Create(c.Context(), req)

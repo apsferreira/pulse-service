@@ -125,7 +125,17 @@ func (r *ProjectRepository) List(ctx context.Context) ([]domain.Project, error) 
 	return projects, rows.Err()
 }
 
-// Update atualiza campos de um projeto.
+// validPlans contém os planos aceitos pelo Pulse.
+var validPlans = map[string]bool{
+	"free":       true,
+	"starter":    true,
+	"growth":     true,
+	"pro":        true,
+	"enterprise": true,
+	"internal":   true,
+}
+
+// Update atualiza campos de um projeto, incluindo plan e data_retention_days.
 func (r *ProjectRepository) Update(ctx context.Context, slug string, req domain.ProjectUpdateRequest) (*domain.Project, error) {
 	existing, err := r.GetBySlug(ctx, slug)
 	if err != nil {
@@ -144,15 +154,56 @@ func (r *ProjectRepository) Update(ctx context.Context, slug string, req domain.
 	if req.IsActive != nil {
 		existing.IsActive = *req.IsActive
 	}
+	if req.Plan != nil {
+		if !validPlans[*req.Plan] {
+			return nil, fmt.Errorf("repository: Update project: plano inválido: %q", *req.Plan)
+		}
+		existing.Plan = *req.Plan
+		existing.DataRetentionDays = retentionByPlan(*req.Plan)
+	}
 	existing.UpdatedAt = time.Now().UTC()
 
 	_, err = r.db.Exec(ctx, `
-		UPDATE projects SET name = $1, description = $2, is_active = $3, updated_at = $4 WHERE slug = $5
-	`, existing.Name, existing.Description, existing.IsActive, existing.UpdatedAt, slug)
+		UPDATE projects
+		SET name = $1, description = $2, is_active = $3, plan = $4, data_retention_days = $5, updated_at = $6
+		WHERE slug = $7
+	`, existing.Name, existing.Description, existing.IsActive, existing.Plan, existing.DataRetentionDays, existing.UpdatedAt, slug)
 	if err != nil {
 		return nil, fmt.Errorf("repository: Update project: %w", err)
 	}
 	return existing, nil
+}
+
+// UpdatePlan atualiza apenas o plano de um projeto e registra o audit em plan_changes.
+// Chamado pelo webhook de confirmação de pagamento do checkout-service.
+func (r *ProjectRepository) UpdatePlan(ctx context.Context, projectID, newPlan, orderID string) error {
+	if !validPlans[newPlan] {
+		return fmt.Errorf("repository: UpdatePlan: plano inválido: %q", newPlan)
+	}
+
+	var fromPlan string
+	err := r.db.QueryRow(ctx, `SELECT COALESCE(plan, 'free') FROM projects WHERE id = $1`, projectID).Scan(&fromPlan)
+	if err != nil {
+		return fmt.Errorf("repository: UpdatePlan: buscar projeto: %w", err)
+	}
+
+	retention := retentionByPlan(newPlan)
+	_, err = r.db.Exec(ctx, `
+		UPDATE projects SET plan = $1, data_retention_days = $2, updated_at = NOW() WHERE id = $3
+	`, newPlan, retention, projectID)
+	if err != nil {
+		return fmt.Errorf("repository: UpdatePlan: %w", err)
+	}
+
+	_, err = r.db.Exec(ctx, `
+		INSERT INTO plan_changes (project_id, from_plan, to_plan, checkout_order_id)
+		VALUES ($1, $2, $3, $4)
+	`, projectID, fromPlan, newPlan, orderID)
+	if err != nil {
+		return fmt.Errorf("repository: UpdatePlan: registrar audit: %w", err)
+	}
+
+	return nil
 }
 
 // RegenerateAPIKey gera uma nova API key para um projeto.

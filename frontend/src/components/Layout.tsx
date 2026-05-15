@@ -1,6 +1,6 @@
 import React, { useState, createContext, useContext } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Activity, Zap, Moon, Sun, FlaskConical, ChevronDown, LogOut, FolderOpen, Plus, Flag, CreditCard, Users, Globe } from 'lucide-react'
+import { LayoutDashboard, Activity, Zap, Moon, Sun, FlaskConical, ChevronDown, LogOut, FolderOpen, Plus, Flag, CreditCard, Users, Globe, ExternalLink } from 'lucide-react'
 import { useProjects } from '../hooks/useProjects'
 import { useProjectContext } from '../hooks/useProjectContext'
 import { useAuth } from '../context/AuthContext'
@@ -78,7 +78,6 @@ export default function Layout({ children }: LayoutProps) {
       label: 'Observabilidade',
       items: [
         { to: '/users', label: 'Usuários', icon: Users },
-        { to: '/status', label: 'Status Page', icon: Globe },
       ],
     },
     {
@@ -187,6 +186,19 @@ export default function Layout({ children }: LayoutProps) {
                             <Plus className="w-3.5 h-3.5" aria-hidden="true" />
                             Gerenciar projetos
                           </button>
+                          {projectSlug && (
+                            <a
+                              href={`/status/${projectSlug}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={() => setSelectorOpen(false)}
+                              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                            >
+                              <Globe className="w-3.5 h-3.5" aria-hidden="true" />
+                              Ver Status Page
+                              <ExternalLink className="w-3 h-3 ml-auto" />
+                            </a>
+                          )}
                         </div>
                       </div>
                     </div>

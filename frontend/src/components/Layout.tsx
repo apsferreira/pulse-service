@@ -1,6 +1,6 @@
 import React, { useState, createContext, useContext } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Activity, Zap, Moon, Sun, FlaskConical, ChevronDown, LogOut, FolderOpen, Plus, Flag, CreditCard, ClipboardList, Globe } from 'lucide-react'
+import { LayoutDashboard, Activity, Zap, Moon, Sun, FlaskConical, ChevronDown, LogOut, FolderOpen, Plus, Flag, CreditCard, Users, Globe } from 'lucide-react'
 import { useProjects } from '../hooks/useProjects'
 import { useProjectContext } from '../hooks/useProjectContext'
 import { useAuth } from '../context/AuthContext'
@@ -77,7 +77,7 @@ export default function Layout({ children }: LayoutProps) {
     {
       label: 'Observabilidade',
       items: [
-        { to: '/flags/audit', label: 'Auditoria', icon: ClipboardList },
+        { to: '/users', label: 'Usuários', icon: Users },
         { to: '/status', label: 'Status Page', icon: Globe },
       ],
     },

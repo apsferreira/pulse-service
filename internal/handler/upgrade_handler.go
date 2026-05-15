@@ -60,10 +60,12 @@ var planLimits = map[string]struct {
 	Events   int // por mês
 	Projects int // -1 = ilimitado
 }{
-	"free":    {Flags: 5, Events: 10_000, Projects: 1},
-	"starter": {Flags: -1, Events: 500_000, Projects: 3},
-	"growth":  {Flags: -1, Events: 2_000_000, Projects: 10},
-	"pro":     {Flags: -1, Events: -1, Projects: -1},
+	"free":       {Flags: 5, Events: 10_000, Projects: 1},
+	"starter":    {Flags: -1, Events: 500_000, Projects: 3},
+	"growth":     {Flags: -1, Events: 2_000_000, Projects: 10},
+	"pro":        {Flags: -1, Events: -1, Projects: -1},
+	"enterprise": {Flags: -1, Events: -1, Projects: -1},
+	"internal":   {Flags: -1, Events: -1, Projects: -1},
 }
 
 // planOrder para determinar próximo upgrade.
@@ -111,21 +113,25 @@ func (h *UpgradeHandler) getProjectPlan(ctx context.Context, projectID string) (
 
 // collectQuota coleta as métricas de uso do projeto.
 func (h *UpgradeHandler) collectQuota(ctx context.Context, projectID, plan string) (QuotaInfo, error) {
-	limits := planLimits[plan]
-	if limits.Flags == 0 {
-		limits = planLimits["free"] // fallback para plano desconhecido
+	limits, ok := planLimits[plan]
+	if !ok {
+		limits = planLimits["free"]
 	}
 
 	// Conta flags ativas no projeto
 	var flagsUsed int
 	_ = h.db.QueryRow(ctx, `SELECT COUNT(*) FROM feature_flags WHERE project_id = $1`, projectID).Scan(&flagsUsed)
 
-	// Conta eventos nos últimos 30 dias
+	// Conta eventos nos últimos 30 dias de todos os projetos da conta
 	var eventsLast30d int
 	since := time.Now().UTC().Add(-30 * 24 * time.Hour)
 	_ = h.db.QueryRow(ctx, `
 		SELECT COUNT(*) FROM events
-		WHERE properties->>'project_id' = $1 AND created_at >= $2
+		WHERE project_id IN (
+			SELECT id FROM projects WHERE owner_email = (
+				SELECT owner_email FROM projects WHERE id = $1
+			)
+		) AND created_at >= $2
 	`, projectID, since).Scan(&eventsLast30d)
 
 	// Conta projetos do tenant (usa owner_email para correlacionar tenants)

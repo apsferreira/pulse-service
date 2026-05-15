@@ -12,10 +12,16 @@ import {
   ChevronRight,
   FolderOpen,
   Server,
+  Zap,
+  ArrowRight,
 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { projectsApi } from '../services/projectsApi'
 import type { Project, Environment } from '../services/projectsApi'
+import { billingApi } from '../services/billingApi'
+import type { UpgradeRecommendation } from '../services/billingApi'
+import { useProject } from '../components/Layout'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -726,12 +732,68 @@ function ProjectCard({ project, onClick }: ProjectCardProps) {
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
+// ── Banner de upgrade (quota > 80% no plano free) ────────────────────────────
+
+interface UpgradeBannerProps {
+  recommendation: UpgradeRecommendation
+}
+
+function UpgradeBanner({ recommendation }: UpgradeBannerProps) {
+  const pct = Math.round(recommendation.quotaUsage)
+  return (
+    <div
+      className="flex items-center gap-3 rounded-xl border border-violet-500/40 px-4 py-3"
+      style={{ background: '#2e1065cc' }}
+      role="alert"
+    >
+      <Zap
+        className="w-4 h-4 flex-shrink-0"
+        style={{ color: '#a78bfa' }}
+        aria-hidden="true"
+      />
+      <p className="flex-1 text-sm text-violet-100">
+        Você usou <span className="font-semibold">{pct}%</span> da sua quota de eventos.
+        Considere fazer upgrade para continuar sem interrupções.
+      </p>
+      <Link
+        to="/billing"
+        className="flex items-center gap-1 text-xs font-semibold whitespace-nowrap"
+        style={{ color: '#a78bfa' }}
+        aria-label="Ver planos de upgrade disponíveis"
+      >
+        Ver planos
+        <ArrowRight className="w-3 h-3" aria-hidden="true" />
+      </Link>
+    </div>
+  )
+}
+
 export default function Projects() {
+  const { projectId } = useProject()
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
+  const [upgradeRecommendation, setUpgradeRecommendation] =
+    useState<UpgradeRecommendation | null>(null)
+
+  // Busca recomendação de upgrade para o projeto selecionado no contexto
+  useEffect(() => {
+    if (!projectId) {
+      setUpgradeRecommendation(null)
+      return
+    }
+    billingApi
+      .getRecommendation(projectId)
+      .then((data) => setUpgradeRecommendation(data))
+      .catch(() => setUpgradeRecommendation(null))
+  }, [projectId])
+
+  const showUpgradeBanner =
+    upgradeRecommendation !== null &&
+    upgradeRecommendation.currentPlan === 'free' &&
+    upgradeRecommendation.quotaUsage > 80
 
   const fetchProjects = useCallback(async () => {
     setLoading(true)
@@ -767,6 +829,9 @@ export default function Projects() {
 
   return (
     <div className="space-y-5">
+      {/* Banner de upgrade */}
+      {showUpgradeBanner && <UpgradeBanner recommendation={upgradeRecommendation} />}
+
       {/* KPI strip */}
       {!loading && (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">

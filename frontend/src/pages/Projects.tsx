@@ -475,11 +475,11 @@ function ProjectDetailModal({ project, onClose, onUpdated }: ProjectDetailModalP
                 <div>
                   <dt className="text-xs text-slate-400 dark:text-slate-500">Status</dt>
                   <dd className="flex items-center gap-1 mt-0.5">
-                    {project.is_active ? (
+                    {project.sdk_connected_at != null ? (
                       <>
                         <CheckCircle className="w-3.5 h-3.5 text-emerald-500" aria-hidden="true" />
                         <span className="text-emerald-600 dark:text-emerald-400 text-xs font-medium">
-                          Ativo
+                          SDK conectado
                         </span>
                       </>
                     ) : (
@@ -718,10 +718,10 @@ function ProjectCard({ project, onClick }: ProjectCardProps) {
 
       <div className="flex items-center gap-3 mt-4">
         {planBadge(project.plan)}
-        {project.is_active ? (
+        {project.sdk_connected_at != null ? (
           <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
             <CheckCircle className="w-3.5 h-3.5" aria-hidden="true" />
-            Ativo
+            SDK conectado
           </span>
         ) : (
           <span className="flex items-center gap-1 text-xs text-amber-500 dark:text-amber-400">

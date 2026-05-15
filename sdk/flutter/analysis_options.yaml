@@ -1,0 +1,11 @@
+include: package:flutter_lints/flutter.yaml
+
+linter:
+  rules:
+    - avoid_print: false  # SDK usa print para debug mode controlado por flag
+    - prefer_const_constructors: true
+    - prefer_final_fields: true
+    - prefer_single_quotes: true
+    - sort_child_properties_last: true
+    - unnecessary_this: true
+    - use_super_parameters: true

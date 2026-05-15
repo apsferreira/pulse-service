@@ -1,6 +1,6 @@
 import React, { useState, createContext, useContext } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Activity, Zap, Moon, Sun, HeartPulse, FlaskConical, ChevronDown, LogOut, FolderOpen, Plus, Flag } from 'lucide-react'
+import { LayoutDashboard, Activity, Zap, Moon, Sun, HeartPulse, FlaskConical, ChevronDown, LogOut, FolderOpen, Plus, Flag, CreditCard } from 'lucide-react'
 import { useProjects } from '../hooks/useProjects'
 import { useProjectContext } from '../hooks/useProjectContext'
 import { useAuth } from '../context/AuthContext'
@@ -65,6 +65,7 @@ export default function Layout({ children }: LayoutProps) {
     { to: '/events', label: 'Eventos', icon: Activity },
     { to: '/ab-testing', label: 'A/B Testing', icon: FlaskConical },
     { to: '/projects', label: 'Projetos', icon: FolderOpen },
+    { to: '/billing', label: 'Faturamento', icon: CreditCard },
   ]
 
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>

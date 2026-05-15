@@ -21,6 +21,7 @@ import QueryExplorer from './pages/QueryExplorer'
 import Projects from './pages/Projects'
 import Replay from './pages/Replay'
 import Approvals from './pages/Approvals'
+import Billing from './pages/Billing'
 
 function App() {
   return (
@@ -56,6 +57,7 @@ function App() {
                     <Route path="/projects" element={<Projects />} />
                     <Route path="/replay" element={<Replay />} />
                     <Route path="/approvals" element={<Approvals />} />
+                    <Route path="/billing" element={<Billing />} />
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
                 </Layout>

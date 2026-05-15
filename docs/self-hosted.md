@@ -24,7 +24,7 @@ O Pulse é uma plataforma de **product analytics e feature flags** que você ins
 ```mermaid
 graph TB
     subgraph Clientes
-        SDK[SDK JS/React/RN/Go]
+        SDK[SDK JS/Flutter/Go/Node]
         Browser[Dashboard Browser]
     end
 
@@ -58,15 +58,15 @@ O backend expõe:
 
 ### SDKs disponíveis
 
-| SDK | Ambiente | Instalação |
+| SDK | Ambiente | Como usar |
 |---|---|---|
-| JavaScript / CDN | Qualquer site via `<script>` | `<script src="https://seu-pulse.exemplo.com/sdk/pulse.js">` |
-| `@pulse/react` | React + TypeScript | `npm install @pulse/react` |
-| `@pulse/react-native` | Expo / React Native | `yarn add @pulse/react-native` |
-| Go | Backend Go | `go get github.com/seu-org/pulse-service/sdk/go` |
-| Node.js | Backend Node | `npm install @pulse/node` |
-| Android | Android (Kotlin) | `sdk/android/` |
-| iOS | iOS (Swift) | `sdk/ios/` |
+| JavaScript / CDN | Qualquer site via `<script>` | `<script src="https://seu-pulse.seudominio.com/sdk/pulse.js">` |
+| `@pulse/js` | React + TypeScript + Vite | `npm install @pulse/js` |
+| Flutter/Dart | Apps Flutter (Android/iOS) | `sdk/flutter/` no monorepo |
+| Android (Kotlin) | Android nativo | `sdk/android/` no monorepo |
+| iOS (Swift) | iOS nativo | `sdk/ios/` no monorepo |
+| Go | Backend Go | `sdk/go/` no monorepo |
+| Node.js | Backend Node | `sdk/node/` no monorepo |
 
 > Todos os SDKs exigem que você forneça a `apiUrl`/`baseURL` apontando para sua instância. Não há URL padrão embutida.
 
@@ -114,9 +114,15 @@ ADMIN_EMAIL=ops@seudominio.com
 # Resend (opcional — para e-mails de alertas operacionais)
 RESEND_API_KEY=re_xxxxxxxx
 RESEND_FROM=noreply@seudominio.com
+
+# Licença self-hosted (obrigatório para instâncias não-IIT)
+# Obtida em: https://pulse.institutoitinerante.com.br/self-hosted
+PULSE_LICENSE_KEY=pulse_lic_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
 > Gere tokens seguros com: `openssl rand -hex 32`
+
+> **Trial de 14 dias:** sem uma licença válida, o Pulse funciona normalmente por 14 dias. Após esse período, o dashboard entra em modo somente leitura — nenhum dado é perdido, mas criar/modificar flags e projetos fica bloqueado até ativar uma licença.
 
 ### Passo 2 — Subir os serviços
 
@@ -273,6 +279,7 @@ sequenceDiagram
 | `ADMIN_EMAIL` | Não | — | E-mail para alertas de churn crítico e notificações operacionais. |
 | `RESEND_API_KEY` | Não | — | API key do Resend para e-mails transacionais. |
 | `RESEND_FROM` | Não | — | Endereço de remetente. Ex: `noreply@seudominio.com`. |
+| `PULSE_LICENSE_KEY` | Não* | — | Chave de licença self-hosted. *Obrigatória após os 14 dias de trial para instâncias não-IIT. Obtida em `https://pulse.institutoitinerante.com.br/self-hosted`. |
 
 ### Frontend (`pulse-frontend`)
 
@@ -336,24 +343,30 @@ function MyComponent() {
 }
 ```
 
-### React Native / Expo
+### Flutter / Dart
 
-```bash
-yarn add @pulse/react-native @react-native-async-storage/async-storage
+```yaml
+# pubspec.yaml
+dependencies:
+  pulse_flutter:
+    path: ../pulse-service/sdk/flutter  # dev local
 ```
 
-```tsx
-import { PulseProvider, useFeatureFlag } from '@pulse/react-native'
+```dart
+import 'package:flutter/foundation.dart';
+import 'package:pulse_flutter/pulse_flutter.dart';
 
-<PulseProvider
-  config={{
-    apiUrl: 'https://pulse-api.seudominio.com',
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Pulse.init(
     projectKey: 'pk_live_xxxxxxxxxxxxxxxxxx',
-  }}
->
-  <RootNavigator />
-</PulseProvider>
+    debug: kDebugMode,
+  );
+  runApp(const MyApp());
+}
 ```
+
+Consulte [guides/sdk-reference.md](./guides/sdk-reference.md#flutter--dart) para a referência completa.
 
 ### Go
 

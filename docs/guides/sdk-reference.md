@@ -157,25 +157,60 @@ const variant = await PulseSDK.getVariant('ab_test_key', 'control')
 
 ---
 
-## React Native / Expo
+## Flutter / Dart
 
-```typescript
-import { PulseSDK } from '@pulse/react-native'
+Adicione o SDK ao `pubspec.yaml`:
 
-// App.tsx — uma vez
-PulseSDK.init({
-  projectKey: 'pulse_xxxx',
-  apiUrl: 'https://seu-pulse.seudominio.com',
-  // AsyncStorage é usado automaticamente para persistência
-})
+```yaml
+dependencies:
+  pulse_flutter:
+    path: ../pulse-service/sdk/flutter  # dev local
+    # ou via git:
+    # git:
+    #   url: https://github.com/apsferreira/pulse-service
+    #   path: sdk/flutter
+```
 
-// Hook
-import { useFeatureFlag } from '@pulse/react-native'
+### Inicialização
 
-function HomeScreen() {
-  const showBanner = useFeatureFlag('home_banner_v2')
-  return showBanner ? <BannerV2 /> : <BannerV1 />
+```dart
+// main.dart
+import 'package:flutter/foundation.dart';
+import 'package:pulse_flutter/pulse_flutter.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Pulse.init(
+    projectKey: 'librinho',
+    debug: kDebugMode,
+  );
+  runApp(const MyApp());
 }
+```
+
+### Rastrear eventos
+
+```dart
+Pulse.instance.track('book_scanned', properties: {'isbn': '978...'});
+```
+
+### Feature flags
+
+```dart
+final enabled = await Pulse.instance.isEnabled('new-reader-ui');
+```
+
+### Identificar usuário após login
+
+```dart
+Pulse.instance.identify(userId);
+```
+
+### Flush ao entrar em background
+
+```dart
+// No AppLifecycleListener ou em didChangeAppLifecycleState:
+Pulse.instance.flush();
 ```
 
 ---
@@ -285,7 +320,8 @@ PulseSDK.init({
 | Free | 10.000 | HTTP 429 — SDK armazena e tenta re-enviar no próximo ciclo |
 | Starter | 500.000 | HTTP 429 + header `X-Quota-Remaining` |
 | Growth | 2.000.000 | HTTP 429 + header `X-Quota-Remaining` |
-| Pro | Ilimitado | — |
+| Scale | 10.000.000 | HTTP 429 + header `X-Quota-Remaining` |
+| Self-Hosted | Ilimitado | — |
 
 Self-hosted: quotas são desabilitadas por padrão (variável `SELF_HOSTED=true`).
 
@@ -299,7 +335,7 @@ Self-hosted: quotas são desabilitadas por padrão (variável `SELF_HOSTED=true`
 | SSR (Next.js, Remix) | `@pulse/js` no client-side apenas (SSR guard obrigatório) |
 | Backend Go | `sdk/go` — avaliação server-side, sem latência de rede extra |
 | Backend Node | `@pulse/node` — ideal para microsserviços JS |
-| Mobile | `@pulse/react-native` — AsyncStorage para persistência offline |
+| Mobile Flutter (Android/iOS) | `pulse_flutter` em `sdk/flutter/` — persistência offline nativa |
 | Feature crítica de segurança | Avalie no backend — nunca confie em avaliação client-side |
 | Alta frequência de eventos (>100/s) | Use batch + `flushInterval` curto; monitore Redis |
 

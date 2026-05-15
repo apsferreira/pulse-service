@@ -8,7 +8,7 @@ Bem-vindo ao Pulse! Este guia leva você do zero até feature flags e event trac
 
 - Instância Pulse rodando (ver [self-hosted.md](../self-hosted.md)) ou acesso a uma instância existente
 - `SERVICE_TOKEN` (visível no `.env` ou nos secrets do Kubernetes)
-- Node.js 18+ (SDK JavaScript) ou Go 1.24+ (SDK Go)
+- Node.js 18+ (SDK JavaScript), Go 1.24+ (SDK Go) ou Flutter 3.x+ (SDK Flutter)
 
 ---
 
@@ -117,7 +117,41 @@ function Homepage() {
 
 ---
 
-## 4. Integrar o SDK Go (backend)
+## 4. Integrar o SDK Flutter (mobile)
+
+```yaml
+# pubspec.yaml
+dependencies:
+  pulse_flutter:
+    path: ../pulse-service/sdk/flutter  # dev local
+```
+
+```dart
+// main.dart
+import 'package:flutter/foundation.dart';
+import 'package:pulse_flutter/pulse_flutter.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Pulse.init(
+    projectKey: 'meu-app',
+    debug: kDebugMode,
+  );
+  runApp(const MyApp());
+}
+
+// Rastrear evento
+Pulse.instance.track('page_viewed', properties: {'page': '/home'});
+
+// Feature flag
+final enabled = await Pulse.instance.isEnabled('nova_homepage');
+```
+
+Consulte [sdk-reference.md](./sdk-reference.md#flutter--dart) para a referência completa do SDK Flutter.
+
+---
+
+## 5. Integrar o SDK Go (backend)
 
 ```bash
 go get github.com/seu-org/pulse-service/sdk/go
@@ -149,7 +183,7 @@ PULSE_URL=https://seu-pulse.seudominio.com
 
 ---
 
-## 5. Padrões de uso
+## 6. Padrões de uso
 
 ### Flag guard — rollout seguro
 
@@ -189,7 +223,7 @@ curl -X PUT $PULSE_API/api/v1/flags/nova_feature \
 
 ---
 
-## 6. Monitorar no dashboard
+## 7. Monitorar no dashboard
 
 1. Acesse `https://seu-pulse.seudominio.com` (porta `3016` em self-hosted)
 2. Selecione o projeto no seletor do topo
@@ -198,7 +232,7 @@ curl -X PUT $PULSE_API/api/v1/flags/nova_feature \
 
 ---
 
-## 7. Próximos passos
+## 8. Próximos passos
 
 - [sdk-reference.md](./sdk-reference.md) — referência completa de todos os SDKs
 - [ab-testing.md](./ab-testing.md) — criar e analisar testes A/B

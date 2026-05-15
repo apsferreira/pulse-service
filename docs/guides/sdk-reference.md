@@ -155,6 +155,25 @@ const isEnabled = await PulseSDK.getFeatureFlag('nova_feature', false)
 const variant = await PulseSDK.getVariant('ab_test_key', 'control')
 ```
 
+### Forçar grupo por URL (QA / demos)
+
+Para testar os dois lados de uma flag sem alterar o backend, adicione `pulse_override` na URL:
+
+```
+# Forçar ON
+https://seuapp.com/checkout?pulse_override[nome-da-flag]=on
+
+# Forçar OFF
+https://seuapp.com/checkout?pulse_override[nome-da-flag]=off
+
+# Forçar uma variante específica de A/B test
+https://seuapp.com/checkout?pulse_override[nome-da-flag]=challenger
+```
+
+O SDK JS lê esse parâmetro **automaticamente** a cada `isEnabled()` — nenhuma configuração necessária. Funciona em qualquer framework (React, Vue, Astro, vanilla).
+
+> **Onde gerar o link:** abra a flag no dashboard → clique em **Editar** → seção **Testar avaliação** → digite um `user_id` → o link de override é gerado e pode ser copiado com um clique.
+
 ---
 
 ## Flutter / Dart

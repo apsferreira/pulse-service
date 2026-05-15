@@ -13,6 +13,7 @@ package handler
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"time"
 
@@ -72,12 +73,14 @@ func (h *OverageHandler) Calculate(c *fiber.Ctx) error {
 	now := time.Now().UTC()
 	year, month := now.Year(), int(now.Month())
 
-	// Busca todos os projetos com planos que permitem overage (starter e growth)
+	// Busca todos os projetos com planos que permitem overage (starter e growth).
+	// O plano vem de accounts via JOIN; owner_email é usado para a chave Redis de quota.
 	rows, err := h.db.Query(c.Context(), `
-		SELECT id, COALESCE(plan, 'free'), COALESCE(name, id::text)
-		FROM projects
-		WHERE is_active = true
-		  AND COALESCE(plan, 'free') IN ('starter', 'growth')
+		SELECT p.id, COALESCE(a.plan, 'free'), COALESCE(p.name, p.id::text), p.owner_email
+		FROM projects p
+		JOIN accounts a ON a.email = p.owner_email
+		WHERE p.is_active = true
+		  AND a.plan IN ('starter', 'growth')
 	`)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "falha ao listar projetos"})
@@ -85,14 +88,15 @@ func (h *OverageHandler) Calculate(c *fiber.Ctx) error {
 	defer rows.Close()
 
 	type projectRow struct {
-		ID   string
-		Plan string
-		Name string
+		ID         string
+		Plan       string
+		Name       string
+		OwnerEmail string
 	}
 	var projects []projectRow
 	for rows.Next() {
 		var p projectRow
-		if err := rows.Scan(&p.ID, &p.Plan, &p.Name); err == nil {
+		if err := rows.Scan(&p.ID, &p.Plan, &p.Name, &p.OwnerEmail); err == nil {
 			projects = append(projects, p)
 		}
 	}
@@ -103,7 +107,7 @@ func (h *OverageHandler) Calculate(c *fiber.Ctx) error {
 
 	for _, proj := range projects {
 		limit := quotaLimitByPlan(proj.Plan)
-		consumed := h.getConsumedFromRedis(ctx, proj.ID, year, month)
+		consumed := h.getConsumedFromRedis(ctx, proj.OwnerEmail, year, month)
 
 		if consumed <= limit {
 			continue // sem overage
@@ -244,11 +248,13 @@ func (h *OverageHandler) Waive(c *fiber.Ctx) error {
 }
 
 // getConsumedFromRedis lê o contador de eventos do mês da chave Redis do quota middleware.
-func (h *OverageHandler) getConsumedFromRedis(ctx context.Context, projectID string, year, month int) int64 {
+// A chave é por account_email (mesmo esquema do middleware/quota.go).
+func (h *OverageHandler) getConsumedFromRedis(ctx context.Context, accountEmail string, year, month int) int64 {
 	if h.rdb == nil {
 		return 0
 	}
-	key := fmt.Sprintf("quota:pulse:project:%s:%d-%02d", projectID, year, month)
+	hh := sha256.Sum256([]byte(accountEmail))
+	key := fmt.Sprintf("quota:pulse:account:%x:%d-%02d", hh[:8], year, month)
 	val, err := h.rdb.Get(ctx, key).Int64()
 	if err != nil {
 		return 0

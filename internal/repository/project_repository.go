@@ -35,7 +35,7 @@ func generateAPIKey() (string, error) {
 // retentionByPlan retorna o número padrão de dias de retenção por plano.
 func retentionByPlan(plan string) int {
 	switch plan {
-	case "pro":
+	case "pro", "enterprise", "internal":
 		return 365
 	case "starter", "growth":
 		return 180
@@ -45,50 +45,60 @@ func retentionByPlan(plan string) int {
 }
 
 // Create insere um novo projeto com API key gerada automaticamente.
+// O plano não é mais armazenado no projeto — vem de accounts via JOIN.
+// owner_email é obrigatório: deve existir em accounts antes de chamar Create.
 func (r *ProjectRepository) Create(ctx context.Context, req domain.ProjectCreateRequest) (*domain.Project, error) {
 	apiKey, err := generateAPIKey()
 	if err != nil {
 		return nil, fmt.Errorf("repository: Create project: generate api key: %w", err)
 	}
 
-	plan := "free"
 	p := &domain.Project{
-		ID:                uuid.New().String(),
-		Name:              req.Name,
-		Slug:              req.Slug,
-		APIKey:            apiKey,
-		Description:       req.Description,
-		Plan:              plan,
-		DataRetentionDays: retentionByPlan(plan), // BKL-1037
-		IsActive:          true,
-		CreatedAt:         time.Now().UTC(),
-		UpdatedAt:         time.Now().UTC(),
+		ID:          uuid.New().String(),
+		Name:        req.Name,
+		Slug:        req.Slug,
+		APIKey:      apiKey,
+		Description: req.Description,
+		OwnerEmail:  req.OwnerEmail,
+		IsActive:    true,
+		CreatedAt:   time.Now().UTC(),
+		UpdatedAt:   time.Now().UTC(),
 	}
 
 	_, err = r.db.Exec(ctx, `
-		INSERT INTO projects (id, name, slug, api_key, description, plan, data_retention_days, is_active, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-	`, p.ID, p.Name, p.Slug, p.APIKey, p.Description, p.Plan, p.DataRetentionDays, p.IsActive, p.CreatedAt, p.UpdatedAt)
+		INSERT INTO projects (id, name, slug, api_key, description, owner_email, is_active, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+	`, p.ID, p.Name, p.Slug, p.APIKey, p.Description, p.OwnerEmail, p.IsActive, p.CreatedAt, p.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("repository: Create project: %w", err)
 	}
-	return p, nil
+
+	// Busca o projeto recém-criado com o plano da conta via JOIN.
+	return r.GetBySlug(ctx, p.Slug)
 }
 
-// GetBySlug retorna um projeto pelo slug.
+// GetBySlug retorna um projeto pelo slug com o plano vindo de accounts via JOIN.
 func (r *ProjectRepository) GetBySlug(ctx context.Context, slug string) (*domain.Project, error) {
 	row := r.db.QueryRow(ctx, `
-		SELECT id, name, slug, api_key, COALESCE(description, ''), COALESCE(plan, 'free'), COALESCE(data_retention_days, 90), is_active, sdk_connected_at, created_at, updated_at
-		FROM projects WHERE slug = $1
+		SELECT p.id, p.name, p.slug, p.api_key, COALESCE(p.description, ''),
+		       p.owner_email, COALESCE(a.plan, 'free'), COALESCE(a.data_retention_days, 90),
+		       p.is_active, p.sdk_connected_at, p.created_at, p.updated_at
+		FROM projects p
+		JOIN accounts a ON a.email = p.owner_email
+		WHERE p.slug = $1
 	`, slug)
 	return scanProject(row)
 }
 
-// GetByAPIKey retorna um projeto pela API key.
+// GetByAPIKey retorna um projeto pela API key com o plano vindo de accounts via JOIN.
 func (r *ProjectRepository) GetByAPIKey(ctx context.Context, apiKey string) (*domain.Project, error) {
 	row := r.db.QueryRow(ctx, `
-		SELECT id, name, slug, api_key, COALESCE(description, ''), COALESCE(plan, 'free'), COALESCE(data_retention_days, 90), is_active, sdk_connected_at, created_at, updated_at
-		FROM projects WHERE api_key = $1
+		SELECT p.id, p.name, p.slug, p.api_key, COALESCE(p.description, ''),
+		       p.owner_email, COALESCE(a.plan, 'free'), COALESCE(a.data_retention_days, 90),
+		       p.is_active, p.sdk_connected_at, p.created_at, p.updated_at
+		FROM projects p
+		JOIN accounts a ON a.email = p.owner_email
+		WHERE p.api_key = $1
 	`, apiKey)
 	return scanProject(row)
 }
@@ -103,11 +113,15 @@ func (r *ProjectRepository) MarkSDKConnected(ctx context.Context, apiKey string)
 	return err
 }
 
-// List retorna todos os projetos.
+// List retorna todos os projetos com plano vindo de accounts via JOIN.
 func (r *ProjectRepository) List(ctx context.Context) ([]domain.Project, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT id, name, slug, api_key, COALESCE(description, ''), COALESCE(plan, 'free'), COALESCE(data_retention_days, 90), is_active, sdk_connected_at, created_at, updated_at
-		FROM projects ORDER BY name ASC
+		SELECT p.id, p.name, p.slug, p.api_key, COALESCE(p.description, ''),
+		       p.owner_email, COALESCE(a.plan, 'free'), COALESCE(a.data_retention_days, 90),
+		       p.is_active, p.sdk_connected_at, p.created_at, p.updated_at
+		FROM projects p
+		JOIN accounts a ON a.email = p.owner_email
+		ORDER BY p.name ASC
 	`)
 	if err != nil {
 		return nil, fmt.Errorf("repository: List projects: %w", err)
@@ -117,7 +131,9 @@ func (r *ProjectRepository) List(ctx context.Context) ([]domain.Project, error) 
 	var projects []domain.Project
 	for rows.Next() {
 		p := &domain.Project{}
-		if err := rows.Scan(&p.ID, &p.Name, &p.Slug, &p.APIKey, &p.Description, &p.Plan, &p.DataRetentionDays, &p.IsActive, &p.SDKConnectedAt, &p.CreatedAt, &p.UpdatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.Name, &p.Slug, &p.APIKey, &p.Description,
+			&p.OwnerEmail, &p.Plan, &p.DataRetentionDays,
+			&p.IsActive, &p.SDKConnectedAt, &p.CreatedAt, &p.UpdatedAt); err != nil {
 			return nil, err
 		}
 		projects = append(projects, *p)
@@ -135,7 +151,8 @@ var validPlans = map[string]bool{
 	"internal":   true,
 }
 
-// Update atualiza campos de um projeto, incluindo plan e data_retention_days.
+// Update atualiza nome, descrição e status de um projeto.
+// Plan não é mais atualizado via projeto — use AccountRepository.UpdatePlan.
 func (r *ProjectRepository) Update(ctx context.Context, slug string, req domain.ProjectUpdateRequest) (*domain.Project, error) {
 	existing, err := r.GetBySlug(ctx, slug)
 	if err != nil {
@@ -154,47 +171,51 @@ func (r *ProjectRepository) Update(ctx context.Context, slug string, req domain.
 	if req.IsActive != nil {
 		existing.IsActive = *req.IsActive
 	}
-	if req.Plan != nil {
-		if !validPlans[*req.Plan] {
-			return nil, fmt.Errorf("repository: Update project: plano inválido: %q", *req.Plan)
-		}
-		existing.Plan = *req.Plan
-		existing.DataRetentionDays = retentionByPlan(*req.Plan)
-	}
 	existing.UpdatedAt = time.Now().UTC()
 
 	_, err = r.db.Exec(ctx, `
 		UPDATE projects
-		SET name = $1, description = $2, is_active = $3, plan = $4, data_retention_days = $5, updated_at = $6
-		WHERE slug = $7
-	`, existing.Name, existing.Description, existing.IsActive, existing.Plan, existing.DataRetentionDays, existing.UpdatedAt, slug)
+		SET name = $1, description = $2, is_active = $3, updated_at = $4
+		WHERE slug = $5
+	`, existing.Name, existing.Description, existing.IsActive, existing.UpdatedAt, slug)
 	if err != nil {
 		return nil, fmt.Errorf("repository: Update project: %w", err)
 	}
 	return existing, nil
 }
 
-// UpdatePlan atualiza apenas o plano de um projeto e registra o audit em plan_changes.
+// UpdatePlan atualiza o plano da conta dona do projeto e registra audit em plan_changes.
 // Chamado pelo webhook de confirmação de pagamento do checkout-service.
+// O plano agora fica em accounts; o project_id é usado para resolver o owner_email.
 func (r *ProjectRepository) UpdatePlan(ctx context.Context, projectID, newPlan, orderID string) error {
 	if !validPlans[newPlan] {
 		return fmt.Errorf("repository: UpdatePlan: plano inválido: %q", newPlan)
 	}
 
-	var fromPlan string
-	err := r.db.QueryRow(ctx, `SELECT COALESCE(plan, 'free') FROM projects WHERE id = $1`, projectID).Scan(&fromPlan)
+	// Resolve owner_email e plano atual a partir do projeto.
+	var ownerEmail, fromPlan string
+	err := r.db.QueryRow(ctx, `
+		SELECT p.owner_email, COALESCE(a.plan, 'free')
+		FROM projects p
+		JOIN accounts a ON a.email = p.owner_email
+		WHERE p.id = $1
+	`, projectID).Scan(&ownerEmail, &fromPlan)
 	if err != nil {
 		return fmt.Errorf("repository: UpdatePlan: buscar projeto: %w", err)
 	}
 
 	retention := retentionByPlan(newPlan)
+
+	// Atualiza o plano na tabela accounts (fonte de verdade).
 	_, err = r.db.Exec(ctx, `
-		UPDATE projects SET plan = $1, data_retention_days = $2, updated_at = NOW() WHERE id = $3
-	`, newPlan, retention, projectID)
+		UPDATE accounts SET plan = $1, data_retention_days = $2, updated_at = NOW()
+		WHERE email = $3
+	`, newPlan, retention, ownerEmail)
 	if err != nil {
-		return fmt.Errorf("repository: UpdatePlan: %w", err)
+		return fmt.Errorf("repository: UpdatePlan: atualizar account: %w", err)
 	}
 
+	// Audit trail: registra qual projeto disparou a mudança de plano.
 	_, err = r.db.Exec(ctx, `
 		INSERT INTO plan_changes (project_id, from_plan, to_plan, checkout_order_id)
 		VALUES ($1, $2, $3, $4)
@@ -222,11 +243,15 @@ func (r *ProjectRepository) RegenerateAPIKey(ctx context.Context, slug string) (
 	return r.GetBySlug(ctx, slug)
 }
 
-// GetByID retorna um projeto pelo UUID (necessário para endpoints /api/v1/projects/:id). BKL-998.
+// GetByID retorna um projeto pelo UUID com plano vindo de accounts via JOIN. BKL-998.
 func (r *ProjectRepository) GetByID(ctx context.Context, id string) (*domain.Project, error) {
 	row := r.db.QueryRow(ctx, `
-		SELECT id, name, slug, api_key, COALESCE(description, ''), COALESCE(plan, 'free'), COALESCE(data_retention_days, 90), is_active, sdk_connected_at, created_at, updated_at
-		FROM projects WHERE id = $1
+		SELECT p.id, p.name, p.slug, p.api_key, COALESCE(p.description, ''),
+		       p.owner_email, COALESCE(a.plan, 'free'), COALESCE(a.data_retention_days, 90),
+		       p.is_active, p.sdk_connected_at, p.created_at, p.updated_at
+		FROM projects p
+		JOIN accounts a ON a.email = p.owner_email
+		WHERE p.id = $1
 	`, id)
 	return scanProject(row)
 }
@@ -308,11 +333,14 @@ func applyHealthConfigDefaults(cfg *domain.ProjectHealthConfig) {
 	}
 }
 
-// Count retorna o número de projetos ativos.
+// Count retorna o número de projetos ativos de uma conta (owner_email).
 // Usado pelo gating de plano no ProjectHandler (criação de projetos).
-func (r *ProjectRepository) Count(ctx context.Context) (int, error) {
+func (r *ProjectRepository) Count(ctx context.Context, ownerEmail string) (int, error) {
 	var n int
-	err := r.db.QueryRow(ctx, `SELECT COUNT(*) FROM projects WHERE is_active = true`).Scan(&n)
+	err := r.db.QueryRow(ctx,
+		`SELECT COUNT(*) FROM projects WHERE owner_email = $1 AND is_active = true`,
+		ownerEmail,
+	).Scan(&n)
 	if err != nil {
 		return 0, fmt.Errorf("project_repository: Count: %w", err)
 	}
@@ -321,7 +349,11 @@ func (r *ProjectRepository) Count(ctx context.Context) (int, error) {
 
 func scanProject(row pgx.Row) (*domain.Project, error) {
 	p := &domain.Project{}
-	err := row.Scan(&p.ID, &p.Name, &p.Slug, &p.APIKey, &p.Description, &p.Plan, &p.DataRetentionDays, &p.IsActive, &p.SDKConnectedAt, &p.CreatedAt, &p.UpdatedAt)
+	err := row.Scan(
+		&p.ID, &p.Name, &p.Slug, &p.APIKey, &p.Description,
+		&p.OwnerEmail, &p.Plan, &p.DataRetentionDays,
+		&p.IsActive, &p.SDKConnectedAt, &p.CreatedAt, &p.UpdatedAt,
+	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil

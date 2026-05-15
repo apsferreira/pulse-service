@@ -11,12 +11,13 @@ import (
 
 // ProjectHandler gerencia endpoints CRUD de projetos. BKL-099.
 type ProjectHandler struct {
-	repo         *repository.ProjectRepository
+	repo        *repository.ProjectRepository
+	accountRepo *repository.AccountRepository
 	serviceToken string
 }
 
-func NewProjectHandler(repo *repository.ProjectRepository, serviceToken string) *ProjectHandler {
-	return &ProjectHandler{repo: repo, serviceToken: serviceToken}
+func NewProjectHandler(repo *repository.ProjectRepository, accountRepo *repository.AccountRepository, serviceToken string) *ProjectHandler {
+	return &ProjectHandler{repo: repo, accountRepo: accountRepo, serviceToken: serviceToken}
 }
 
 // RegisterRoutes registra as rotas de projetos.
@@ -68,19 +69,20 @@ func (h *ProjectHandler) CreateProject(c *fiber.Ctx) error {
 	if req.Name == "" || req.Slug == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(domain.ErrorResponse{Error: "name e slug são obrigatórios"})
 	}
+	if req.OwnerEmail == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(domain.ErrorResponse{Error: "owner_email é obrigatório"})
+	}
 
-	// billing: enforce limite de projetos por plano
-	// O plano em vigor é determinado pelo projeto de maior plano na instalação
-	projects, listErr := h.repo.List(c.Context())
-	if listErr == nil {
-		currentPlan := "free"
-		for _, p := range projects {
-			if planRank(p.Plan) > planRank(currentPlan) {
-				currentPlan = p.Plan
-			}
-		}
+	// billing: enforce limite de projetos por plano da conta
+	currentPlan, planErr := h.accountRepo.GetPlanByEmail(c.Context(), req.OwnerEmail)
+	if planErr != nil {
+		log.Printf("[project_handler] CreateProject: GetPlanByEmail %s: %v", req.OwnerEmail, planErr)
+		currentPlan = "free"
+	}
+	count, countErr := h.repo.Count(c.Context(), req.OwnerEmail)
+	if countErr == nil {
 		limit, ok := projectPlanLimit[currentPlan]
-		if ok && limit >= 0 && len(projects) >= limit {
+		if ok && limit >= 0 && count >= limit {
 			upgradeTo := projectPlanUpgrade[currentPlan]
 			if upgradeTo == "" {
 				upgradeTo = "pro"
@@ -95,25 +97,6 @@ func (h *ProjectHandler) CreateProject(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: "failed to create project"})
 	}
 	return c.Status(fiber.StatusCreated).JSON(project)
-}
-
-// planRank retorna um valor numérico para ordenar planos do menor para o maior.
-func planRank(plan string) int {
-	switch plan {
-	case "free":
-		return 0
-	case "starter":
-		return 1
-	case "growth":
-		return 2
-	case "pro":
-		return 3
-	case "enterprise":
-		return 4
-	case "internal":
-		return 5
-	}
-	return 0
 }
 
 // GetProject GET /api/v1/projects/:slug

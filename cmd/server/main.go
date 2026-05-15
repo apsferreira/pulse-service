@@ -104,7 +104,8 @@ func main() {
 
 	// Wire up layers — projects (BKL-099)
 	projectRepo := repository.NewProjectRepository(pool)
-	projectHandler := handler.NewProjectHandler(projectRepo, cfg.ServiceToken)
+	accountRepo := repository.NewAccountRepository(pool)
+	projectHandler := handler.NewProjectHandler(projectRepo, accountRepo, cfg.ServiceToken)
 	flagHandler.WithProjectRepo(projectRepo) // billing: gating de flags por plano
 
 	// Wire up layers — environments (BKL-1075)

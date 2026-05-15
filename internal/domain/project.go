@@ -4,17 +4,18 @@ import "time"
 
 // Project representa um projeto registrado no Pulse. BKL-099.
 type Project struct {
-	ID                string    `json:"id"`
-	Name              string    `json:"name"`
-	Slug              string    `json:"slug"`
-	APIKey            string    `json:"api_key"`
-	Description       string    `json:"description,omitempty"`
-	Plan              string    `json:"plan"`                // BKL-1077: free|starter|growth|pro
-	DataRetentionDays int       `json:"data_retention_days"` // BKL-1037: 90=free, 180=starter/growth, 365=pro
-	IsActive         bool       `json:"is_active"`
-	SDKConnectedAt   *time.Time `json:"sdk_connected_at"` // null = SDK ainda não conectou
-	CreatedAt        time.Time  `json:"created_at"`
-	UpdatedAt        time.Time  `json:"updated_at"`
+	ID                string     `json:"id"`
+	Name              string     `json:"name"`
+	Slug              string     `json:"slug"`
+	APIKey            string     `json:"api_key"`
+	Description       string     `json:"description,omitempty"`
+	OwnerEmail        string     `json:"owner_email"`
+	Plan              string     `json:"plan"`                // vem de accounts via JOIN — free|starter|growth|pro|enterprise|internal
+	DataRetentionDays int        `json:"data_retention_days"` // BKL-1037: 90=free, 180=starter/growth, 365=pro/enterprise/internal
+	IsActive          bool       `json:"is_active"`
+	SDKConnectedAt    *time.Time `json:"sdk_connected_at"` // null = SDK ainda não conectou
+	CreatedAt         time.Time  `json:"created_at"`
+	UpdatedAt         time.Time  `json:"updated_at"`
 }
 
 // HealthConfigWeights define os pesos de cada dimensão no cálculo do health score. BKL-998.
@@ -59,14 +60,15 @@ type ProjectCreateRequest struct {
 	Name        string `json:"name"`
 	Slug        string `json:"slug"`
 	Description string `json:"description,omitempty"`
+	OwnerEmail  string `json:"owner_email"` // obrigatório — deve existir em accounts
 }
 
 // ProjectUpdateRequest é o payload para PUT /api/v1/projects/:slug.
+// Plan foi removido: plano é atualizado via AccountRepository.UpdatePlan, não por projeto.
 type ProjectUpdateRequest struct {
 	Name        *string `json:"name,omitempty"`
 	Description *string `json:"description,omitempty"`
 	IsActive    *bool   `json:"is_active,omitempty"`
-	Plan        *string `json:"plan,omitempty"` // BKL-billing: free|starter|growth|pro|enterprise|internal
 }
 
 // ProjectListResponse agrupa projetos com total.

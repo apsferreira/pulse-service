@@ -56,9 +56,11 @@ func (h *AdminDashboardHandler) Overview(c *fiber.Ctx) error {
 	start30d := now.Add(-30 * 24 * time.Hour)
 
 	projectRows, err := h.db.Query(c.Context(), `
-		SELECT id, name, slug, COALESCE(plan, 'free')
-		FROM projects WHERE is_active = true
-		ORDER BY name ASC
+		SELECT p.id, p.name, p.slug, COALESCE(a.plan, 'free')
+		FROM projects p
+		JOIN accounts a ON a.email = p.owner_email
+		WHERE p.is_active = true
+		ORDER BY p.name ASC
 	`)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "falha ao listar projetos"})
@@ -163,8 +165,10 @@ func (h *AdminDashboardHandler) ProjectDetail(c *fiber.Ctx) error {
 
 	var projectID, projectName, plan string
 	err := h.db.QueryRow(c.Context(), `
-		SELECT id, name, COALESCE(plan, 'free')
-		FROM projects WHERE slug = $1 AND is_active = true
+		SELECT p.id, p.name, COALESCE(a.plan, 'free')
+		FROM projects p
+		JOIN accounts a ON a.email = p.owner_email
+		WHERE p.slug = $1 AND p.is_active = true
 	`, slug).Scan(&projectID, &projectName, &plan)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "projeto não encontrado"})
@@ -252,10 +256,12 @@ func (h *AdminDashboardHandler) MRR(c *fiber.Ctx) error {
 	}
 
 	rows, err := h.db.Query(c.Context(), `
-		SELECT COALESCE(plan, 'free'), COUNT(*) as count
-		FROM projects WHERE is_active = true
-		GROUP BY plan
-		ORDER BY plan
+		SELECT COALESCE(a.plan, 'free'), COUNT(*) as count
+		FROM projects p
+		JOIN accounts a ON a.email = p.owner_email
+		WHERE p.is_active = true
+		GROUP BY a.plan
+		ORDER BY a.plan
 	`)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "falha ao calcular MRR"})

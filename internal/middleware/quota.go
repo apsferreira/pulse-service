@@ -15,6 +15,7 @@ package middleware
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"time"
 
@@ -53,8 +54,14 @@ func QuotaEnforcement(rdb *redis.Client, billingURL string) fiber.Handler {
 			return c.Next()
 		}
 
+		// Chave de quota por account_email: todos os projetos da conta somam para a mesma cota.
+		accountEmail, _ := c.Locals("account_email").(string)
+		if accountEmail == "" {
+			accountEmail = projectID // fallback seguro para rotas sem account_email
+		}
+
 		limit := quotaByPlan(plan)
-		key := quotaKey(projectID)
+		key := quotaKey(accountEmail)
 		ctx := context.Background()
 
 		// Incrementa contador e garante TTL até fim do mês
@@ -95,16 +102,16 @@ func QuotaEnforcement(rdb *redis.Client, billingURL string) fiber.Handler {
 	}
 }
 
-// QuotaStatus retorna o consumo atual da quota do projeto sem incrementar.
+// QuotaStatus retorna o consumo atual da quota da conta sem incrementar.
 // Útil para endpoints de status/dashboard.
-func QuotaStatus(rdb *redis.Client, projectID, plan string) (consumed, limit int64, resetAt time.Time) {
+func QuotaStatus(rdb *redis.Client, accountEmail, plan string) (consumed, limit int64, resetAt time.Time) {
 	resetAt = endOfMonth()
 	if plan == "pro" || plan == "enterprise" || plan == "internal" {
 		return 0, -1, resetAt // -1 = ilimitado
 	}
 
 	limit = int64(quotaByPlan(plan))
-	key := quotaKey(projectID)
+	key := quotaKey(accountEmail)
 	ctx := context.Background()
 
 	val, err := rdb.Get(ctx, key).Int64()
@@ -114,11 +121,13 @@ func QuotaStatus(rdb *redis.Client, projectID, plan string) (consumed, limit int
 	return val, limit, resetAt
 }
 
-// quotaKey retorna a chave Redis para o contador mensal do projeto.
+// quotaKey retorna a chave Redis para o contador mensal da conta.
+// Usa os primeiros 8 bytes do SHA-256 do email para evitar caracteres especiais na chave.
 // Inclui ano+mês para reset automático no início de cada mês.
-func quotaKey(projectID string) string {
+func quotaKey(accountEmail string) string {
 	now := time.Now().UTC()
-	return fmt.Sprintf("quota:pulse:project:%s:%d-%02d", projectID, now.Year(), now.Month())
+	h := sha256.Sum256([]byte(accountEmail))
+	return fmt.Sprintf("quota:pulse:account:%x:%d-%02d", h[:8], now.Year(), now.Month())
 }
 
 // quotaByPlan retorna o limite mensal de eventos para o plano.

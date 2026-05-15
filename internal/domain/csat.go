@@ -57,11 +57,11 @@ type NPSResult struct {
 	SurveyID   uuid.UUID `json:"survey_id"`
 	Product    string    `json:"product"`
 	Total      int       `json:"total"`
-	Promoters  int       `json:"promoters"`  // score 9-10
-	Passives   int       `json:"passives"`   // score 7-8
-	Detractors int       `json:"detractors"` // score 0-6
-	NPS        float64   `json:"nps"`        // (promoters - detractors) / total * 100
-	AvgScore   float64   `json:"avg_score"`
+	Promoters  int       `json:"promoters"`   // score 9-10
+	Neutrals   int       `json:"neutrals"`    // score 7-8 (alias: passives)
+	Detractors int       `json:"detractors"`  // score 0-6
+	NPS        float64   `json:"nps_score"`   // (promoters - detractors) / total * 100
+	AvgScore   float64   `json:"average_score"`
 	Period     NPSPeriod `json:"period"`
 }
 

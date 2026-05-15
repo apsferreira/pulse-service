@@ -748,7 +748,7 @@ interface UpgradeBannerProps {
 }
 
 function UpgradeBanner({ recommendation }: UpgradeBannerProps) {
-  const pct = Math.round(recommendation.quotaUsage)
+  const pct = Math.round(recommendation.quota_usage?.events_pct ?? 0)
   return (
     <div
       className="flex items-center gap-3 rounded-xl border border-violet-500/40 px-4 py-3"
@@ -802,8 +802,8 @@ export default function Projects() {
 
   const showUpgradeBanner =
     upgradeRecommendation !== null &&
-    upgradeRecommendation.currentPlan === 'free' &&
-    upgradeRecommendation.quotaUsage > 80
+    upgradeRecommendation.current_plan === 'free' &&
+    (upgradeRecommendation.quota_usage?.events_pct ?? 0) > 80
 
   const fetchProjects = useCallback(async () => {
     setLoading(true)

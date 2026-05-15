@@ -4,17 +4,26 @@ import { api } from './api'
 
 export type PlanSlug = 'free' | 'starter' | 'growth' | 'pro'
 
+export interface QuotaInfo {
+  flags_used: number
+  flags_limit: number
+  flags_pct: number
+  events_last_30d: number
+  events_limit: number
+  events_pct: number
+  projects_used: number
+  projects_limit: number
+  projects_pct: number
+}
+
 export interface UpgradeRecommendation {
-  currentPlan: PlanSlug
-  quotaUsage: number        // 0-100 (percentual de eventos usados no mês)
-  shouldUpgrade: boolean
-  recommendedPlan: PlanSlug | null
-  upgradeURL: string | null
-  callToAction: string | null
-  activeFlagsCount: number
-  projectsCount: number
-  eventsUsed: number
-  eventsLimit: number
+  current_plan: string
+  recommended_plan: string
+  should_upgrade: boolean
+  triggers: string[]
+  quota_usage: QuotaInfo
+  call_to_action: string
+  upgrade_url: string
 }
 
 export interface PlanDefinition {

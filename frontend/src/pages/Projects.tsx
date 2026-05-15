@@ -21,7 +21,10 @@ import { projectsApi } from '../services/projectsApi'
 import type { Project, Environment } from '../services/projectsApi'
 import { billingApi } from '../services/billingApi'
 import type { UpgradeRecommendation } from '../services/billingApi'
+import { UpgradeRequiredError } from '../services/api'
 import { useProject } from '../components/Layout'
+import UpgradeModal from '../components/UpgradeModal'
+import { useUpgradeGate } from '../hooks/useUpgradeGate'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -65,9 +68,10 @@ function maskKey(key: string) {
 interface CreateProjectModalProps {
   onClose: () => void
   onSuccess: (p: Project) => void
+  onUpgradeRequired: (err: UpgradeRequiredError) => void
 }
 
-function CreateProjectModal({ onClose, onSuccess }: CreateProjectModalProps) {
+function CreateProjectModal({ onClose, onSuccess, onUpgradeRequired }: CreateProjectModalProps) {
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
   const [plan, setPlan] = useState('free')
@@ -94,6 +98,11 @@ function CreateProjectModal({ onClose, onSuccess }: CreateProjectModalProps) {
       toast.success(`Projeto "${project.name}" criado`)
       onSuccess(project)
     } catch (err) {
+      if (err instanceof UpgradeRequiredError) {
+        onClose()
+        onUpgradeRequired(err)
+        return
+      }
       const e = err as { response?: { data?: { error?: string } }; message?: string }
       toast.error(e?.response?.data?.error ?? 'Falha ao criar projeto')
     } finally {
@@ -770,6 +779,7 @@ function UpgradeBanner({ recommendation }: UpgradeBannerProps) {
 
 export default function Projects() {
   const { projectId } = useProject()
+  const { gateState, triggerGate, closeGate } = useUpgradeGate()
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -945,6 +955,16 @@ export default function Projects() {
         <CreateProjectModal
           onClose={() => setCreateModalOpen(false)}
           onSuccess={handleCreated}
+          onUpgradeRequired={(err) => {
+            setCreateModalOpen(false)
+            triggerGate({
+              plan: err.plan,
+              upgrade_url: err.upgradeUrl,
+              message: err.message,
+              required_plan: err.required_plan,
+              feature: 'criar um novo projeto',
+            })
+          }}
         />
       )}
       {selectedProject && (
@@ -954,6 +974,15 @@ export default function Projects() {
           onUpdated={handleUpdated}
         />
       )}
+      <UpgradeModal
+        isOpen={gateState.isOpen}
+        onClose={closeGate}
+        currentPlan={gateState.currentPlan}
+        requiredPlan={gateState.requiredPlan}
+        feature={gateState.feature}
+        upgradeUrl={gateState.upgradeUrl}
+        message={gateState.message}
+      />
     </div>
   )
 }

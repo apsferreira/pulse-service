@@ -222,6 +222,22 @@ export default function Layout({ children }: LayoutProps) {
         )}
       </header>
 
+      {/* Banner plano free */}
+      {selectedProject?.plan === 'free' && (
+        <div className="bg-violet-950/60 border-b border-violet-800/40 px-4 py-2 flex items-center justify-between text-sm">
+          <span className="text-violet-200">
+            Voce esta no plano Free &mdash;{' '}
+            <strong>14 dias gratis</strong> para testar qualquer plano pago
+          </span>
+          <a
+            href="/billing"
+            className="bg-violet-600 hover:bg-violet-500 text-white px-3 py-1 rounded-lg font-semibold text-xs transition-colors"
+          >
+            Ver planos
+          </a>
+        </div>
+      )}
+
       {/* Main content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {children}

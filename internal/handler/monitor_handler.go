@@ -23,6 +23,7 @@ func (h *MonitorHandler) RegisterRoutes(app *fiber.App) {
 	// Public endpoints
 	api.Get("/monitors", h.ListMonitors)
 	api.Get("/monitors/:id/history", h.GetHistory)
+	api.Get("/status/:slug", h.GetStatusBySlug)
 
 	// Admin endpoints — require service token
 	admin := api.Group("/monitors", middleware.ServiceTokenMiddleware(h.serviceToken))
@@ -91,6 +92,25 @@ func (h *MonitorHandler) DeleteMonitor(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: err.Error()})
 	}
 	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// GetStatusBySlug godoc
+// GET /api/v1/status/:slug
+func (h *MonitorHandler) GetStatusBySlug(c *fiber.Ctx) error {
+	slug := c.Params("slug")
+	if slug == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(domain.ErrorResponse{Error: "missing slug"})
+	}
+
+	statuses, err := h.svc.ListByProjectSlug(c.Context(), slug)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: err.Error()})
+	}
+
+	return c.JSON(fiber.Map{
+		"project_slug": slug,
+		"monitors":     statuses,
+	})
 }
 
 // GetHistory godoc

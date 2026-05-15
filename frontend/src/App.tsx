@@ -32,6 +32,7 @@ function App() {
           <Route path="/landing" element={<LandingPage />} />
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/status" element={<StatusPage />} />
+          <Route path="/status/:slug" element={<StatusPage />} />
           <Route path="/login" element={<LoginPage />} />
           {/* BKL-1115: recebe access_token + refresh_token do auth-service após login OTP */}
           <Route path="/auth/callback" element={<AuthCallbackPage />} />

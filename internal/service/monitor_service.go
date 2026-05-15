@@ -216,6 +216,26 @@ func (s *MonitorService) StartBackgroundChecker() {
 	}()
 }
 
+// ListByProjectSlug returns all active monitors for the given project slug with their stats.
+func (s *MonitorService) ListByProjectSlug(ctx context.Context, slug string) ([]domain.MonitorStatus, error) {
+	monitors, err := s.repo.GetByProjectSlug(ctx, slug)
+	if err != nil {
+		return nil, fmt.Errorf("monitor_service: ListByProjectSlug: %w", err)
+	}
+
+	statuses := make([]domain.MonitorStatus, 0, len(monitors))
+	for _, m := range monitors {
+		ms, err := s.buildStatus(ctx, m)
+		if err != nil {
+			log.Printf("monitor_service: ListByProjectSlug build status for %s: %v", m.ID, err)
+			statuses = append(statuses, domain.MonitorStatus{Monitor: m})
+			continue
+		}
+		statuses = append(statuses, ms)
+	}
+	return statuses, nil
+}
+
 // buildStatus assembles a MonitorStatus by fetching last check and 24h stats.
 func (s *MonitorService) buildStatus(ctx context.Context, m domain.Monitor) (domain.MonitorStatus, error) {
 	lastCheck, err := s.repo.GetLastCheck(ctx, m.ID)

@@ -14,6 +14,7 @@ import {
   Server,
   Zap,
   ArrowRight,
+  Globe,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
@@ -719,10 +720,21 @@ function ProjectCard({ project, onClick }: ProjectCardProps) {
       <div className="flex items-center gap-3 mt-4">
         {planBadge(project.plan)}
         {project.sdk_connected_at != null ? (
-          <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
-            <CheckCircle className="w-3.5 h-3.5" aria-hidden="true" />
-            SDK conectado
-          </span>
+          <>
+            <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+              <CheckCircle className="w-3.5 h-3.5" aria-hidden="true" />
+              SDK conectado
+            </span>
+            <Link
+              to={`/status/${project.slug}`}
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center gap-1 text-xs text-slate-500 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
+              title="Ver status page pública"
+            >
+              <Globe className="w-3.5 h-3.5" aria-hidden="true" />
+              Status
+            </Link>
+          </>
         ) : (
           <span className="flex items-center gap-1 text-xs text-amber-500 dark:text-amber-400">
             <Server className="w-3.5 h-3.5" aria-hidden="true" />

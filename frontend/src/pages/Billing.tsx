@@ -12,7 +12,9 @@ import {
   FolderOpen,
   Server,
   MessageCircle,
+  ArrowRight,
 } from 'lucide-react'
+import api from '../services/api'
 import { useProject } from '../components/Layout'
 import { useProjects } from '../hooks/useProjects'
 import {
@@ -438,7 +440,48 @@ function PlanCards({ currentPlan, projectId, billing, onBillingChange }: PlanCar
 
 // ── Seção C — Histórico de cobranças ─────────────────────────────────────────
 
+const PLAN_LABELS: Record<string, string> = {
+  free: 'Free',
+  starter: 'Starter',
+  growth: 'Growth',
+  pro: 'Pro',
+  enterprise: 'Enterprise',
+  internal: 'Internal',
+}
+
+interface HistoryItem {
+  id: string
+  project_id: string
+  project_name: string
+  project_slug: string
+  from_plan: string
+  to_plan: string
+  checkout_order_id: string
+  created_at: string
+}
+
+interface BillingHistoryResponse {
+  history: HistoryItem[]
+}
+
 function BillingHistory() {
+  const [items, setItems] = useState<HistoryItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setLoading(true)
+    setError(null)
+    api
+      .get<BillingHistoryResponse>('/billing/history')
+      .then((r) => setItems(r.data.history ?? []))
+      .catch((err) => {
+        const e = err as { response?: { data?: { error?: string } }; message?: string }
+        setError(e?.response?.data?.error ?? e?.message ?? 'Falha ao carregar histórico')
+      })
+      .finally(() => setLoading(false))
+  }, [])
+
   return (
     <section aria-label="Histórico de cobranças">
       <div className="flex items-center gap-2 mb-4">
@@ -450,52 +493,85 @@ function BillingHistory() {
         className="rounded-2xl border border-white/10 overflow-hidden"
         style={{ background: '#110f1a' }}
       >
-        <table className="w-full text-sm" role="table">
-          <thead>
-            <tr className="border-b border-white/10">
-              <th
-                scope="col"
-                className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider"
-              >
-                Data
-              </th>
-              <th
-                scope="col"
-                className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider"
-              >
-                Plano
-              </th>
-              <th
-                scope="col"
-                className="px-4 py-3 text-right text-xs font-semibold text-slate-400 uppercase tracking-wider"
-              >
-                Valor
-              </th>
-              <th
-                scope="col"
-                className="px-4 py-3 text-right text-xs font-semibold text-slate-400 uppercase tracking-wider"
-              >
-                Status
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td colSpan={4} className="px-4 py-10 text-center">
-                <div className="flex flex-col items-center gap-2">
-                  <Receipt
-                    className="w-8 h-8 text-slate-700"
-                    aria-hidden="true"
-                  />
-                  <p className="text-sm text-slate-500">Nenhuma cobrança encontrada</p>
-                  <p className="text-xs text-slate-600">
-                    As cobranças aparecerão aqui após o primeiro ciclo de faturamento.
-                  </p>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        {loading ? (
+          <div className="flex items-center justify-center gap-2 py-10 text-xs text-slate-500">
+            <RefreshCw className="w-4 h-4 animate-spin" aria-hidden="true" />
+            Carregando histórico...
+          </div>
+        ) : error ? (
+          <div className="px-4 py-8 text-center">
+            <p className="text-sm text-red-400">{error}</p>
+          </div>
+        ) : items.length === 0 ? (
+          <div className="px-4 py-10 text-center">
+            <div className="flex flex-col items-center gap-2">
+              <Receipt className="w-8 h-8 text-slate-700" aria-hidden="true" />
+              <p className="text-sm text-slate-500">Nenhuma cobrança encontrada</p>
+              <p className="text-xs text-slate-600">
+                As cobranças aparecerão aqui após o primeiro ciclo de faturamento.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <table className="w-full text-sm" role="table">
+            <thead>
+              <tr className="border-b border-white/10">
+                <th
+                  scope="col"
+                  className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider"
+                >
+                  Data
+                </th>
+                <th
+                  scope="col"
+                  className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider"
+                >
+                  Projeto
+                </th>
+                <th
+                  scope="col"
+                  className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider"
+                >
+                  De → Para
+                </th>
+                <th
+                  scope="col"
+                  className="px-4 py-3 text-right text-xs font-semibold text-slate-400 uppercase tracking-wider"
+                >
+                  Order ID
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item, idx) => (
+                <tr
+                  key={item.id}
+                  className={idx < items.length - 1 ? 'border-b border-white/5' : ''}
+                >
+                  <td className="px-4 py-3 text-xs text-slate-300 whitespace-nowrap">
+                    {new Date(item.created_at).toLocaleDateString('pt-BR')}
+                  </td>
+                  <td className="px-4 py-3">
+                    <p className="text-xs font-medium text-slate-200">{item.project_name}</p>
+                    <p className="text-[11px] text-slate-500 font-mono">{item.project_slug}</p>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="inline-flex items-center gap-1.5 text-xs text-slate-300">
+                      <span className="text-slate-400">{PLAN_LABELS[item.from_plan] ?? item.from_plan}</span>
+                      <ArrowRight className="w-3 h-3 text-violet-400 flex-shrink-0" aria-hidden="true" />
+                      <span className="font-medium text-violet-300">{PLAN_LABELS[item.to_plan] ?? item.to_plan}</span>
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <code className="text-[11px] font-mono text-slate-500">
+                      {item.checkout_order_id || '—'}
+                    </code>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </section>
   )

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -32,6 +33,7 @@ func (h *CSATHandler) RegisterRoutes(app *fiber.App) {
 	api.Put("/surveys/:id", h.UpdateSurvey)
 	api.Get("/surveys/:id/nps", h.GetNPS)
 	api.Get("/surveys/:id/responses", h.ListResponses)
+	api.Get("/responses", h.ListResponsesByRespondent)
 
 	// Rota publica — sem autenticacao (widget embed externo)
 	app.Post("/public/csat/:survey_id/respond", h.SubmitResponse)
@@ -193,6 +195,9 @@ func (h *CSATHandler) GetNPS(c *fiber.Ctx) error {
 
 	result, err := h.repo.GetNPS(c.Context(), id, from, to)
 	if err != nil {
+		if strings.Contains(err.Error(), "no rows") {
+			return c.Status(fiber.StatusNotFound).JSON(domain.ErrorResponse{Error: "survey não encontrada"})
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: "erro ao calcular NPS"})
 	}
 	return c.JSON(result)
@@ -228,5 +233,32 @@ func (h *CSATHandler) ListResponses(c *fiber.Ctx) error {
 			"from": from.Format(time.RFC3339),
 			"to":   to.Format(time.RFC3339),
 		},
+	})
+}
+
+// ListResponsesByRespondent godoc
+// GET /api/v1/csat/responses?respondent=<user_id>&limit=50
+// Lista todas as respostas de um respondente específico (usado pelo User Explorer).
+func (h *CSATHandler) ListResponsesByRespondent(c *fiber.Ctx) error {
+	respondent := c.Query("respondent")
+	if respondent == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(domain.ErrorResponse{Error: "respondent obrigatório"})
+	}
+
+	limit := 50
+	if l := c.Query("limit"); l != "" {
+		if v, err := strconv.Atoi(l); err == nil && v > 0 && v <= 200 {
+			limit = v
+		}
+	}
+
+	responses, err := h.repo.ListResponsesByRespondent(c.Context(), respondent, limit)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: "erro ao listar respostas"})
+	}
+	return c.JSON(fiber.Map{
+		"respondent": respondent,
+		"responses":  responses,
+		"count":      len(responses),
 	})
 }

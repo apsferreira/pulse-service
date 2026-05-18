@@ -1,6 +1,7 @@
 package handler
 
-// GET /api/v1/users                        — lista usuários únicos com contagens
+// GET /api/v1/users                        — lista usuários únicos com contagens + enriquecimento auth-service
+// GET /api/v1/users/:user_id/profile       — perfil completo (auth-service + identidades pulse)
 // GET /api/v1/users/:user_id/timeline      — flag evaluations + events misturados
 // GET /api/v1/users/:user_id/identities    — cross-produto via user_identities
 
@@ -9,36 +10,58 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/institutoitinerante/pulse-service/internal/domain"
 	"github.com/institutoitinerante/pulse-service/internal/middleware"
+	"github.com/institutoitinerante/pulse-service/internal/pkg/authclient"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type UserInsightsHandler struct {
 	db           *pgxpool.Pool
 	serviceToken string
+	authClient   *authclient.Client
 }
 
-func NewUserInsightsHandler(db *pgxpool.Pool, serviceToken string) *UserInsightsHandler {
-	return &UserInsightsHandler{db: db, serviceToken: serviceToken}
+func NewUserInsightsHandler(db *pgxpool.Pool, serviceToken string, authClient *authclient.Client) *UserInsightsHandler {
+	return &UserInsightsHandler{db: db, serviceToken: serviceToken, authClient: authClient}
 }
 
 func (h *UserInsightsHandler) RegisterRoutes(app *fiber.App) {
 	auth := middleware.ServiceTokenMiddleware(h.serviceToken)
 	app.Get("/api/v1/users", auth, h.ListUsers)
+	app.Get("/api/v1/users/:user_id/profile", auth, h.GetProfile)
 	app.Get("/api/v1/users/:user_id/timeline", auth, h.GetTimeline)
 	app.Get("/api/v1/users/:user_id/identities", auth, h.GetIdentities)
 }
 
+// isAnonymous retorna true para user_ids não-UUID (anon_..., etc.)
+func isAnonymous(userID string) bool {
+	if strings.HasPrefix(userID, "anon") {
+		return true
+	}
+	if len(userID) != 36 {
+		return true
+	}
+	if userID == "00000000-0000-0000-0000-000000000000" {
+		return true
+	}
+	return false
+}
+
 type UserSummary struct {
-	UserID     string    `json:"user_id"`
-	EventCount int       `json:"event_count"`
-	FlagCount  int       `json:"flag_count"`
-	LastSeenAt time.Time `json:"last_seen_at"`
-	Products   []string  `json:"products"`
+	UserID      string    `json:"user_id"`
+	EventCount  int       `json:"event_count"`
+	FlagCount   int       `json:"flag_count"`
+	LastSeenAt  time.Time `json:"last_seen_at"`
+	Products    []string  `json:"products"`
+	IsAnonymous bool      `json:"is_anonymous"`
+	Name        string    `json:"name,omitempty"`
+	Email       string    `json:"email,omitempty"`
+	AvatarURL   string    `json:"avatar_url,omitempty"`
 }
 
 type TimelineItem struct {
@@ -165,6 +188,7 @@ func (h *UserInsightsHandler) ListUsers(c *fiber.Ctx) error {
 		if u.Products == nil {
 			u.Products = []string{}
 		}
+		u.IsAnonymous = isAnonymous(u.UserID)
 		users = append(users, u)
 	}
 	if err := rows.Err(); err != nil {
@@ -172,6 +196,30 @@ func (h *UserInsightsHandler) ListUsers(c *fiber.Ctx) error {
 	}
 	if users == nil {
 		users = []UserSummary{}
+	}
+
+	// Enriquecimento batch: busca nome+email para UUIDs válidos no auth-service
+	if h.authClient != nil {
+		var uuids []string
+		idxMap := map[string]int{}
+		for i, u := range users {
+			if !u.IsAnonymous {
+				uuids = append(uuids, u.UserID)
+				idxMap[u.UserID] = i
+			}
+		}
+		if len(uuids) > 0 {
+			profiles := h.authClient.GetProfilesBatch(c.Context(), uuids)
+			for uid, p := range profiles {
+				if p == nil {
+					continue
+				}
+				i := idxMap[uid]
+				users[i].Name = p.FullName
+				users[i].Email = p.Email
+				users[i].AvatarURL = p.AvatarURL
+			}
+		}
 	}
 
 	countQuery := fmt.Sprintf(`
@@ -202,6 +250,67 @@ func (h *UserInsightsHandler) ListUsers(c *fiber.Ctx) error {
 	})
 }
 
+// GetProfile GET /api/v1/users/:user_id/profile
+func (h *UserInsightsHandler) GetProfile(c *fiber.Ctx) error {
+	userID := c.Params("user_id")
+
+	anon := isAnonymous(userID)
+
+	type Identity struct {
+		CanonicalUserID string `json:"canonical_user_id"`
+		Product         string `json:"product"`
+		ProductUserID   string `json:"product_user_id"`
+		Email           string `json:"email,omitempty"`
+	}
+
+	type ProfileResponse struct {
+		UserID      string     `json:"user_id"`
+		IsAnonymous bool       `json:"is_anonymous"`
+		Name        string     `json:"name,omitempty"`
+		Email       string     `json:"email,omitempty"`
+		AvatarURL   string     `json:"avatar_url,omitempty"`
+		Identities  []Identity `json:"identities"`
+	}
+
+	resp := ProfileResponse{
+		UserID:      userID,
+		IsAnonymous: anon,
+		Identities:  []Identity{},
+	}
+
+	if !anon && h.authClient != nil {
+		if p, err := h.authClient.GetProfile(c.Context(), userID); err == nil && p != nil {
+			resp.Name = p.FullName
+			resp.Email = p.Email
+			resp.AvatarURL = p.AvatarURL
+		}
+	}
+
+	rows, err := h.db.Query(c.Context(), `
+		SELECT ui.canonical_user_id::text, ui.product, ui.product_user_id, COALESCE(ui.email, '')
+		FROM user_identities ui
+		WHERE ui.product_user_id = $1
+		   OR ui.canonical_user_id::text = $1
+		   OR ui.canonical_user_id = (
+		        SELECT canonical_user_id FROM user_identities
+		        WHERE product_user_id = $1 LIMIT 1
+		      )
+		ORDER BY ui.product ASC
+	`, userID)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var id Identity
+			if err := rows.Scan(&id.CanonicalUserID, &id.Product, &id.ProductUserID, &id.Email); err != nil {
+				continue
+			}
+			resp.Identities = append(resp.Identities, id)
+		}
+	}
+
+	return c.JSON(resp)
+}
+
 // GetTimeline GET /api/v1/users/:user_id/timeline?since=7d&limit=100
 func (h *UserInsightsHandler) GetTimeline(c *fiber.Ctx) error {
 	userID := c.Params("user_id")
@@ -216,7 +325,6 @@ func (h *UserInsightsHandler) GetTimeline(c *fiber.Ctx) error {
 	sinceTime := userSinceParam(since)
 	var items []TimelineItem
 
-	// Flag evaluations
 	flagRows, err := h.db.Query(c.Context(), `
 		SELECT flag_key, result, reason, evaluated_at
 		FROM flag_evaluations
@@ -249,7 +357,6 @@ func (h *UserInsightsHandler) GetTimeline(c *fiber.Ctx) error {
 	}
 	flagRows.Close()
 
-	// Events
 	evRows, err := h.db.Query(c.Context(), `
 		SELECT event_type, product, properties, created_at
 		FROM events
@@ -305,6 +412,7 @@ func (h *UserInsightsHandler) GetIdentities(c *fiber.Ctx) error {
 		SELECT ui.canonical_user_id::text, ui.product, ui.product_user_id, COALESCE(ui.email, '')
 		FROM user_identities ui
 		WHERE ui.product_user_id = $1
+		   OR ui.canonical_user_id::text = $1
 		   OR ui.canonical_user_id = (
 		        SELECT canonical_user_id FROM user_identities
 		        WHERE product_user_id = $1 LIMIT 1

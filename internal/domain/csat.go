@@ -74,4 +74,5 @@ type CSATRepository interface {
 	SubmitResponse(ctx context.Context, r *CSATResponse) error
 	GetNPS(ctx context.Context, surveyID uuid.UUID, from, to time.Time) (*NPSResult, error)
 	ListResponses(ctx context.Context, surveyID uuid.UUID, from, to time.Time, limit int) ([]CSATResponse, error)
+	ListResponsesByRespondent(ctx context.Context, respondent string, limit int) ([]CSATResponse, error)
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/institutoitinerante/pulse-service/internal/handler"
 	_ "github.com/institutoitinerante/pulse-service/docs/swagger"
 	custommw "github.com/institutoitinerante/pulse-service/internal/middleware"
+	"github.com/institutoitinerante/pulse-service/internal/pkg/authclient"
 	"github.com/institutoitinerante/pulse-service/internal/pkg/config"
 	"github.com/institutoitinerante/pulse-service/internal/pkg/flagscheduler"
 	"github.com/institutoitinerante/pulse-service/internal/pkg/retentionpurge"
@@ -373,8 +374,12 @@ func main() {
 	// Injeta identityRepo no eventHandler para associar anonymous_id → user_id no POST /events/identify
 	eventHandler.WithIdentityRepo(userIdentityRepo)
 
-	// Página de Usuários — lista + timeline + identidades cross-produto
-	userInsightsHandler := handler.NewUserInsightsHandler(pool, cfg.ServiceToken)
+	// Página de Usuários — lista + timeline + identidades cross-produto + enriquecimento auth-service
+	var authClient *authclient.Client
+	if cfg.AuthServiceURL != "" {
+		authClient = authclient.New(cfg.AuthServiceURL, cfg.ServiceToken)
+	}
+	userInsightsHandler := handler.NewUserInsightsHandler(pool, cfg.ServiceToken, authClient)
 	userInsightsHandler.RegisterRoutes(app)
 
 	// BKL-865: Anomaly detection em métricas de eventos

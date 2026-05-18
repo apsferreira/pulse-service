@@ -219,3 +219,44 @@ func (r *CSATRepository) ListResponses(ctx context.Context, surveyID uuid.UUID, 
 	}
 	return responses, nil
 }
+
+// ListResponsesByRespondent retorna todas as respostas de um respondente específico.
+func (r *CSATRepository) ListResponsesByRespondent(ctx context.Context, respondent string, limit int) ([]domain.CSATResponse, error) {
+	rows, err := r.db.Query(ctx,
+		`SELECT id, survey_id, score, COALESCE(comment, ''), COALESCE(respondent, ''), COALESCE(metadata, '{}'), created_at
+		 FROM csat_responses
+		 WHERE respondent = $1
+		 ORDER BY created_at DESC
+		 LIMIT $2`,
+		respondent, limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("csat_repository: ListResponsesByRespondent query: %w", err)
+	}
+	defer rows.Close()
+
+	var responses []domain.CSATResponse
+	for rows.Next() {
+		var resp domain.CSATResponse
+		var metaRaw []byte
+		if err := rows.Scan(
+			&resp.ID, &resp.SurveyID, &resp.Score, &resp.Comment, &resp.Respondent,
+			&metaRaw, &resp.CreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("csat_repository: ListResponsesByRespondent scan: %w", err)
+		}
+		if metaRaw != nil {
+			if err := json.Unmarshal(metaRaw, &resp.Metadata); err != nil {
+				resp.Metadata = make(map[string]string)
+			}
+		}
+		responses = append(responses, resp)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("csat_repository: ListResponsesByRespondent rows: %w", err)
+	}
+	if responses == nil {
+		responses = []domain.CSATResponse{}
+	}
+	return responses, nil
+}

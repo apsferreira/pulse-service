@@ -30,6 +30,10 @@ type Config struct {
 	// InsightsAgentIntervalHours define o intervalo de execução do agente autônomo de insights.
 	// BKL-insights: default 6 horas, configurável via INSIGHTS_AGENT_INTERVAL_HOURS.
 	InsightsAgentIntervalHours int
+	// AuthServiceURL é a URL interna do auth-service para enriquecimento de perfil de usuário.
+	// Usado pelo UserInsightsHandler para resolver name+email a partir do canonical_user_id.
+	// Vazio = enriquecimento desabilitado (modo degradado: exibe apenas user_id).
+	AuthServiceURL string
 }
 
 // Load reads configuration from environment variables, applying defaults where appropriate.
@@ -46,6 +50,7 @@ func Load() *Config {
 		AuthMode:                   getEnv("PULSE_AUTH_MODE", "external"),
 		JWTSecret:                  getEnv("PULSE_JWT_SECRET", ""),
 		InsightsAgentIntervalHours: getEnvInt("INSIGHTS_AGENT_INTERVAL_HOURS", 6),
+		AuthServiceURL:             getEnv("AUTH_SERVICE_URL", ""),
 	}
 	// Fallback: se JWTSecret não foi definido, usa ServiceToken como secret.
 	// Só entra em vigor no modo local; não expõe o ServiceToken em nenhum log.

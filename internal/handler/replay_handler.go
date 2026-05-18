@@ -133,19 +133,55 @@ func (h *ReplayHandler) IngestEvents(c *fiber.Ctx) error {
 
 // GET /api/v1/replay/sessions — lista sessões do projeto
 func (h *ReplayHandler) ListSessions(c *fiber.Ctx) error {
-	projectID, err := uuid.Parse(c.Query("project_id"))
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "project_id obrigatório"})
-	}
+	rawProjectID := c.Query("project_id")
 
 	limit := 50
+
+	if rawProjectID != "" && rawProjectID != "null" && rawProjectID != "undefined" {
+		projectID, parseErr := uuid.Parse(rawProjectID)
+		if parseErr != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "project_id inválido"})
+		}
+		rows, err := h.db.Query(context.Background(), `
+			SELECT session_id, user_id, page_url, event_count, duration_ms, started_at, last_event_at
+			FROM session_replays
+			WHERE project_id = $1
+			ORDER BY started_at DESC
+			LIMIT $2
+		`, projectID, limit)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "falha ao buscar sessões"})
+		}
+		defer rows.Close()
+
+		type sessionRow struct {
+			SessionID   string    `json:"session_id"`
+			UserID      string    `json:"user_id"`
+			PageURL     string    `json:"page_url"`
+			EventCount  int       `json:"event_count"`
+			DurationMs  int       `json:"duration_ms"`
+			StartedAt   time.Time `json:"started_at"`
+			LastEventAt time.Time `json:"last_event_at"`
+		}
+		var sessions []sessionRow
+		for rows.Next() {
+			var s sessionRow
+			if err := rows.Scan(&s.SessionID, &s.UserID, &s.PageURL, &s.EventCount, &s.DurationMs, &s.StartedAt, &s.LastEventAt); err == nil {
+				sessions = append(sessions, s)
+			}
+		}
+		if sessions == nil {
+			sessions = []sessionRow{}
+		}
+		return c.JSON(fiber.Map{"sessions": sessions, "total": len(sessions)})
+	}
+
 	rows, err := h.db.Query(context.Background(), `
 		SELECT session_id, user_id, page_url, event_count, duration_ms, started_at, last_event_at
 		FROM session_replays
-		WHERE project_id = $1
 		ORDER BY started_at DESC
-		LIMIT $2
-	`, projectID, limit)
+		LIMIT $1
+	`, limit)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "falha ao buscar sessões"})
 	}

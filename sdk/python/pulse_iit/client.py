@@ -18,9 +18,10 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
-# Tipos de evento
 _TYPE_TRACK = "track"
 _TYPE_IDENTIFY = "identify"
+_FLAG_CACHE_TTL_DEFAULT = 30.0
+_FLAG_TIMEOUT_DEFAULT = 2.0
 
 
 def _now_iso() -> str:
@@ -38,21 +39,36 @@ class PulseClient:
     api_url : str
         URL base do pulse-service
         (ex: "https://pulse.institutoitinerante.com.br").
+    service_token : str
+        Token de servico para avaliacao de flags (X-Service-Token). Opcional se
+        usar apenas tracking de eventos publicos.
     flush_interval : float
         Intervalo de flush automatico em segundos (default: 5.0).
     max_batch_size : int
         Numero maximo de eventos por batch antes de flush forcado (default: 50).
     request_timeout : float
         Timeout por requisicao HTTP em segundos (default: 10.0).
+    flag_cache_ttl : float
+        TTL do cache local de flags em segundos (default: 30.0).
+        0 = desabilita cache (nao recomendado para producao).
+    flag_timeout : float
+        Timeout para requisicoes de flags em segundos (default: 2.0).
+    defaults : dict, optional
+        Valores default por flag — usados quando o Pulse esta indisponivel e nao
+        ha cache local. Ex: {"nova-feature": False, "modo-manutencao": False}.
     """
 
     def __init__(
         self,
         project_id: str,
         api_url: str,
+        service_token: str = "",
         flush_interval: float = 5.0,
         max_batch_size: int = 50,
         request_timeout: float = 10.0,
+        flag_cache_ttl: float = _FLAG_CACHE_TTL_DEFAULT,
+        flag_timeout: float = _FLAG_TIMEOUT_DEFAULT,
+        defaults: Optional[Dict[str, bool]] = None,
     ) -> None:
         if not project_id:
             raise ValueError("project_id e obrigatorio")
@@ -61,22 +77,111 @@ class PulseClient:
 
         self.project_id = project_id
         self.api_url = api_url.rstrip("/")
+        self.service_token = service_token
         self.flush_interval = flush_interval
         self.max_batch_size = max_batch_size
         self.request_timeout = request_timeout
+        self.flag_cache_ttl = flag_cache_ttl
+        self.flag_timeout = flag_timeout
+        self._defaults: Dict[str, bool] = defaults or {}
 
         self._buffer: List[Dict[str, Any]] = []
         self._lock = threading.Lock()
         self._shutdown_event = threading.Event()
         self._flushing = False
 
-        # Thread de flush automatico — daemon para nao bloquear o processo
+        self._flag_cache: Optional[Dict[str, bool]] = None
+        self._flag_cache_time: float = 0.0
+        self._flag_lock = threading.Lock()
+
         self._flush_thread = threading.Thread(
             target=self._flush_loop,
             name="pulse-flush",
             daemon=True,
         )
         self._flush_thread.start()
+
+    # --- Feature Flags ---
+
+    def is_enabled(self, flag_key: str, default_value: bool = False) -> bool:
+        """
+        Retorna se uma feature flag esta ativa.
+
+        Fail-safe: retorna `default_value` (ou o default configurado no init) se:
+        - Pulse estiver indisponivel
+        - Timeout expirar
+        - Flag nao existir
+
+        Nunca lanca excecao — seguro para usar em hot paths.
+
+        Parametros
+        ----------
+        flag_key : str
+            Chave da flag (ex: "nova-feature").
+        default_value : bool
+            Valor de fallback se a flag nao for encontrada (default: False).
+        """
+        fallback = default_value if default_value is not None else self._defaults.get(flag_key, False)
+        try:
+            flags = self.get_flags()
+            if flag_key not in flags:
+                return self._defaults.get(flag_key, fallback)
+            return flags[flag_key] is True
+        except Exception:
+            return fallback
+
+    def get_flags(self) -> Dict[str, bool]:
+        """
+        Retorna o mapa completo de flags { key: enabled }.
+
+        Usa cache local (TTL configuravel via `flag_cache_ttl`).
+        Em caso de falha, retorna cache expirado se disponivel, senao retorna defaults.
+        Thread-safe.
+        """
+        with self._flag_lock:
+            now = time.monotonic()
+            cache_valid = (
+                self._flag_cache is not None
+                and (self.flag_cache_ttl == 0 or now - self._flag_cache_time < self.flag_cache_ttl)
+            )
+            if cache_valid:
+                return dict(self._flag_cache)  # type: ignore[arg-type]
+
+        fetched = self._fetch_flags()
+        with self._flag_lock:
+            if fetched is not None:
+                self._flag_cache = fetched
+                self._flag_cache_time = time.monotonic()
+                return dict(fetched)
+            if self._flag_cache is not None:
+                return dict(self._flag_cache)
+        return dict(self._defaults)
+
+    def invalidate_flag_cache(self) -> None:
+        """Invalida o cache de flags, forcando reload no proximo is_enabled/get_flags."""
+        with self._flag_lock:
+            self._flag_cache = None
+            self._flag_cache_time = 0.0
+
+    def _fetch_flags(self) -> Optional[Dict[str, bool]]:
+        headers: Dict[str, str] = {"Accept": "application/json"}
+        if self.service_token:
+            headers["X-Service-Token"] = self.service_token
+
+        req = urllib.request.Request(
+            url=f"{self.api_url}/flags",
+            headers=headers,
+            method="GET",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=self.flag_timeout) as resp:
+                if resp.status != 200:
+                    return None
+                body = json.loads(resp.read().decode("utf-8"))
+                return body.get("flags") or {}
+        except Exception as exc:
+            logger.warning("pulse: falha ao buscar flags — %s", exc)
+            return None
 
     # --- Public API ---
 

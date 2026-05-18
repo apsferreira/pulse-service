@@ -7,7 +7,6 @@ import okhttp3.Callback
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
-import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -181,17 +180,12 @@ internal class PulseInstance(
     }
 
     private fun parseAndCacheFlags(json: String) {
-        // Suporte a dois formatos: array de objetos ou objeto com campo "flags"
+        // API retorna { "flags": { "flag-key": true, "outra-flag": false } }
         val root = JSONObject(json)
-        val array: JSONArray = when {
-            root.has("flags") -> root.getJSONArray("flags")
-            else -> JSONArray(json)
-        }
+        val flags = root.optJSONObject("flags") ?: return
         flagCache.clear()
-        for (i in 0 until array.length()) {
-            val flag = array.getJSONObject(i)
-            val key = flag.optString("key").ifBlank { continue }
-            flagCache[key] = flag.optBoolean("enabled", false)
+        for (key in flags.keys()) {
+            flagCache[key] = flags.optBoolean(key, false)
         }
     }
 }

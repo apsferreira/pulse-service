@@ -3,6 +3,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Star, Plus, Copy, Check, X, ChevronDown } from 'lucide-react'
 import { api } from '../services/api'
+import { useProject } from '../components/Layout'
+import UpgradeModal from '../components/UpgradeModal'
+import { useUpgradeGate } from '../hooks/useUpgradeGate'
+import { usePlanGate } from '../hooks/usePlanGate'
 
 function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const method = (init?.method ?? 'GET') as 'get' | 'post' | 'put' | 'delete' | 'patch'
@@ -693,6 +697,9 @@ const TABS: { key: TabKey; label: string }[] = [
 ]
 
 export default function CSAT() {
+  const { gateState, triggerGate, closeGate } = useUpgradeGate()
+  const canUseCSAT = usePlanGate('starter')
+  const { projectPlan } = useProject()
   const [activeTab, setActiveTab] = useState<TabKey>('nps')
   const [surveys, setSurveys] = useState<Survey[]>([])
   const [surveysLoading, setSurveysLoading] = useState(true)
@@ -721,6 +728,33 @@ export default function CSAT() {
   useEffect(() => {
     fetchSurveys()
   }, [fetchSurveys])
+
+  if (!canUseCSAT) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
+        <Star className="w-12 h-12 text-violet-300" />
+        <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">CSAT / NPS</h2>
+        <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm">
+          Pesquisas de satisfacao e Net Promoter Score estao disponiveis no plano Starter.
+        </p>
+        <button
+          onClick={() => triggerGate({ plan: projectPlan, required_plan: 'starter', upgrade_url: 'https://checkout-api.institutoitinerante.com.br/checkout?plan=pulse-starter', message: 'Disponivel no plano Starter (R$399/mes). Comece com 14 dias gratis.', feature: 'CSAT / NPS' })}
+          className="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold rounded-lg transition-colors"
+        >
+          Ver planos
+        </button>
+        <UpgradeModal
+          isOpen={gateState.isOpen}
+          onClose={closeGate}
+          currentPlan={gateState.currentPlan}
+          requiredPlan={gateState.requiredPlan}
+          feature={gateState.feature}
+          upgradeUrl={gateState.upgradeUrl}
+          message={gateState.message}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -774,6 +808,16 @@ export default function CSAT() {
           <EmbedTab surveys={surveys} />
         )}
       </div>
+
+      <UpgradeModal
+        isOpen={gateState.isOpen}
+        onClose={closeGate}
+        currentPlan={gateState.currentPlan}
+        requiredPlan={gateState.requiredPlan}
+        feature={gateState.feature}
+        upgradeUrl={gateState.upgradeUrl}
+        message={gateState.message}
+      />
     </div>
   )
 }

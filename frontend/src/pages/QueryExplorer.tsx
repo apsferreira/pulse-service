@@ -5,6 +5,9 @@ import { useState } from 'react'
 import { useProject } from '../components/Layout'
 import { Database, Play, Download, Trash2, Plus } from 'lucide-react'
 import { api } from '../services/api'
+import UpgradeModal from '../components/UpgradeModal'
+import { useUpgradeGate } from '../hooks/useUpgradeGate'
+import { usePlanGate } from '../hooks/usePlanGate'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -72,8 +75,10 @@ function exportCSV(rows: QueryResultRow[], filename = 'pulse-query-result.csv') 
 // ── Componente principal ───────────────────────────────────────────────────────
 
 export default function QueryExplorer() {
-  const { projectId } = useProject()
+  const { projectId, projectPlan } = useProject()
   const projectID = projectId ?? ''
+  const { gateState, triggerGate, closeGate } = useUpgradeGate()
+  const canUseQueryExplorer = usePlanGate('growth')
 
   const [eventName, setEventName] = useState('')
   const [aggregate, setAggregate] = useState('count')
@@ -149,6 +154,33 @@ export default function QueryExplorer() {
   }
 
   // ── Render ───────────────────────────────────────────────────────────────────
+
+  if (!canUseQueryExplorer) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
+        <Database className="w-12 h-12 text-violet-300" />
+        <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">SQL Explorer</h2>
+        <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm">
+          Exploracao de eventos brutos com queries customizadas esta disponivel no plano Growth.
+        </p>
+        <button
+          onClick={() => triggerGate({ plan: projectPlan, required_plan: 'growth', upgrade_url: 'https://checkout-api.institutoitinerante.com.br/checkout?plan=pulse-growth', message: 'Disponivel no plano Growth (R$799/mes). Comece com 14 dias gratis.', feature: 'SQL Explorer' })}
+          className="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold rounded-lg transition-colors"
+        >
+          Ver planos
+        </button>
+        <UpgradeModal
+          isOpen={gateState.isOpen}
+          onClose={closeGate}
+          currentPlan={gateState.currentPlan}
+          requiredPlan={gateState.requiredPlan}
+          feature={gateState.feature}
+          upgradeUrl={gateState.upgradeUrl}
+          message={gateState.message}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6 p-4 max-w-4xl mx-auto">
@@ -364,6 +396,16 @@ export default function QueryExplorer() {
           )}
         </div>
       )}
+
+      <UpgradeModal
+        isOpen={gateState.isOpen}
+        onClose={closeGate}
+        currentPlan={gateState.currentPlan}
+        requiredPlan={gateState.requiredPlan}
+        feature={gateState.feature}
+        upgradeUrl={gateState.upgradeUrl}
+        message={gateState.message}
+      />
     </div>
   )
 }

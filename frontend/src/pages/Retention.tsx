@@ -6,6 +6,9 @@ import { Users, TrendingUp, Calendar, AlertTriangle, CheckCircle, ShieldAlert } 
 import { metricsApi, api } from '../services/api'
 import type { ActiveUsersResponse, CohortsResponse } from '../services/api'
 import { useProject } from '../components/Layout'
+import UpgradeModal from '../components/UpgradeModal'
+import { useUpgradeGate } from '../hooks/useUpgradeGate'
+import { usePlanGate } from '../hooks/usePlanGate'
 
 // --- BKL-1065: Churn Risk Card ---
 
@@ -307,7 +310,9 @@ function CohortTable({ data }: { data: CohortsResponse }) {
 }
 
 export default function Retention() {
-  const { projectSlug } = useProject()
+  const { projectSlug, projectPlan } = useProject()
+  const { gateState, triggerGate, closeGate } = useUpgradeGate()
+  const canUseRetention = usePlanGate('starter')
   const [product, setProduct] = useState('')
   const [granularity, setGranularity] = useState<'week' | 'month'>('week')
   const [activeUsers, setActiveUsers] = useState<ActiveUsersResponse | null>(null)
@@ -339,6 +344,33 @@ export default function Retention() {
   useEffect(() => {
     void fetchData()
   }, [effectiveProduct, granularity])
+
+  if (!canUseRetention) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
+        <Users className="w-12 h-12 text-violet-300" />
+        <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Retencao e Cohorts</h2>
+        <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm">
+          Analise de cohort, DAU/WAU/MAU e risco de churn estao disponiveis no plano Starter.
+        </p>
+        <button
+          onClick={() => triggerGate({ plan: projectPlan, required_plan: 'starter', upgrade_url: 'https://checkout-api.institutoitinerante.com.br/checkout?plan=pulse-starter', message: 'Disponivel no plano Starter (R$399/mes). Comece com 14 dias gratis.', feature: 'Retencao e Cohorts' })}
+          className="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold rounded-lg transition-colors"
+        >
+          Ver planos
+        </button>
+        <UpgradeModal
+          isOpen={gateState.isOpen}
+          onClose={closeGate}
+          currentPlan={gateState.currentPlan}
+          requiredPlan={gateState.requiredPlan}
+          feature={gateState.feature}
+          upgradeUrl={gateState.upgradeUrl}
+          message={gateState.message}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -418,6 +450,16 @@ export default function Retention() {
           )}
         </div>
       )}
+
+      <UpgradeModal
+        isOpen={gateState.isOpen}
+        onClose={closeGate}
+        currentPlan={gateState.currentPlan}
+        requiredPlan={gateState.requiredPlan}
+        feature={gateState.feature}
+        upgradeUrl={gateState.upgradeUrl}
+        message={gateState.message}
+      />
     </div>
   )
 }

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { replayApi, type ReplaySession, type ReplayEvent, type ReplayEventType } from '../services/pulseApi'
+import { useProject } from '../components/Layout'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -327,6 +328,7 @@ export default function Replay() {
   const [sessions, setSessions] = useState<ReplaySession[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
+  const { projectId } = useProject()
   const [selectedSession, setSelectedSession] = useState<ReplaySession | null>(null)
   const [filterUrl, setFilterUrl] = useState('')
   const [filterUserId, setFilterUserId] = useState('')
@@ -334,9 +336,10 @@ export default function Replay() {
   const fetchSessions = useCallback(async () => {
     setLoading(true)
     try {
-      const params: { url?: string; user_id?: string } = {}
+      const params: { url?: string; user_id?: string; project_id?: string | null } = {}
       if (filterUrl.trim()) params.url = filterUrl.trim()
       if (filterUserId.trim()) params.user_id = filterUserId.trim()
+      if (projectId) params.project_id = projectId
       const res = await replayApi.sessions(params)
       const body = res.data
       // API pode retornar array direto ou objeto com sessions[]
@@ -352,7 +355,7 @@ export default function Replay() {
     } finally {
       setLoading(false)
     }
-  }, [filterUrl, filterUserId])
+  }, [filterUrl, filterUserId, projectId])
 
   useEffect(() => {
     void fetchSessions()

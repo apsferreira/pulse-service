@@ -141,7 +141,7 @@ export interface ReplaySessionsResponse {
 // ── Replay API ────────────────────────────────────────────────────────────────
 
 export const replayApi = {
-  sessions: (params?: { url?: string; user_id?: string; page?: number; per_page?: number }) =>
+  sessions: (params?: { url?: string; user_id?: string; page?: number; per_page?: number; project_id?: string | null }) =>
     api.get<ReplaySessionsResponse>('/replay/sessions', { params }),
 
   events: (sessionId: string) =>

@@ -2,6 +2,7 @@
 // Permite explorar events por event_type, filtros JSONB, group_by e aggregates.
 
 import { useState } from 'react'
+import { useProject } from '../components/Layout'
 import { Database, Play, Download, Trash2, Plus } from 'lucide-react'
 import { api } from '../services/api'
 
@@ -71,7 +72,8 @@ function exportCSV(rows: QueryResultRow[], filename = 'pulse-query-result.csv') 
 // ── Componente principal ───────────────────────────────────────────────────────
 
 export default function QueryExplorer() {
-  const projectID = localStorage.getItem('pulse_project_id') ?? ''
+  const { projectId } = useProject()
+  const projectID = projectId ?? ''
 
   const [eventName, setEventName] = useState('')
   const [aggregate, setAggregate] = useState('count')
@@ -112,7 +114,7 @@ export default function QueryExplorer() {
       return
     }
     if (!projectID) {
-      setError('project_id não encontrado. Configure no localStorage (pulse_project_id).')
+      setError('Selecione um projeto no menu superior para usar o Query Explorer.')
       return
     }
 

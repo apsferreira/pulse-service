@@ -21,24 +21,3 @@ spec:
           port: 80
   tls:
     certResolver: letsencrypt
----
-# Expõe /health do backend diretamente para monitoramento externo (UptimeRobot, BetterStack)
-# Não expõe nenhuma rota de API — apenas o health check.
-apiVersion: traefik.io/v1alpha1
-kind: IngressRoute
-metadata:
-  name: pulse-service-health
-  namespace: production
-  labels:
-    app: pulse-service
-spec:
-  entryPoints:
-    - websecure
-  routes:
-    - match: Host(`pulse-api.institutoitinerante.com.br`) && Path(`/health`)
-      kind: Rule
-      services:
-        - name: pulse-service
-          port: 80
-  tls:
-    certResolver: letsencrypt

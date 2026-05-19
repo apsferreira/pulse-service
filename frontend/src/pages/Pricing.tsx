@@ -447,7 +447,7 @@ export default function Pricing() {
         &nbsp;·&nbsp;
         <a href="/sla" className="hover:text-slate-300 transition-colors">SLA</a>
         &nbsp;·&nbsp;
-        <a href="mailto:suporte@institutoitinerante.com.br" className="hover:text-slate-300 transition-colors">Suporte</a>
+        <a href="https://suporte.institutoitinerante.com.br?produto=pulse" target="_blank" rel="noopener noreferrer" className="hover:text-slate-300 transition-colors">Suporte</a>
       </footer>
     </div>
   )

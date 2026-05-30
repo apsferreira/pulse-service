@@ -322,7 +322,7 @@ export default function NorthStarPage() {
           Indicadores estrategicos dos produtos IIT estao disponiveis no plano Growth.
         </p>
         <button
-          onClick={() => triggerGate({ plan: projectPlan, required_plan: 'growth', upgrade_url: 'https://checkout-api.institutoitinerante.com.br/checkout?plan=pulse-growth', message: 'Disponivel no plano Growth (R$799/mes). Comece com 14 dias gratis.', feature: 'North Star Metrics' })}
+          onClick={() => triggerGate({ plan: projectPlan, required_plan: 'growth', upgrade_url: 'https://checkout-api.institutoitinerante.com.br/checkout?plan=pulse-growth', message: 'Faca upgrade para o plano Growth para desbloquear North Star Metrics.', feature: 'North Star Metrics' })}
           className="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold rounded-lg transition-colors"
         >
           Ver planos

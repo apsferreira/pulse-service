@@ -738,7 +738,7 @@ export default function CSAT() {
           Pesquisas de satisfacao e Net Promoter Score estao disponiveis no plano Starter.
         </p>
         <button
-          onClick={() => triggerGate({ plan: projectPlan, required_plan: 'starter', upgrade_url: 'https://checkout-api.institutoitinerante.com.br/checkout?plan=pulse-starter', message: 'Disponivel no plano Starter (R$399/mes). Comece com 14 dias gratis.', feature: 'CSAT / NPS' })}
+          onClick={() => triggerGate({ plan: projectPlan, required_plan: 'starter', upgrade_url: 'https://checkout-api.institutoitinerante.com.br/checkout?plan=pulse-starter', message: 'Faca upgrade para o plano Starter para desbloquear CSAT / NPS.', feature: 'CSAT / NPS' })}
           className="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold rounded-lg transition-colors"
         >
           Ver planos

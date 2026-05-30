@@ -30,6 +30,7 @@
     projectKey: '',
     debug: false,
     autoPageview: true,
+    pageTracking: true,                // PULSE-PV-01: rastreamento dedicado de page_view
     sessionTimeout: 30 * 60 * 1000,   // 30 min
     flushInterval: 2000,               // ms entre flushes do batch queue
     maxBatchSize: 20,
@@ -141,6 +142,107 @@
       .catch(function (e) { _log('get error', path, e); return null })
   }
 
+  // ─── Page View tracking (PULSE-PV-01) ──────────────────────────────────────
+
+  var _pageStartTime = null
+  var _currentPath = null
+
+  /**
+   * Envia um page_view para POST /api/v1/events/page_view.
+   * Usa sendBeacon para garantir entrega mesmo no beforeunload.
+   * @param {string} path - pathname da página
+   * @param {string} title - document.title no momento da saída
+   * @param {number} timeOnPageMs - tempo gasto na página em ms
+   * @param {string} referrer - página de origem (path anterior na SPA ou document.referrer)
+   */
+  function _sendPageView(path, title, timeOnPageMs, referrer) {
+    if (!_config.apiUrl) return
+    var payload = {
+      session_id: _state.sessionId || undefined,
+      user_id: _state.userId || undefined,
+      product: _config.projectKey || undefined,
+      page_title: title || (typeof document !== 'undefined' ? document.title : undefined),
+      page_path: path,
+      time_on_page_ms: Math.max(0, Math.round(timeOnPageMs)),
+      referrer: referrer || undefined,
+    }
+    var url = _config.apiUrl.replace(/\/+$/, '') + '/api/v1/events/page_view'
+    var body = JSON.stringify(payload)
+    var sent = false
+
+    if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+      try {
+        var blob = new Blob([body], { type: 'application/json' })
+        sent = navigator.sendBeacon(url, blob)
+      } catch (e) { sent = false }
+    }
+
+    if (!sent) {
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: body,
+        keepalive: true,
+      }).catch(function (e) { _log('page_view send error', e) })
+    }
+
+    _log('page_view', path, timeOnPageMs + 'ms')
+  }
+
+  function _initPageTracking() {
+    if (typeof window === 'undefined') return
+    if (!_config.pageTracking) return
+
+    _pageStartTime = Date.now()
+    _currentPath = typeof location !== 'undefined' ? location.pathname : '/'
+
+    // Hook em pushState para navegação SPA
+    var origPushState = history.pushState.bind(history)
+    history.pushState = function () {
+      var prevPath = _currentPath
+      var prevTitle = typeof document !== 'undefined' ? document.title : ''
+      var elapsed = Date.now() - (_pageStartTime || Date.now())
+      _sendPageView(prevPath, prevTitle, elapsed, prevPath)
+      origPushState.apply(history, arguments)
+      _currentPath = typeof location !== 'undefined' ? location.pathname : '/'
+      _pageStartTime = Date.now()
+    }
+
+    // Hook em replaceState (troca de rota sem novo entry no histórico)
+    var origReplaceState = history.replaceState.bind(history)
+    history.replaceState = function () {
+      origReplaceState.apply(history, arguments)
+      // Não envia page_view aqui — replaceState é tipicamente usado para atualizar query params
+      // sem trocar a página de fato (ex: filtros de URL).
+    }
+
+    // Flush ao sair da página
+    window.addEventListener('beforeunload', function () {
+      var elapsed = Date.now() - (_pageStartTime || Date.now())
+      _sendPageView(
+        _currentPath,
+        typeof document !== 'undefined' ? document.title : '',
+        elapsed,
+        typeof document !== 'undefined' ? document.referrer : ''
+      )
+    })
+
+    // Flush ao ocultar a aba (mobile / troca de aba)
+    window.addEventListener('visibilitychange', function () {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        var elapsed = Date.now() - (_pageStartTime || Date.now())
+        _sendPageView(
+          _currentPath,
+          document.title,
+          elapsed,
+          document.referrer
+        )
+        // Reinicia o timer — o usuário pode voltar para a mesma aba
+        _pageStartTime = Date.now()
+      }
+    })
+  }
+
   // ─── Batch queue ────────────────────────────────────────────────────────────
 
   function _enqueue(eventName, props) {
@@ -241,30 +343,17 @@
       _loadFlags()
       _loadVariants()
 
-      // Auto-pageview
+      // Auto-pageview (evento genérico para pipeline de eventos existente)
       if (_config.autoPageview && typeof window !== 'undefined') {
         pulse.track('$pageview', {
           path: location.pathname,
           title: document.title,
           referrer: document.referrer || undefined,
         })
-
-        // SPA: intercepta pushState/replaceState
-        var _origPush = history.pushState
-        var _origReplace = history.replaceState
-        function _patchHistory(fn) {
-          return function () {
-            var result = fn.apply(this, arguments)
-            pulse.track('$pageview', {
-              path: location.pathname,
-              title: document.title,
-            })
-            return result
-          }
-        }
-        history.pushState = _patchHistory(_origPush)
-        history.replaceState = _patchHistory(_origReplace)
       }
+
+      // PULSE-PV-01: page tracking dedicado — envia para /events/page_view com tempo de permanência
+      _initPageTracking()
 
       _state.initialized = true
       _log('initialized', _config)

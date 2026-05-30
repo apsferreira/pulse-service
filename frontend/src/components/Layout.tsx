@@ -1,6 +1,6 @@
 import React, { useState, createContext, useContext } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Activity, Zap, Moon, Sun, FlaskConical, ChevronDown, LogOut, FolderOpen, Plus, Flag, CreditCard, Users, Globe, ExternalLink, Star, Wifi, DollarSign } from 'lucide-react'
+import { LayoutDashboard, Activity, Zap, Moon, Sun, FlaskConical, ChevronDown, LogOut, FolderOpen, Plus, Flag, CreditCard, Users, Globe, ExternalLink, Star, Wifi, DollarSign, MousePointerClick } from 'lucide-react'
 import { useProjects } from '../hooks/useProjects'
 import { useProjectContext } from '../hooks/useProjectContext'
 import { useAuth } from '../context/AuthContext'
@@ -77,6 +77,7 @@ export default function Layout({ children }: LayoutProps) {
       label: 'Analytics',
       items: [
         { to: '/events', label: 'Eventos', icon: Activity },
+        { to: '/page-views', label: 'Page Views', icon: MousePointerClick },
         { to: '/users', label: 'Usuários', icon: Users },
         { to: '/csat', label: 'CSAT / NPS', icon: Star },
         { to: '/uptime', label: 'Uptime', icon: Wifi },

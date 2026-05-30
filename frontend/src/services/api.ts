@@ -214,6 +214,50 @@ export const costsApi = {
     api.get<CostTotal>('/costs/total', { params: { days } }).then((r) => r.data),
 }
 
+// ── Page Views analytics (PULSE-PV-03) ──────────────────────────────────────
+
+export interface TopPageItem {
+  page_path: string
+  total_views: number
+  avg_time_on_page_ms: number
+}
+
+export interface TopPagesResponse {
+  product: string
+  from: string
+  to: string
+  items: TopPageItem[]
+}
+
+export interface UserJourneyItem {
+  id: string
+  session_id?: string
+  product?: string
+  page_title?: string
+  page_path?: string
+  time_on_page_ms?: number
+  referrer?: string
+  created_at: string
+}
+
+export interface UserJourneyResponse {
+  user_id: string
+  product: string
+  items: UserJourneyItem[]
+}
+
+export const pageViewsApi = {
+  topPages: (product: string, from?: string, to?: string, limit = 10) =>
+    api.get<TopPagesResponse>('/analytics/top-pages', {
+      params: { product, ...(from ? { from } : {}), ...(to ? { to } : {}), limit },
+    }),
+
+  userJourney: (userId: string, product?: string, limit = 20) =>
+    api.get<UserJourneyResponse>('/analytics/user-journey', {
+      params: { user_id: userId, ...(product ? { product } : {}), limit },
+    }),
+}
+
 // ── Upgrade gate ─────────────────────────────────────────────────────────────
 
 export class UpgradeRequiredError extends Error {

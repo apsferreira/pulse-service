@@ -23,6 +23,7 @@ import Projects from './pages/Projects'
 import Replay from './pages/Replay'
 import Approvals from './pages/Approvals'
 import Billing from './pages/Billing'
+import PageViews from './pages/PageViews'
 
 function App() {
   return (
@@ -61,6 +62,7 @@ function App() {
                     <Route path="/replay" element={<Replay />} />
                     <Route path="/approvals" element={<Approvals />} />
                     <Route path="/billing" element={<Billing />} />
+                    <Route path="/page-views" element={<PageViews />} />
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
                 </Layout>

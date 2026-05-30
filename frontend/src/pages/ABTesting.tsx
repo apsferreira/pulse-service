@@ -696,7 +696,7 @@ export default function ABTesting() {
               plan: projectPlan,
               required_plan: 'starter',
               upgrade_url: 'https://checkout-api.institutoitinerante.com.br/checkout?plan=pulse-starter',
-              message: 'Disponível no plano Starter (R$399/mês). Comece com 14 dias grátis.',
+              message: 'Faca upgrade para o plano Starter para usar A/B Testing.',
               feature: 'usar A/B Testing',
             })}
             className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-violet-600 hover:bg-violet-500 transition-colors"

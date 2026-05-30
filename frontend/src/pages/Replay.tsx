@@ -375,7 +375,7 @@ export default function Replay() {
           Gravacao e reproducao de sessoes de usuarios esta disponivel no plano Growth.
         </p>
         <button
-          onClick={() => triggerGate({ plan: projectPlan, required_plan: 'growth', upgrade_url: 'https://checkout-api.institutoitinerante.com.br/checkout?plan=pulse-growth', message: 'Disponivel no plano Growth (R$799/mes). Comece com 14 dias gratis.', feature: 'Session Replay' })}
+          onClick={() => triggerGate({ plan: projectPlan, required_plan: 'growth', upgrade_url: 'https://checkout-api.institutoitinerante.com.br/checkout?plan=pulse-growth', message: 'Faca upgrade para o plano Growth para desbloquear Session Replay.', feature: 'Session Replay' })}
           className="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold rounded-lg transition-colors"
         >
           Ver planos

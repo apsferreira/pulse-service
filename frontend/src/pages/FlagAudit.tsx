@@ -93,7 +93,7 @@ export default function FlagAudit() {
           Historico de avaliacoes de flags com motivo da decisao esta disponivel no plano Starter.
         </p>
         <button
-          onClick={() => triggerGate({ plan: projectPlan, required_plan: 'starter', upgrade_url: 'https://checkout-api.institutoitinerante.com.br/checkout?plan=pulse-starter', message: 'Disponivel no plano Starter (R$399/mes). Comece com 14 dias gratis.', feature: 'Audit Log de Feature Flags' })}
+          onClick={() => triggerGate({ plan: projectPlan, required_plan: 'starter', upgrade_url: 'https://checkout-api.institutoitinerante.com.br/checkout?plan=pulse-starter', message: 'Faca upgrade para o plano Starter para desbloquear Audit Log de Feature Flags.', feature: 'Audit Log de Feature Flags' })}
           className="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold rounded-lg transition-colors"
         >
           Ver planos

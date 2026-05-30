@@ -831,7 +831,7 @@ export default function FeatureFlags() {
                 plan: 'free',
                 required_plan: 'starter',
                 upgrade_url: 'https://checkout-api.institutoitinerante.com.br/checkout?plan=pulse-starter',
-                message: 'Disponível no plano Starter (R$399/mês). Comece com 14 dias grátis.',
+                message: 'Faca upgrade para o plano Starter para criar mais feature flags.',
                 feature: 'criar mais de 5 flags',
               })}
               className="btn-primary flex items-center gap-2 opacity-80"

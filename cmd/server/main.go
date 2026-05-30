@@ -367,6 +367,11 @@ func main() {
 	mabHandler := handler.NewMABHandler(mabRepo, cfg.ServiceToken).WithProjectRepo(projectRepo)
 	mabHandler.RegisterRoutes(app)
 
+	// PULSE-PV-02: Page view tracking — ingestão + analytics (top pages, user journey)
+	pageViewRepo := repository.NewPageViewRepository(pool)
+	pageViewHandler := handler.NewPageViewHandler(pageViewRepo, cfg.ServiceToken)
+	pageViewHandler.RegisterRoutes(app)
+
 	// BKL-763: mapeamento cross-produto de identidade de usuário
 	userIdentityRepo := repository.NewUserIdentityRepository(pool)
 	userIdentityHandler := handler.NewUserIdentityHandler(userIdentityRepo, cfg.ServiceToken)

@@ -12,6 +12,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/institutoitinerante/pulse-service/internal/middleware"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -131,61 +132,12 @@ func (h *ReplayHandler) IngestEvents(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"ingested": ingested, "session_id": req.SessionID})
 }
 
-// GET /api/v1/replay/sessions — lista sessões do projeto
+// GET /api/v1/replay/sessions — lista sessões do projeto, com filtro opcional por user_id
+// BKL-REPLAY-fix: query agora aplica filtro por user_id quando fornecido.
 func (h *ReplayHandler) ListSessions(c *fiber.Ctx) error {
 	rawProjectID := c.Query("project_id")
-
+	userID := c.Query("user_id", "")
 	limit := 50
-
-	if rawProjectID != "" && rawProjectID != "null" && rawProjectID != "undefined" {
-		projectID, parseErr := uuid.Parse(rawProjectID)
-		if parseErr != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "project_id inválido"})
-		}
-		rows, err := h.db.Query(context.Background(), `
-			SELECT session_id, user_id, page_url, event_count, duration_ms, started_at, last_event_at
-			FROM session_replays
-			WHERE project_id = $1
-			ORDER BY started_at DESC
-			LIMIT $2
-		`, projectID, limit)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "falha ao buscar sessões"})
-		}
-		defer rows.Close()
-
-		type sessionRow struct {
-			SessionID   string    `json:"session_id"`
-			UserID      string    `json:"user_id"`
-			PageURL     string    `json:"page_url"`
-			EventCount  int       `json:"event_count"`
-			DurationMs  int       `json:"duration_ms"`
-			StartedAt   time.Time `json:"started_at"`
-			LastEventAt time.Time `json:"last_event_at"`
-		}
-		var sessions []sessionRow
-		for rows.Next() {
-			var s sessionRow
-			if err := rows.Scan(&s.SessionID, &s.UserID, &s.PageURL, &s.EventCount, &s.DurationMs, &s.StartedAt, &s.LastEventAt); err == nil {
-				sessions = append(sessions, s)
-			}
-		}
-		if sessions == nil {
-			sessions = []sessionRow{}
-		}
-		return c.JSON(fiber.Map{"sessions": sessions, "total": len(sessions)})
-	}
-
-	rows, err := h.db.Query(context.Background(), `
-		SELECT session_id, user_id, page_url, event_count, duration_ms, started_at, last_event_at
-		FROM session_replays
-		ORDER BY started_at DESC
-		LIMIT $1
-	`, limit)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "falha ao buscar sessões"})
-	}
-	defer rows.Close()
 
 	type sessionRow struct {
 		SessionID   string    `json:"session_id"`
@@ -197,6 +149,64 @@ func (h *ReplayHandler) ListSessions(c *fiber.Ctx) error {
 		LastEventAt time.Time `json:"last_event_at"`
 	}
 
+	hasProject := rawProjectID != "" && rawProjectID != "null" && rawProjectID != "undefined"
+	hasUser := userID != "" && userID != "null" && userID != "undefined"
+
+	var (
+		rows pgx.Rows
+		err  error
+	)
+
+	switch {
+	case hasProject && hasUser:
+		projectID, parseErr := uuid.Parse(rawProjectID)
+		if parseErr != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "project_id inválido"})
+		}
+		rows, err = h.db.Query(context.Background(), `
+			SELECT session_id, user_id, page_url, event_count, duration_ms, started_at, last_event_at
+			FROM session_replays
+			WHERE project_id = $1 AND user_id = $2
+			ORDER BY started_at DESC
+			LIMIT $3
+		`, projectID, userID, limit)
+
+	case hasProject:
+		projectID, parseErr := uuid.Parse(rawProjectID)
+		if parseErr != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "project_id inválido"})
+		}
+		rows, err = h.db.Query(context.Background(), `
+			SELECT session_id, user_id, page_url, event_count, duration_ms, started_at, last_event_at
+			FROM session_replays
+			WHERE project_id = $1
+			ORDER BY started_at DESC
+			LIMIT $2
+		`, projectID, limit)
+
+	case hasUser:
+		rows, err = h.db.Query(context.Background(), `
+			SELECT session_id, user_id, page_url, event_count, duration_ms, started_at, last_event_at
+			FROM session_replays
+			WHERE user_id = $1
+			ORDER BY started_at DESC
+			LIMIT $2
+		`, userID, limit)
+
+	default:
+		rows, err = h.db.Query(context.Background(), `
+			SELECT session_id, user_id, page_url, event_count, duration_ms, started_at, last_event_at
+			FROM session_replays
+			ORDER BY started_at DESC
+			LIMIT $1
+		`, limit)
+	}
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "falha ao buscar sessões"})
+	}
+	defer rows.Close()
+
 	var sessions []sessionRow
 	for rows.Next() {
 		var s sessionRow
@@ -204,7 +214,9 @@ func (h *ReplayHandler) ListSessions(c *fiber.Ctx) error {
 			sessions = append(sessions, s)
 		}
 	}
-
+	if sessions == nil {
+		sessions = []sessionRow{}
+	}
 	return c.JSON(fiber.Map{"sessions": sessions, "total": len(sessions)})
 }
 

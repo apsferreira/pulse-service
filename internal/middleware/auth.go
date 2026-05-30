@@ -16,8 +16,12 @@ import (
 
 // ServiceTokenMiddleware validates X-Service-Token OR Authorization Bearer JWT.
 // Aceita ambos para retrocompatibilidade (inter-service usa token, dashboard usa JWT).
+// BKL-CSAT-fix: lê PULSE_JWT_SECRET (nome canônico da env var) com fallback para JWT_SECRET.
 func ServiceTokenMiddleware(serviceToken string) fiber.Handler {
-	jwtSecret := os.Getenv("JWT_SECRET")
+	jwtSecret := os.Getenv("PULSE_JWT_SECRET")
+	if jwtSecret == "" {
+		jwtSecret = os.Getenv("JWT_SECRET")
+	}
 
 	return func(c *fiber.Ctx) error {
 		// 1. Tenta Service Token primeiro — BKL-334: comparação em tempo constante

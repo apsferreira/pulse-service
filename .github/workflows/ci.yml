@@ -10,11 +10,10 @@ env:
   IMAGE_NAME: apsferreira/pulse-service
 
 jobs:
-  # ── Testes — não bloqueiam o deploy ─────────────────────────────────────────
+  # ── Testes — gate de qualidade ──────────────────────────────────────────────
   test:
     name: Test
     runs-on: iit-pulse
-    continue-on-error: true
     timeout-minutes: 10
 
     steps:
@@ -85,6 +84,7 @@ jobs:
   build-and-push:
     name: Build & Push Backend
     runs-on: iit-pulse
+    needs: [test]
     if: github.ref == 'refs/heads/main'
     timeout-minutes: 10
     permissions:
@@ -136,6 +136,7 @@ jobs:
   build-and-push-frontend:
     name: Build & Push Frontend
     runs-on: iit-pulse
+    needs: [test]
     if: github.ref == 'refs/heads/main'
     timeout-minutes: 10
     permissions:

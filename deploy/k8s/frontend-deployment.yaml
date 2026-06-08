@@ -3,6 +3,8 @@ kind: Deployment
 metadata:
   name: pulse-service-frontend
   namespace: production
+  annotations:
+    reloader.stakater.com/auto: "true"
   labels:
     app: pulse-service-frontend
     component: frontend

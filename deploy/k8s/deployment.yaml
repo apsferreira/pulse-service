@@ -3,6 +3,8 @@ kind: Deployment
 metadata:
   name: pulse-service
   namespace: production
+  annotations:
+    reloader.stakater.com/auto: "true"
   labels:
     app: pulse-service
 spec:

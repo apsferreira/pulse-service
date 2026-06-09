@@ -13,10 +13,9 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
-	fiberSwagger "github.com/swaggo/fiber-swagger"
+	_ "github.com/institutoitinerante/pulse-service/docs/swagger"
 	"github.com/institutoitinerante/pulse-service/internal/agent"
 	"github.com/institutoitinerante/pulse-service/internal/handler"
-	_ "github.com/institutoitinerante/pulse-service/docs/swagger"
 	custommw "github.com/institutoitinerante/pulse-service/internal/middleware"
 	"github.com/institutoitinerante/pulse-service/internal/pkg/authclient"
 	"github.com/institutoitinerante/pulse-service/internal/pkg/config"
@@ -28,6 +27,7 @@ import (
 	"github.com/institutoitinerante/pulse-service/internal/service"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
+	fiberSwagger "github.com/swaggo/fiber-swagger"
 )
 
 func main() {
@@ -349,6 +349,28 @@ func main() {
 
 	// BKL-1037: Retention purge — deleta eventos mais antigos que data_retention_days de cada projeto (1x/dia)
 	go retentionpurge.Start(jobCtx, pool, 24*time.Hour)
+
+	// fix(#65): cleanup_monitor_checks() (migration 059) — remove monitor_checks > 90 dias (1x/dia)
+	go func() {
+		ticker := time.NewTicker(24 * time.Hour)
+		defer ticker.Stop()
+		runCleanup := func() {
+			cctx, ccancel := context.WithTimeout(jobCtx, 5*time.Minute)
+			defer ccancel()
+			if _, err := pool.Exec(cctx, "SELECT cleanup_monitor_checks()"); err != nil {
+				log.Printf("monitor_checks_cleanup: %v", err)
+			}
+		}
+		runCleanup()
+		for {
+			select {
+			case <-jobCtx.Done():
+				return
+			case <-ticker.C:
+				runCleanup()
+			}
+		}
+	}()
 
 	// BKL-insights: Agente autônomo de análise de feature flags e eventos
 	projectInsightRepo := repository.NewProjectInsightRepository(pool)

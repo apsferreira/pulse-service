@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/institutoitinerante/pulse-service/internal/domain"
+	"github.com/institutoitinerante/pulse-service/internal/pkg/products"
 	"github.com/institutoitinerante/pulse-service/internal/repository"
 )
 
@@ -19,6 +20,8 @@ func NewEventService(repo *repository.EventRepository) *EventService {
 
 // Ingest validates and persists a new event.
 func (s *EventService) Ingest(ctx context.Context, req domain.IngestEventRequest, ipAddress, userAgent string) (*domain.Event, error) {
+	// fix(#64): normaliza product (lowercase + trim) e alerta se fora da allowlist
+	req.Product = products.NormalizeAndCheck(req.Product)
 	if req.Product == "" {
 		return nil, fmt.Errorf("product is required")
 	}
@@ -91,7 +94,8 @@ func (s *EventService) Track(ctx context.Context, req domain.TrackEventRequest, 
 		props = make(map[string]interface{})
 	}
 
-	product := req.Product
+	// fix(#64): normaliza product (lowercase + trim) e alerta se fora da allowlist
+	product := products.NormalizeAndCheck(req.Product)
 	if product == "" {
 		product = "default"
 	}
@@ -136,6 +140,8 @@ func (s *EventService) BatchIngest(ctx context.Context, req domain.BatchIngestRe
 	rejected := 0
 
 	for _, r := range req.Events {
+		// fix(#64): normaliza product (lowercase + trim) e alerta se fora da allowlist
+		r.Product = products.NormalizeAndCheck(r.Product)
 		if r.Product == "" || r.EventType == "" {
 			rejected++
 			continue

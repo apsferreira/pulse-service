@@ -84,7 +84,7 @@ func (s *ChurnAlertScheduler) tick(ctx context.Context) {
 		return
 	}
 
-	log.Printf("[churn-alert] alerta enviado para %s com %d tenants em risco", adminEmail, len(atRisk))
+	log.Printf("[churn-alert] alerta enviado com %d tenants em risco", len(atRisk))
 }
 
 func sendChurnAlertEmail(to string, tenants []*domain.TenantHealthScore) error {

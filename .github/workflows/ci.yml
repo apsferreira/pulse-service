@@ -20,6 +20,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: LGPD gate — sem PII em logs
+        run: bash scripts/check-pii-logs.sh
+
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:

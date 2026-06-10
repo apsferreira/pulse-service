@@ -27,9 +27,11 @@ import (
 
 // Issue #62: defaults para claims iss/aud em tokens emitidos pelo modo local.
 // O issuer pode ser sobrescrito via PULSE_JWT_LOCAL_ISSUER; o audience via PULSE_JWT_EXPECTED_AUDIENCE.
+// Issue #77: audience padronizada como "iit" para alinhar com tokens do auth-service
+// (aud="iit" identifica o ecossistema IIT, não um serviço específico).
 const (
 	defaultLocalIssuer    = "pulse-service"
-	defaultLocalAudience  = "pulse-service"
+	defaultLocalAudience  = "iit"
 	defaultAcceptedIssuer = "auth.institutoitinerante.com.br,pulse-service"
 )
 
@@ -275,8 +277,8 @@ func issueJWT(id, email, name, role, secret string) (string, error) {
 }
 
 // parseJWT valida assinatura, expiração, issuer e audience de um JWT HS256.
-// Issue #62: além da assinatura, exige iss conhecido e aud=pulse-service para
-// rejeitar tokens emitidos para outros serviços IIT.
+// Issue #62/#77: além da assinatura, exige iss conhecido e aud=iit para
+// rejeitar tokens emitidos para outros ecossistemas.
 func parseJWT(tokenStr, secret string) (map[string]interface{}, bool) {
 	parts := strings.Split(tokenStr, ".")
 	if len(parts) != 3 {

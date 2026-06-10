@@ -16,10 +16,12 @@ import (
 
 // Defaults para verificação de claims iss/aud em JWTs Bearer.
 // Issue #62: tokens emitidos pelo auth-service IIT para outros serviços (focus-hub etc.)
-// não devem autenticar no pulse-service — exigimos aud="pulse-service" e iss conhecido.
+// não devem autenticar no pulse-service — exigimos aud conhecido e iss conhecido.
+// Issue #77: auth-service emite aud="iit" (audience comum a todo o ecossistema IIT);
+// tokens locais (modo dev/teste) continuam aceitos via mesma audience.
 const (
 	defaultExpectedIssuers  = "auth.institutoitinerante.com.br,pulse-service"
-	defaultExpectedAudience = "pulse-service"
+	defaultExpectedAudience = "iit"
 )
 
 // ServiceTokenMiddleware validates X-Service-Token OR Authorization Bearer JWT.

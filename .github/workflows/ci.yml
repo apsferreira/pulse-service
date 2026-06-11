@@ -33,7 +33,7 @@ jobs:
         run: |
           docker run -d --name pg_test \
             -e POSTGRES_USER=postgres \
-            -e POSTGRES_PASSWORD=postgres \
+            -e POSTGRES_PASSWORD=*** \
             -e POSTGRES_DB=pulse_test \
             -p 5432:5432 \
             postgres:15
@@ -67,27 +67,58 @@ jobs:
 
       - name: Run tests
         env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/pulse_test?sslmode=disable
-          REDIS_URL: redis://localhost:6379
+          DATABASE_URL: postgres://postgres:***@localhost:5432/pulse_test?sslmode=disable
+          REDIS_URL: redis://localhost:***@v4
           SERVICE_TOKEN: test-token
           GOTOOLCHAIN: auto
         run: |
           PKGS=$(grep -rl "_test.go" --include="*.go" . | grep -v "^./sdk" | xargs -I{} dirname {} | sort -u | tr '\n' ' ')
           go test $PKGS -coverprofile=coverage.out -covermode=set
 
-      - name: Coverage report
-        run: go tool cover -func=coverage.out | grep total || true
-        continue-on-error: true
+      - name: Coverage gate (>= 40%)
+        run: |
+          go tool cover -func=coverage.out \
+            | awk '/total/{gsub(/%/,"",$3); if($3+0 < 40){printf "FAIL: coverage %.1f%% < 40%%\n",$3; exit 1}else{printf "PASS: coverage %.1f%%\n",$3}}'
 
       - name: Cleanup containers
         if: always()
         run: docker rm -f pg_test redis_test 2>/dev/null || true
 
-  # ── Build backend ────────────────────────────────────────────────────────────
+  # ── Lint — gosec + TruffleHog ───────────────────────────────────────────────
+  lint:
+    name: Lint
+    runs-on: iit-pulse
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          cache: false
+
+      - name: Download dependencies
+        env:
+          GOTOOLCHAIN: auto
+        run: go mod download
+
+      - name: Run gosec
+        run: |
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          gosec -exclude-generated -severity medium -confidence medium ./...
+
+      - name: Run TruffleHog
+        run: |
+          docker run --rm -v ${{ github.workspace }}:/workspace aquasec/trufflehog:latest filesystem --no-verification /workspace
+
+  # ── Build backend ───────────────────────────────────────────────────────────
   build-and-push:
     name: Build & Push Backend
     runs-on: iit-pulse
-    needs: [test]
+    needs: [test, lint]
     if: github.ref == 'refs/heads/main'
     timeout-minutes: 10
     permissions:
@@ -139,7 +170,7 @@ jobs:
   build-and-push-frontend:
     name: Build & Push Frontend
     runs-on: iit-pulse
-    needs: [test]
+    needs: [test, lint]
     if: github.ref == 'refs/heads/main'
     timeout-minutes: 10
     permissions:

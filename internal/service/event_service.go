@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/institutoitinerante/pulse-service/internal/domain"
+	"github.com/institutoitinerante/pulse-service/internal/pkg/privacy"
 	"github.com/institutoitinerante/pulse-service/internal/repository"
 )
 
@@ -45,8 +46,8 @@ func (s *EventService) Ingest(ctx context.Context, req domain.IngestEventRequest
 		Environment: env,      // BKL-750
 		ProjectID:   req.ProjectID, // BKL-1038
 	}
-	if ipAddress != "" {
-		event.IPAddress = &ipAddress
+	if anon := privacy.AnonymizeIP(ipAddress); anon != "" {
+		event.IPAddress = &anon
 	}
 	if userAgent != "" {
 		event.UserAgent = &userAgent
@@ -109,8 +110,8 @@ func (s *EventService) Track(ctx context.Context, req domain.TrackEventRequest, 
 		UserID:     userID,
 		Properties: props,
 	}
-	if ipAddress != "" {
-		event.IPAddress = &ipAddress
+	if anon := privacy.AnonymizeIP(ipAddress); anon != "" {
+		event.IPAddress = &anon
 	}
 	if userAgent != "" {
 		event.UserAgent = &userAgent
@@ -159,8 +160,8 @@ func (s *EventService) BatchIngest(ctx context.Context, req domain.BatchIngestRe
 			Environment: env,
 			ProjectID:   r.ProjectID,
 		}
-		if ipAddress != "" {
-			e.IPAddress = &ipAddress
+		if anon := privacy.AnonymizeIP(ipAddress); anon != "" {
+			e.IPAddress = &anon
 		}
 		if userAgent != "" {
 			e.UserAgent = &userAgent

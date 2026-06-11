@@ -20,6 +20,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -49,7 +52,10 @@ func NewWebhookHandler(db *pgxpool.Pool, serviceToken string) *WebhookHandler {
 	return &WebhookHandler{
 		db:           db,
 		serviceToken: serviceToken,
-		httpClient:   &http.Client{Timeout: 10 * time.Second},
+			httpClient: &http.Client{
+			Timeout:       10 * time.Second,
+			CheckRedirect: sshCheckRedirect,
+		},
 	}
 }
 
@@ -161,6 +167,11 @@ func (h *WebhookHandler) Create(c *fiber.Ctx) error {
 	}
 	if req.WebhookType != WebhookTypeSlack && req.WebhookType != WebhookTypeDatadog && req.WebhookType != WebhookTypeCustom {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "webhook_type deve ser slack, datadog ou custom"})
+	}
+
+	// SSRF: valida URL contra lista de bloqueio de endereços internos
+	if !isAllowedWebhookURL(req.URL) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "URL de webhook inválida — apenas URLs HTTPS externas são permitidas"})
 	}
 
 	// Gera secret aleatório para assinatura HMAC
@@ -425,6 +436,58 @@ func (h *WebhookHandler) formatDatadog(eventType string, payload interface{}) ([
 		"tags":       []string{"source:pulse", fmt.Sprintf("event:%s", eventType)},
 	}
 	return json.Marshal(ddEvent)
+}
+
+// isAllowedWebhookURL valida se a URL do webhook é externa e segura,
+// bloqueando SSRF contra serviços internos do K3s (ArgoCD, Vault, etc.).
+func isAllowedWebhookURL(rawURL string) bool {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+	// Apenas HTTPS permitido
+	if u.Scheme != "https" {
+		return false
+	}
+	host := u.Hostname()
+
+	// Bloquear padrões internos: localhost, IPs privados, serviços K8s
+	blockedPatterns := []string{
+		"localhost",
+		"127.",
+		"10.",
+		"192.168.",
+		".cluster.local",
+		".svc",
+	}
+	for _, p := range blockedPatterns {
+		if strings.Contains(host, p) {
+			return false
+		}
+	}
+
+	// Bloquear range 172.16.0.0/12 (RFC1918) — separado porque "172." sozinho
+	// seria muito abrangente (ex.: 172.32.0.1 é público)
+	if strings.HasPrefix(host, "172.") {
+		parts := strings.Split(host, ".")
+		if len(parts) >= 2 {
+			if second, err := strconv.Atoi(parts[1]); err == nil && second >= 16 && second <= 31 {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// sshCheckRedirect bloqueia redirects para URLs internas (SSRF via redirecionamento).
+func sshCheckRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) >= 5 {
+		return fmt.Errorf("webhook: too many redirects")
+	}
+	if !isAllowedWebhookURL(req.URL.String()) {
+		return fmt.Errorf("webhook: redirect blocked — internal URL not allowed")
+	}
+	return nil
 }
 
 // generateSecret gera um secret aleatório de 32 bytes em hex.

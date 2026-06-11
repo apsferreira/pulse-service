@@ -88,7 +88,7 @@ func (s *EmailSequenceService) ProcessDue(ctx context.Context) error {
 
 			if err := s.sendEmail(proj.ContactEmail, tmpl.Subject, body); err != nil {
 				s.markFailed(ctx, proj.ID, tmpl.ID, proj.ContactEmail, err.Error())
-				log.Printf("[email_sequence] falha ao enviar %s para %s: %v", tmpl.Name, proj.ContactEmail, err)
+				log.Printf("[email_sequence] falha ao enviar %s para project_id=%s: %v", tmpl.Name, proj.ID, err)
 				continue
 			}
 

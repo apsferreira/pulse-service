@@ -8,6 +8,7 @@ import { flagsApi, api, UpgradeRequiredError } from '../services/api'
 import type { FeatureFlag, FlagVariant } from '../services/api'
 import { useProject } from '../components/Layout'
 import UpgradeModal from '../components/UpgradeModal'
+import { readEnv } from '../env'
 import { useUpgradeGate } from '../hooks/useUpgradeGate'
 import { usePlanGate } from '../hooks/usePlanGate'
 
@@ -402,10 +403,10 @@ function BayesianAnalysis() {
         b_total: form.b_total,
       })
       // Usa URL base + path absoluto pois o endpoint não tem prefixo /api/v1/projects
-      const baseURL = (import.meta.env?.VITE_API_URL as string) ?? ''
+      const baseURL = readEnv('VITE_API_URL')
       const resp = await fetch(
         `${baseURL}/api/v1/experiments/mock/bayesian?${params}`,
-        { headers: { 'X-Service-Token': (import.meta.env?.VITE_SERVICE_TOKEN as string) ?? '' } },
+        { headers: { 'X-Service-Token': readEnv('VITE_SERVICE_TOKEN') } },
       )
       // Na prática usa o id do experimento — usamos "mock" como placeholder
       // O endpoint ignora o :id pois é stateless (só matemática)

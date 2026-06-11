@@ -5,12 +5,10 @@ WORKDIR /app
 
 ARG BUILD_SHA=dev
 ARG VITE_API_URL=""
-ARG VITE_SERVICE_TOKEN=""
 ARG VITE_AUTH_SERVICE_URL="https://auth.institutoitinerante.com.br"
 
 ENV BUILD_SHA=$BUILD_SHA
 ENV VITE_API_URL=$VITE_API_URL
-ENV VITE_SERVICE_TOKEN=$VITE_SERVICE_TOKEN
 ENV VITE_AUTH_SERVICE_URL=$VITE_AUTH_SERVICE_URL
 
 COPY package*.json .npmrc ./
@@ -34,6 +32,9 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 # Copy custom nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
+# Copy runtime entrypoint (gera env-config.js em /tmp com env vars do pod)
+COPY entrypoint.sh /entrypoint.sh
+
 # Patch nginx.conf principal para não criar pid em /var/run
 RUN sed -i 's|pid\s*/var/run/nginx.pid;|pid /tmp/nginx.pid;|g' /etc/nginx/nginx.conf \
  && sed -i '/^user /d' /etc/nginx/nginx.conf
@@ -51,4 +52,5 @@ EXPOSE 80
 
 USER nginx
 
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["nginx", "-g", "daemon off;"]

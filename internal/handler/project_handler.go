@@ -76,7 +76,7 @@ func (h *ProjectHandler) CreateProject(c *fiber.Ctx) error {
 	// billing: enforce limite de projetos por plano da conta
 	currentPlan, planErr := h.accountRepo.GetPlanByEmail(c.Context(), req.OwnerEmail)
 	if planErr != nil {
-		log.Printf("[project_handler] CreateProject: GetPlanByEmail %s: %v", req.OwnerEmail, planErr)
+		log.Printf("[project_handler] CreateProject: GetPlanByEmail slug=%s: %v", req.Slug, planErr)
 		currentPlan = "free"
 	}
 	count, countErr := h.repo.Count(c.Context(), req.OwnerEmail)

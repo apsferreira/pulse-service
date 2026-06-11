@@ -15,6 +15,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"os"
 	"strings"
 	"time"
 
@@ -22,6 +23,16 @@ import (
 	"github.com/institutoitinerante/pulse-service/internal/domain"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
+)
+
+// Issue #62: defaults para claims iss/aud em tokens emitidos pelo modo local.
+// O issuer pode ser sobrescrito via PULSE_JWT_LOCAL_ISSUER; o audience via PULSE_JWT_EXPECTED_AUDIENCE.
+// Issue #77: audience padronizada como "iit" para alinhar com tokens do auth-service
+// (aud="iit" identifica o ecossistema IIT, não um serviço específico).
+const (
+	defaultLocalIssuer    = "pulse-service"
+	defaultLocalAudience  = "iit"
+	defaultAcceptedIssuer = "auth.institutoitinerante.com.br,pulse-service"
 )
 
 // LocalAuthHandler lida com autenticação local por email+senha.
@@ -226,8 +237,19 @@ func verifyPasswordHash(password, stored string) bool {
 
 // issueJWT gera um JWT HS256 com claims padrão e expiração de 24h.
 // Implementação sem dependências externas, igual à usada em middleware/auth.go.
+// Issue #62: inclui claims iss e aud para que tokens locais sejam aceitos pelo
+// middleware (e tokens de outros serviços sejam rejeitados).
 func issueJWT(id, email, name, role, secret string) (string, error) {
 	header := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"HS256","typ":"JWT"}`))
+
+	issuer := os.Getenv("PULSE_JWT_LOCAL_ISSUER")
+	if issuer == "" {
+		issuer = defaultLocalIssuer
+	}
+	audience := os.Getenv("PULSE_JWT_EXPECTED_AUDIENCE")
+	if audience == "" {
+		audience = defaultLocalAudience
+	}
 
 	exp := time.Now().Add(24 * time.Hour).Unix()
 	payloadMap := map[string]interface{}{
@@ -237,6 +259,8 @@ func issueJWT(id, email, name, role, secret string) (string, error) {
 		"role":  role,
 		"exp":   exp,
 		"iat":   time.Now().Unix(),
+		"iss":   issuer,
+		"aud":   audience,
 	}
 	payloadBytes, err := json.Marshal(payloadMap)
 	if err != nil {
@@ -252,8 +276,9 @@ func issueJWT(id, email, name, role, secret string) (string, error) {
 	return signingInput + "." + sig, nil
 }
 
-// parseJWT valida a assinatura e a expiração de um JWT HS256, retornando os claims.
-// Implementação sem dependências externas, coerente com middleware/auth.go.
+// parseJWT valida assinatura, expiração, issuer e audience de um JWT HS256.
+// Issue #62/#77: além da assinatura, exige iss conhecido e aud=iit para
+// rejeitar tokens emitidos para outros ecossistemas.
 func parseJWT(tokenStr, secret string) (map[string]interface{}, bool) {
 	parts := strings.Split(tokenStr, ".")
 	if len(parts) != 3 {
@@ -278,13 +303,74 @@ func parseJWT(tokenStr, secret string) (map[string]interface{}, bool) {
 		return nil, false
 	}
 
-	// Verifica expiração
-	if exp, ok := claims["exp"].(float64); ok {
-		if time.Now().Unix() > int64(exp) {
+	// Expiração obrigatória
+	exp, ok := claims["exp"].(float64)
+	if !ok || time.Now().Unix() > int64(exp) {
+		return nil, false
+	}
+
+	// Issuer obrigatório (lista aceita configurável)
+	acceptedIssuers := parseCSVLocal(getEnvDefaultLocal("PULSE_JWT_EXPECTED_ISSUER", defaultAcceptedIssuer))
+	if len(acceptedIssuers) > 0 {
+		iss, _ := claims["iss"].(string)
+		if !containsStringLocal(acceptedIssuers, iss) {
+			return nil, false
+		}
+	}
+
+	// Audience obrigatória
+	expectedAudience := getEnvDefaultLocal("PULSE_JWT_EXPECTED_AUDIENCE", defaultLocalAudience)
+	if expectedAudience != "" {
+		if !audienceMatchesLocal(claims["aud"], expectedAudience) {
 			return nil, false
 		}
 	}
 
 	return claims, true
+}
+
+// audienceMatchesLocal aceita aud como string ou []string (RFC 7519).
+func audienceMatchesLocal(audClaim interface{}, expected string) bool {
+	switch v := audClaim.(type) {
+	case string:
+		return v == expected
+	case []interface{}:
+		for _, item := range v {
+			if s, ok := item.(string); ok && s == expected {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func containsStringLocal(list []string, s string) bool {
+	for _, item := range list {
+		if item == s {
+			return true
+		}
+	}
+	return false
+}
+
+func parseCSVLocal(s string) []string {
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if trimmed := strings.TrimSpace(p); trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	return out
+}
+
+func getEnvDefaultLocal(key, def string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return def
 }
 

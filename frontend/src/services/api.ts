@@ -1,7 +1,8 @@
 import axios from 'axios'
+import { readEnv } from '../env'
 
-const API_BASE_URL = (import.meta.env?.VITE_API_URL as string) ?? ''
-const SERVICE_TOKEN = (import.meta.env?.VITE_SERVICE_TOKEN as string) ?? ''
+const API_BASE_URL = readEnv('VITE_API_URL')
+const SERVICE_TOKEN = readEnv('VITE_SERVICE_TOKEN')
 
 export const api = axios.create({
   baseURL: `${API_BASE_URL}/api/v1`,

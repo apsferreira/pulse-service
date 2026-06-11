@@ -7,17 +7,25 @@ package handler
 //   GET /api/v1/north-star   — retorna métricas de conversão dos 6 produtos IIT
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// dbPool é a dependência mínima de banco para o NorthStarHandler.
+// Interface permite injeção de mock nos testes sem expor pgx internamente.
+type dbPool interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
 // NorthStarHandler retorna métricas de conversão reais por produto IIT.
 type NorthStarHandler struct {
-	db *pgxpool.Pool
+	db dbPool
 }
 
 func NewNorthStarHandler(db *pgxpool.Pool) *NorthStarHandler {
@@ -244,18 +252,28 @@ func (h *NorthStarHandler) pulseDistinctProjects(c *fiber.Ctx, now time.Time) (c
 
 // brioResolutionRate calcula % de conversas resolvidas pelo agente nos últimos 7 dias.
 // Retorna valor inteiro 0–100. Sparkline em pontos percentuais por semana.
+//
+// BKL-1015: o denominador NÃO pode contar todos os eventos do produto 'brio'
+// (page_view, button_click, etc.). Deve contar apenas eventos que representam
+// início de conversa: conversation.started e session.initiated.
 func (h *NorthStarHandler) brioResolutionRate(c *fiber.Ctx, now time.Time) (current, prev int64, sparkline []int64) {
 	sparkline = make([]int64, 8)
 
 	weekStart := now.Add(-7 * 24 * time.Hour)
 	prevStart := now.Add(-14 * 24 * time.Hour)
 
+	// Conversa-start: eventos que representam início de conversa (denominador correto).
+	// BKL-1015: antigamente contava QUALQUER evento do produto 'brio' no denominador,
+	// incluindo page_view, button_click etc. — decisões de produto baseadas em taxa
+	// matematicamente incorreta.
+	conversationStarts := []string{"conversation.started", "session.initiated"}
 	rate := func(from, to time.Time) int64 {
 		var total, resolved int64
 		_ = h.db.QueryRow(c.Context(),
 			`SELECT COUNT(*) FROM events
-			 WHERE product = $1 AND created_at >= $2 AND created_at < $3`,
-			"brio", from, to,
+			 WHERE product = $1 AND event_type = ANY($2::text[])
+			   AND created_at >= $3 AND created_at < $4`,
+			"brio", conversationStarts, from, to,
 		).Scan(&total)
 		_ = h.db.QueryRow(c.Context(),
 			`SELECT COUNT(*) FROM events

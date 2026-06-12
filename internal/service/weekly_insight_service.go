@@ -140,9 +140,9 @@ func (s *WeeklyInsightService) collectMetrics(ctx context.Context, weekStart, we
 	_ = s.db.QueryRow(ctx,
 		`SELECT COALESCE(AVG(active_count), 0)
 		 FROM (
-		   SELECT DATE(tracked_at) as d, COUNT(DISTINCT user_id) as active_count
+		   SELECT DATE(created_at) as d, COUNT(DISTINCT user_id) as active_count
 		   FROM events
-		   WHERE tracked_at >= $1 AND tracked_at < $2
+		   WHERE created_at >= $1 AND created_at < $2
 		   GROUP BY d
 		 ) t`,
 		weekStart, weekEnd.AddDate(0, 0, 1),
@@ -152,9 +152,9 @@ func (s *WeeklyInsightService) collectMetrics(ctx context.Context, weekStart, we
 	_ = s.db.QueryRow(ctx,
 		`SELECT COALESCE(AVG(active_count), 0)
 		 FROM (
-		   SELECT DATE(tracked_at) as d, COUNT(DISTINCT user_id) as active_count
+		   SELECT DATE(created_at) as d, COUNT(DISTINCT user_id) as active_count
 		   FROM events
-		   WHERE tracked_at >= $1 AND tracked_at < $2
+		   WHERE created_at >= $1 AND created_at < $2
 		   GROUP BY d
 		 ) t`,
 		prevStart, prevEnd.AddDate(0, 0, 1),
@@ -217,9 +217,9 @@ func (s *WeeklyInsightService) collectMetrics(ctx context.Context, weekStart, we
 	_ = s.db.QueryRow(ctx,
 		`SELECT COALESCE(AVG(active_count), 0)
 		 FROM (
-		   SELECT DATE(tracked_at) as d, COUNT(DISTINCT user_id) as active_count
+		   SELECT DATE(created_at) as d, COUNT(DISTINCT user_id) as active_count
 		   FROM events
-		   WHERE tracked_at >= $1 AND tracked_at < $2
+		   WHERE created_at >= $1 AND created_at < $2
 		   GROUP BY d
 		 ) t`,
 		prevStart.AddDate(0, 0, -7), prevStart,
@@ -232,7 +232,7 @@ func (s *WeeklyInsightService) collectMetrics(ctx context.Context, weekStart, we
 	rows, err := s.db.Query(ctx,
 		`SELECT product, COUNT(DISTINCT user_id) as cnt
 		 FROM events
-		 WHERE tracked_at >= $1 AND tracked_at < $2
+		 WHERE created_at >= $1 AND created_at < $2
 		   AND product IS NOT NULL
 		 GROUP BY product`,
 		weekStart, weekEnd.AddDate(0, 0, 1),
@@ -242,7 +242,7 @@ func (s *WeeklyInsightService) collectMetrics(ctx context.Context, weekStart, we
 		prevRows, _ := s.db.Query(ctx,
 			`SELECT product, COUNT(DISTINCT user_id) as cnt
 			 FROM events
-			 WHERE tracked_at >= $1 AND tracked_at < $2
+			 WHERE created_at >= $1 AND created_at < $2
 			   AND product IS NOT NULL
 			 GROUP BY product`,
 			prevStart, prevEnd.AddDate(0, 0, 1),

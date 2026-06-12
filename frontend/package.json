@@ -14,7 +14,7 @@
     "axios": "^1.6.7",
     "clsx": "^2.1.1",
     "lucide-react": "^0.548.0",
-    "react": "^18.2.0",
+    "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-hook-form": "^7.78.0",
     "react-hot-toast": "^2.6.0",
@@ -24,7 +24,7 @@
   },
   "devDependencies": {
     "@types/node": "^25.9.3",
-    "@types/react": "^18.2.55",
+    "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^8.59.4",

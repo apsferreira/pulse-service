@@ -68,6 +68,10 @@ func (m *mockCSATRepo) ListResponses(ctx context.Context, surveyID uuid.UUID, fr
 	return m.responses, m.responsesErr
 }
 
+func (m *mockCSATRepo) ListResponsesByRespondent(ctx context.Context, respondent string, limit int) ([]domain.CSATResponse, error) {
+	return m.responses, m.responsesErr
+}
+
 // newTestCSATApp monta um Fiber app com as rotas do CSATHandler usando mock.
 func newTestCSATApp(repo domain.CSATRepository, token string) *fiber.App {
 	h := NewCSATHandler(repo, token)

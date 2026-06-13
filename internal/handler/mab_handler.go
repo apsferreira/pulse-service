@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"log"
 
 	"github.com/gofiber/fiber/v2"
@@ -10,14 +11,27 @@ import (
 	"github.com/institutoitinerante/pulse-service/internal/repository"
 )
 
+// MABStore define as operações de armazenamento do MAB usadas pelo handler.
+type MABStore interface {
+	CreateExperiment(ctx context.Context, projectID uuid.UUID, req *domain.CreateMABExperimentRequest) (*domain.MABExperiment, error)
+	ListExperiments(ctx context.Context, projectID uuid.UUID) ([]domain.MABExperiment, error)
+	GetExperiment(ctx context.Context, projectID uuid.UUID, flagKey string) (*domain.MABExperiment, error)
+	SelectVariant(ctx context.Context, experimentID uuid.UUID, epsilon float64) (*domain.SelectVariantResponse, error)
+	RecordEvent(ctx context.Context, experimentID uuid.UUID, variantKey string, isConversion bool) error
+	RecalculateWeights(ctx context.Context, experimentID uuid.UUID) error
+	GetExperimentByID(ctx context.Context, id uuid.UUID) (*domain.MABExperiment, error)
+	SetActive(ctx context.Context, experimentID uuid.UUID, active bool) error
+	CountExperiments(ctx context.Context, projectID uuid.UUID) (int, error)
+}
+
 // MABHandler expõe endpoints de Multi-Armed Bandits epsilon-greedy. BKL-1154.
 type MABHandler struct {
-	repo         *repository.MABRepository
+	repo         MABStore
 	projectRepo  *repository.ProjectRepository
 	serviceToken string
 }
 
-func NewMABHandler(repo *repository.MABRepository, serviceToken string) *MABHandler {
+func NewMABHandler(repo MABStore, serviceToken string) *MABHandler {
 	return &MABHandler{repo: repo, serviceToken: serviceToken}
 }
 

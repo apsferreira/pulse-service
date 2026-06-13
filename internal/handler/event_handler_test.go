@@ -43,7 +43,7 @@ func (m *mockEventService) Track(ctx context.Context, req domain.TrackEventReque
 	return m.trackEvent, m.trackErr
 }
 
-func (m *mockEventService) GetSummary(ctx context.Context) (domain.EventsSummaryResponse, error) {
+func (m *mockEventService) GetSummary(ctx context.Context, projectID string) (domain.EventsSummaryResponse, error) {
 	return m.summary, m.summaryErr
 }
 

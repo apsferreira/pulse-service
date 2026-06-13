@@ -13,7 +13,7 @@ import (
 func TestValidateJWT_IssAudEnforcement(t *testing.T) {
 	const secret = "test-secret"
 	expectedIssuers := []string{"auth.institutoitinerante.com.br", "pulse-service"}
-	expectedAud := "pulse-service"
+	expectedAud := "iit"
 
 	cases := []struct {
 		name   string
@@ -22,12 +22,12 @@ func TestValidateJWT_IssAudEnforcement(t *testing.T) {
 	}{
 		{
 			name:   "valid - aud string match",
-			claims: map[string]interface{}{"exp": time.Now().Add(time.Hour).Unix(), "iss": "pulse-service", "aud": "pulse-service"},
+			claims: map[string]interface{}{"exp": time.Now().Add(time.Hour).Unix(), "iss": "pulse-service", "aud": "iit"},
 			want:   true,
 		},
 		{
 			name:   "valid - aud array contains expected",
-			claims: map[string]interface{}{"exp": time.Now().Add(time.Hour).Unix(), "iss": "auth.institutoitinerante.com.br", "aud": []string{"pulse-service", "other"}},
+			claims: map[string]interface{}{"exp": time.Now().Add(time.Hour).Unix(), "iss": "auth.institutoitinerante.com.br", "aud": []string{"iit", "other"}},
 			want:   true,
 		},
 		{
@@ -42,22 +42,22 @@ func TestValidateJWT_IssAudEnforcement(t *testing.T) {
 		},
 		{
 			name:   "reject - unknown issuer",
-			claims: map[string]interface{}{"exp": time.Now().Add(time.Hour).Unix(), "iss": "evil.example.com", "aud": "pulse-service"},
+			claims: map[string]interface{}{"exp": time.Now().Add(time.Hour).Unix(), "iss": "evil.example.com", "aud": "iit"},
 			want:   false,
 		},
 		{
 			name:   "reject - missing iss",
-			claims: map[string]interface{}{"exp": time.Now().Add(time.Hour).Unix(), "aud": "pulse-service"},
+			claims: map[string]interface{}{"exp": time.Now().Add(time.Hour).Unix(), "aud": "iit"},
 			want:   false,
 		},
 		{
 			name:   "reject - expired",
-			claims: map[string]interface{}{"exp": time.Now().Add(-time.Hour).Unix(), "iss": "pulse-service", "aud": "pulse-service"},
+			claims: map[string]interface{}{"exp": time.Now().Add(-time.Hour).Unix(), "iss": "pulse-service", "aud": "iit"},
 			want:   false,
 		},
 		{
 			name:   "reject - missing exp",
-			claims: map[string]interface{}{"iss": "pulse-service", "aud": "pulse-service"},
+			claims: map[string]interface{}{"iss": "pulse-service", "aud": "iit"},
 			want:   false,
 		},
 	}
@@ -78,10 +78,10 @@ func TestValidateJWT_BadSignatureRejected(t *testing.T) {
 	claims := map[string]interface{}{
 		"exp": time.Now().Add(time.Hour).Unix(),
 		"iss": "pulse-service",
-		"aud": "pulse-service",
+		"aud": "iit",
 	}
 	token := signToken(t, "attacker-secret", claims)
-	if validateJWT(token, secret, []string{"pulse-service"}, "pulse-service") {
+	if validateJWT(token, secret, []string{"pulse-service"}, "iit") {
 		t.Fatal("expected token assinado com secret diferente a ser rejeitado")
 	}
 }

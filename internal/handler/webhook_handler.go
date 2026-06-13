@@ -5,9 +5,11 @@ package handler
 // quando eventos relevantes ocorrem (event.tracked, flag.evaluated, health_score.dropped).
 // Compatível com n8n, Make, Zapier, Slack, Datadog.
 //
-// Migration 043 adiciona:
+// Migration 044 adiciona:
 //   - webhook_type (slack|datadog|custom) — formatação específica por destino
 //   - success + duration_ms em webhook_deliveries — métricas de latência
+// (O número 043 foi reservado a um placeholder por causa de um renumber
+// histórico — ver migrations/043_renumbered_to_044.sql.)
 
 import (
 	"bytes"

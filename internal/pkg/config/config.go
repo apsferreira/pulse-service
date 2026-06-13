@@ -34,6 +34,12 @@ type Config struct {
 	// Usado pelo UserInsightsHandler para resolver name+email a partir do canonical_user_id.
 	// Vazio = enriquecimento desabilitado (modo degradado: exibe apenas user_id).
 	AuthServiceURL string
+	// NotificationServiceURL é a URL do notification-service para disparar alertas de drift de modelo.
+	// fix(#66): usado pelo job semanal de revalidação de churn model.
+	// Vazio = alertas desabilitados (self-hosted sem notification-service).
+	NotificationServiceURL string
+	// NotificationServiceToken é o token de serviço para autenticar no notification-service.
+	NotificationServiceToken string
 }
 
 // Load reads configuration from environment variables, applying defaults where appropriate.
@@ -51,6 +57,8 @@ func Load() *Config {
 		JWTSecret:                  getEnv("PULSE_JWT_SECRET", ""),
 		InsightsAgentIntervalHours: getEnvInt("INSIGHTS_AGENT_INTERVAL_HOURS", 6),
 		AuthServiceURL:             getEnv("AUTH_SERVICE_URL", ""),
+		NotificationServiceURL:    getEnv("NOTIFICATION_SERVICE_URL", ""),
+		NotificationServiceToken:  getEnv("NOTIFICATION_SERVICE_TOKEN", ""),
 	}
 	// Fallback: se JWTSecret não foi definido, usa ServiceToken como secret.
 	// Só entra em vigor no modo local; não expõe o ServiceToken em nenhum log.

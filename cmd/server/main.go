@@ -20,6 +20,7 @@ import (
 	"github.com/institutoitinerante/pulse-service/internal/pkg/authclient"
 	"github.com/institutoitinerante/pulse-service/internal/pkg/config"
 	"github.com/institutoitinerante/pulse-service/internal/pkg/flagscheduler"
+	"github.com/institutoitinerante/pulse-service/internal/pkg/modelrevalidation"
 	"github.com/institutoitinerante/pulse-service/internal/pkg/retentionpurge"
 	"github.com/institutoitinerante/pulse-service/internal/pkg/telemetry"
 	"github.com/institutoitinerante/pulse-service/internal/pkg/wshub"
@@ -388,6 +389,17 @@ func main() {
 	mabRepo := repository.NewMABRepository(pool)
 	mabHandler := handler.NewMABHandler(mabRepo, cfg.ServiceToken).WithProjectRepo(projectRepo)
 	mabHandler.RegisterRoutes(app)
+
+	// fix(#66): Model revalidation — job semanal de revalidação de churn model + recálculo MAB
+	modelRevalScheduler := modelrevalidation.New(
+		pool,
+		churnModelHandler,
+		mabRepo,
+		cfg.NotificationServiceURL,
+		cfg.NotificationServiceToken,
+		7*24*time.Hour,
+	)
+	modelRevalScheduler.Start(jobCtx)
 
 	// PULSE-PV-02: Page view tracking — ingestão + analytics (top pages, user journey)
 	pageViewRepo := repository.NewPageViewRepository(pool)

@@ -324,6 +324,28 @@ func (r *MABRepository) SelectVariant(ctx context.Context, experimentID uuid.UUI
 	}, nil
 }
 
+// ListActiveExperimentIDs retorna os IDs de todos os experimentos MAB ativos.
+// Usado pelo job semanal de revalidação (fix #66) para recalcular pesos automaticamente.
+func (r *MABRepository) ListActiveExperimentIDs(ctx context.Context) ([]uuid.UUID, error) {
+	rows, err := r.db.Query(ctx,
+		`SELECT id FROM mab_experiments WHERE is_active = true`,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("mab_repository: ListActiveExperimentIDs: %w", err)
+	}
+	defer rows.Close()
+
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("mab_repository: ListActiveExperimentIDs: scan: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
 // SetActive ativa ou desativa um experimento MAB.
 func (r *MABRepository) SetActive(ctx context.Context, experimentID uuid.UUID, active bool) error {
 	tag, err := r.db.Exec(ctx,

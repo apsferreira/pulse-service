@@ -25,6 +25,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/institutoitinerante/pulse-service/internal/domain"
 	"github.com/institutoitinerante/pulse-service/internal/middleware"
+	"github.com/institutoitinerante/pulse-service/internal/pkg/modelrevalidation"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -43,6 +44,7 @@ func NewChurnModelHandler(db *pgxpool.Pool, serviceToken string) *ChurnModelHand
 func (h *ChurnModelHandler) RegisterRoutes(app *fiber.App) {
 	api := app.Group("/api/v1/projects", middleware.ServiceTokenMiddleware(h.serviceToken))
 	api.Post("/:id/churn-model/train", h.Train)
+	api.Get("/:id/churn-model/status", h.GetStatus)   // fix(#66): model_version + accuracy
 	api.Get("/:id/churn-risk/:user_id", h.UserChurnRisk)
 }
 
@@ -51,11 +53,24 @@ func (h *ChurnModelHandler) RegisterRoutes(app *fiber.App) {
 // ChurnModelTrainResponse é a resposta do endpoint de treino.
 type ChurnModelTrainResponse struct {
 	ProjectID    string    `json:"project_id"`
+	ModelVersion int       `json:"model_version"`
 	SampleSize   int       `json:"sample_size"`
 	ChurnedCount int       `json:"churned_count"`
 	Accuracy     float64   `json:"accuracy"`
 	TrainedAt    time.Time `json:"trained_at"`
 	Message      string    `json:"message"`
+}
+
+// ChurnModelStatusResponse é a resposta do endpoint de status.
+// fix(#66): expõe model_version e métricas de validação.
+type ChurnModelStatusResponse struct {
+	ProjectID              string     `json:"project_id"`
+	ModelVersion           int        `json:"model_version"`
+	Accuracy               float64    `json:"accuracy"`
+	LastValidationAccuracy *float64   `json:"last_validation_accuracy,omitempty"`
+	LastValidatedAt        *time.Time `json:"last_validated_at,omitempty"`
+	SampleSize             int        `json:"sample_size"`
+	TrainedAt              time.Time  `json:"trained_at"`
 }
 
 // UserChurnRiskResponse é a resposta do endpoint de risco de churn por usuário.
@@ -133,11 +148,12 @@ func (h *ChurnModelHandler) Train(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: "erro ao serializar pesos do modelo"})
 	}
 
+	var modelVersion int
 	now := time.Now().UTC()
-	_, err = h.db.Exec(ctx,
+	err = h.db.QueryRow(ctx,
 		`INSERT INTO project_churn_models
-		    (project_id, weights, feature_names, trained_at, accuracy, sample_size, churned_count, updated_at)
-		 VALUES ($1::uuid, $2::jsonb, $3::jsonb, $4, $5, $6, $7, $4)
+		    (project_id, weights, feature_names, trained_at, accuracy, sample_size, churned_count, model_version, updated_at)
+		 VALUES ($1::uuid, $2::jsonb, $3::jsonb, $4, $5, $6, $7, 1, $4)
 		 ON CONFLICT (project_id) DO UPDATE SET
 		    weights = EXCLUDED.weights,
 		    feature_names = EXCLUDED.feature_names,
@@ -145,7 +161,9 @@ func (h *ChurnModelHandler) Train(c *fiber.Ctx) error {
 		    accuracy = EXCLUDED.accuracy,
 		    sample_size = EXCLUDED.sample_size,
 		    churned_count = EXCLUDED.churned_count,
-		    updated_at = EXCLUDED.updated_at`,
+		    model_version = project_churn_models.model_version + 1,
+		    updated_at = EXCLUDED.updated_at
+		 RETURNING model_version`,
 		projectID,
 		string(weightsJSON),
 		`["bias","event_count_30d","event_count_7d","days_since_last_event","session_count","distinct_events"]`,
@@ -153,13 +171,14 @@ func (h *ChurnModelHandler) Train(c *fiber.Ctx) error {
 		accuracy,
 		len(samples),
 		churnedCount,
-	)
+	).Scan(&modelVersion)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(domain.ErrorResponse{Error: "erro ao salvar modelo no banco"})
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(ChurnModelTrainResponse{
 		ProjectID:    projectID,
+		ModelVersion: modelVersion,
 		SampleSize:   len(samples),
 		ChurnedCount: churnedCount,
 		Accuracy:     math.Round(accuracy*10000) / 10000,
@@ -225,6 +244,34 @@ func (h *ChurnModelHandler) UserChurnRisk(c *fiber.Ctx) error {
 		Risk:             risk,
 		ModelTrained:     true,
 	})
+}
+
+// GetStatus godoc
+// GET /api/v1/projects/:id/churn-model/status
+// Retorna model_version, accuracy e métricas de validação do modelo de churn.
+// fix(#66): permite que o job de revalidação e dashboards consultem o estado do modelo.
+func (h *ChurnModelHandler) GetStatus(c *fiber.Ctx) error {
+	projectID := c.Params("id")
+	if projectID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(domain.ErrorResponse{Error: "project id obrigatório"})
+	}
+
+	ctx, cancel := context.WithTimeout(c.Context(), 10*time.Second)
+	defer cancel()
+
+	var resp ChurnModelStatusResponse
+	err := h.db.QueryRow(ctx,
+		`SELECT project_id, model_version, accuracy, last_validation_accuracy, last_validated_at, sample_size, trained_at
+		 FROM project_churn_models
+		 WHERE project_id = $1::uuid`,
+		projectID,
+	).Scan(&resp.ProjectID, &resp.ModelVersion, &resp.Accuracy, &resp.LastValidationAccuracy, &resp.LastValidatedAt, &resp.SampleSize, &resp.TrainedAt)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(domain.ErrorResponse{
+			Error: "modelo não encontrado para este projeto — execute POST /churn-model/train primeiro",
+		})
+	}
+	return c.JSON(resp)
 }
 
 // ------- ML: coleta de dados -------
@@ -443,4 +490,119 @@ func predictChurn(weights []float64, features []float64) float64 {
 		z += weights[j+1] * x
 	}
 	return sigmoid(z)
+}
+
+// RevalidateAll implementa modelrevalidation.ChurnRevalidator.
+// fix(#66): Recalcula acurácia de cada modelo de churn em uma amostra fresca dos últimos 90 dias
+// e persiste last_validated_at + last_validation_accuracy.
+func (h *ChurnModelHandler) RevalidateAll(ctx context.Context) ([]modelrevalidation.ChurnRevalidationResult, error) {
+	rows, err := h.db.Query(ctx,
+		`SELECT project_id::text, weights, model_version
+		 FROM project_churn_models`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	type modelRow struct {
+		projectID    string
+		weights      []float64
+		modelVersion int
+	}
+	var models []modelRow
+	for rows.Next() {
+		var weightsRaw string
+		var m modelRow
+		if err := rows.Scan(&m.projectID, &weightsRaw, &m.modelVersion); err != nil {
+			continue
+		}
+		var modelData struct {
+			Weights []float64 `json:"weights"`
+		}
+		if err := json.Unmarshal([]byte(weightsRaw), &modelData); err != nil {
+			continue
+		}
+		m.weights = modelData.Weights
+		models = append(models, m)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	var results []modelrevalidation.ChurnRevalidationResult
+	now := time.Now().UTC()
+	since90d := now.Add(-90 * 24 * time.Hour)
+	cutoff14d := now.Add(-14 * 24 * time.Hour)
+
+	for _, m := range models {
+		// Coletar features + label real de todos os usuários nos últimos 90 dias
+		fRows, err := h.db.Query(ctx,
+			`SELECT
+			    COUNT(*) FILTER (WHERE created_at >= $2) AS event_count_30d,
+			    COUNT(*) FILTER (WHERE created_at >= $3) AS event_count_7d,
+			    EXTRACT(EPOCH FROM (NOW() - MAX(created_at))) / 86400.0 AS days_since_last_event,
+			    COUNT(DISTINCT session_id) FILTER (WHERE session_id IS NOT NULL AND session_id != '') AS session_count,
+			    COUNT(DISTINCT event_name) AS distinct_events,
+			    CASE WHEN MAX(created_at) < $4 THEN 1.0 ELSE 0.0 END AS churned
+			 FROM events
+			 WHERE project_id = $1::uuid
+			   AND created_at >= $5
+			   AND user_id IS NOT NULL
+			   AND user_id != ''
+			 GROUP BY user_id`,
+			m.projectID,
+			now.Add(-30*24*time.Hour),
+			now.Add(-7*24*time.Hour),
+			cutoff14d,
+			since90d,
+		)
+		if err != nil {
+			continue
+		}
+
+		var total, correct int
+		for fRows.Next() {
+			var eventCount30d, eventCount7d, daysSinceLast, sessionCount, distinctEvents, churned float64
+			if err := fRows.Scan(&eventCount30d, &eventCount7d, &daysSinceLast, &sessionCount, &distinctEvents, &churned); err != nil {
+				continue
+			}
+			total++
+			features := []float64{eventCount30d, eventCount7d, daysSinceLast, sessionCount, distinctEvents}
+			pred := predictChurn(m.weights, features)
+			var predLabel float64
+			if pred >= 0.5 {
+				predLabel = 1.0
+			}
+			if predLabel == churned {
+				correct++
+			}
+		}
+		fRows.Close()
+
+		if total == 0 {
+			continue
+		}
+		accuracy := float64(correct) / float64(total)
+
+		// Persistir métricas de validação
+		_, err = h.db.Exec(ctx,
+			`UPDATE project_churn_models
+			 SET last_validated_at = NOW(),
+			     last_validation_accuracy = $1
+			 WHERE project_id = $2::uuid`,
+			accuracy, m.projectID,
+		)
+		if err != nil {
+			continue
+		}
+
+		results = append(results, modelrevalidation.ChurnRevalidationResult{
+			ProjectID:    m.projectID,
+			ModelVersion: m.modelVersion,
+			Accuracy:     accuracy,
+			SampleSize:   total,
+		})
+	}
+	return results, nil
 }

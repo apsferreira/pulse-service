@@ -1,6 +1,8 @@
--- Migration 043: Tipos de webhook (slack/datadog/custom) e colunas de histórico de entregas.
+-- Migration 044: Tipos de webhook (slack/datadog/custom) e colunas de histórico de entregas.
 -- Estende BKL-1078 (migration 033) para suportar formatação específica por destino
 -- e métricas de latência no log de deliveries.
+-- Nota: o número 043 está reservado a um placeholder (ver 043_renumbered_to_044.sql);
+-- esta migration foi originalmente rascunhada como "043" e renumerada para 044.
 
 -- Tipo de webhook — controla formatação do payload no dispatch
 ALTER TABLE webhooks

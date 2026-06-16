@@ -1,0 +1,20 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  disable-all: true
+  enable:
+    - govet
+
+formatters:
+  enable:
+    - gofmt
+
+issues:
+  exclude-dirs:
+    - vendor
+    - sdk
+    - frontend

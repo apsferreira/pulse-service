@@ -56,7 +56,7 @@ jobs:
 
       - name: Download dependencies
         env:
-          GOTOOLCHAIN: auto
+          GOTOOLCHAIN: local
           GOFLAGS: -mod=mod
         run: go mod download
 
@@ -73,7 +73,7 @@ jobs:
           DATABASE_URL: postgres://postgres:***@localhost:5432/pulse_test?sslmode=disable
           REDIS_URL: redis://localhost:***@v4
           SERVICE_TOKEN: test-token
-          GOTOOLCHAIN: auto
+          GOTOOLCHAIN: local
           GOFLAGS: -mod=mod
         run: |
           go test $(go list ./... | grep -v '/vendor/\|/sdk/') -coverprofile=coverage.out -covermode=set
@@ -105,7 +105,7 @@ jobs:
 
       - name: Download dependencies
         env:
-          GOTOOLCHAIN: auto
+          GOTOOLCHAIN: local
           GOFLAGS: -mod=mod
         run: go mod download
 

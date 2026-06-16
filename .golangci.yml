@@ -11,3 +11,4 @@ linters:
     generated: lax
     paths:
       - docs/swagger/
+      - frontend/node_modules/

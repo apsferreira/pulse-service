@@ -51,12 +51,11 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.24"
+          go-version: "1.25"
           cache: false
 
       - name: Download dependencies
         env:
-          GOTOOLCHAIN: local
           GOFLAGS: -mod=mod
         run: go mod download
 
@@ -73,7 +72,6 @@ jobs:
           DATABASE_URL: postgres://postgres:***@localhost:5432/pulse_test?sslmode=disable
           REDIS_URL: redis://localhost:***@v4
           SERVICE_TOKEN: test-token
-          GOTOOLCHAIN: local
           GOFLAGS: -mod=mod
         run: |
           go test $(go list ./... | grep -v '/vendor/\|/sdk/') -coverprofile=coverage.out -covermode=set
@@ -100,12 +98,11 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.24"
+          go-version: "1.25"
           cache: false
 
       - name: Download dependencies
         env:
-          GOTOOLCHAIN: local
           GOFLAGS: -mod=mod
         run: go mod download
 

@@ -9,7 +9,15 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
+	"github.com/valyala/fasthttp"
 )
+
+// testFiberCtx cria um *fiber.Ctx funcional para testes unitários que precisam
+// de um context.Context (ex: h.db.QueryRow(c.Context(), ...)).
+func testFiberCtx() *fiber.Ctx {
+	app := fiber.New()
+	return app.AcquireCtx(&fasthttp.RequestCtx{})
+}
 
 // ─── mock pgx.Row ─────────────────────────────────────────────────────────
 
@@ -86,8 +94,8 @@ func TestBrioResolutionRate_DenominadorFiltraCorretamente(t *testing.T) {
 	}
 
 	db := &mockSequentialDB{vals: allVals}
-	h := &NorthStarHandler{db: db}
-	cur, prev, spark := h.brioResolutionRate(nil, now)
+	h := &NorthStarHandler{db: db, serviceToken: ""}
+	cur, prev, spark := h.brioResolutionRate(testFiberCtx(), now)
 
 	// Verifica current
 	if cur != expected[0] {
@@ -101,8 +109,9 @@ func TestBrioResolutionRate_DenominadorFiltraCorretamente(t *testing.T) {
 
 	// Verifica sparkline
 	for i, v := range spark {
-		if v != expected[i] {
-			t.Errorf("sparkline[%d]: esperado %d, recebido %d", i, expected[i], v)
+		// sparkline[0] corresponde a expected[2] (primeiro período após current+prev)
+		if v != expected[i+2] {
+			t.Errorf("sparkline[%d]: esperado %d, recebido %d", i, expected[i+2], v)
 		}
 	}
 }
@@ -124,8 +133,8 @@ func TestBrioResolutionRate_EventosMistos_SoConversasContam(t *testing.T) {
 		},
 	}
 
-	h := &NorthStarHandler{db: db}
-	cur, _, _ := h.brioResolutionRate(nil, now)
+	h := &NorthStarHandler{db: db, serviceToken: ""}
+	cur, _, _ := h.brioResolutionRate(testFiberCtx(), now)
 
 	// Se o denominador contasse page_views (ex: 103), cur seria (2*100)/103 = 1
 	// Com denominador correto (3), cur = (2*100)/3 = 66
@@ -142,8 +151,8 @@ func TestBrioResolutionRate_ZeroConversas_NaoPanic(t *testing.T) {
 		vals: make([]int64, 20), // todos zeros
 	}
 
-	h := &NorthStarHandler{db: db}
-	cur, prev, spark := h.brioResolutionRate(nil, now)
+	h := &NorthStarHandler{db: db, serviceToken: ""}
+	cur, prev, spark := h.brioResolutionRate(testFiberCtx(), now)
 
 	if cur != 0 {
 		t.Errorf("current com zero eventos: esperado 0, recebido %d", cur)
@@ -164,12 +173,14 @@ func TestBrioResolutionRate_EndpointHTTP_Retorna200(t *testing.T) {
 	db := &mockSequentialDB{
 		vals: make([]int64, 20),
 	}
-	h := &NorthStarHandler{db: db}
+	h := &NorthStarHandler{db: db, serviceToken: "test-token"}
 
+	// Usa RegisterRoutes para testar via HTTP
 	app := fiber.New()
-	app.Get("/api/v1/north-star", h.Get)
+	h.RegisterRoutes(app)
 
 	req := httptest.NewRequest("GET", "/api/v1/north-star", nil)
+	req.Header.Set("X-Service-Token", "test-token")
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("erro ao chamar endpoint: %v", err)

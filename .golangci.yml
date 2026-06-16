@@ -2,16 +2,14 @@ version: "2"
 
 run:
   timeout: 5m
-  tests: true
 
 linters:
-  disable-all: true
+  default: none
   enable:
     - govet
 
 formatters:
-  enable:
-    - gofmt
+  default: none
 
 issues:
   exclude-dirs:

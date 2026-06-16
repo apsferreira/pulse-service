@@ -1,7 +1,9 @@
 package handler
 
 // BKL-769: North Star Metrics por produto IIT — dados reais da tabela events.
-// Endpoint público (sem service token) consumido pelo frontend Pulse diretamente.
+//
+// STD-013: Protegido com ServiceTokenMiddleware — métricas de negócio dos 6
+// produtos IIT (DAU, churn, conversão) não devem ser públicas.
 //
 // Endpoints:
 //   GET /api/v1/north-star   — retorna métricas de conversão dos 6 produtos IIT
@@ -15,6 +17,8 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/institutoitinerante/pulse-service/internal/middleware"
 )
 
 // dbPool é a dependência mínima de banco para o NorthStarHandler.
@@ -25,15 +29,17 @@ type dbPool interface {
 
 // NorthStarHandler retorna métricas de conversão reais por produto IIT.
 type NorthStarHandler struct {
-	db dbPool
+	db           dbPool
+	serviceToken string
 }
 
-func NewNorthStarHandler(db *pgxpool.Pool) *NorthStarHandler {
-	return &NorthStarHandler{db: db}
+func NewNorthStarHandler(db *pgxpool.Pool, serviceToken string) *NorthStarHandler {
+	return &NorthStarHandler{db: db, serviceToken: serviceToken}
 }
 
 func (h *NorthStarHandler) RegisterRoutes(app *fiber.App) {
-	app.Get("/api/v1/north-star", h.Get)
+	api := app.Group("/api/v1", middleware.ServiceTokenMiddleware(h.serviceToken))
+	api.Get("/north-star", h.Get)
 }
 
 // NorthStarMetric representa a métrica principal de um produto com série histórica (8 semanas).

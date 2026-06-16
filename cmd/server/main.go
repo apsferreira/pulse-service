@@ -309,8 +309,8 @@ func main() {
 	adminDashboardHandler := handler.NewAdminDashboardHandler(pool, cfg.ServiceToken)
 	adminDashboardHandler.RegisterRoutes(app)
 
-	// BKL-769: North Star Metrics — dados reais por produto IIT (sem service token, dados agregados)
-	northStarHandler := handler.NewNorthStarHandler(pool)
+	// STD-013: North Star Metrics — protegido com ServiceTokenMiddleware
+	northStarHandler := handler.NewNorthStarHandler(pool, cfg.ServiceToken)
 	northStarHandler.RegisterRoutes(app)
 
 	// BKL-420: Session Replay — ingest + playback endpoints

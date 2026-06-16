@@ -7,9 +7,3 @@ linters:
   default: none
   enable:
     - govet
-
-issues:
-  exclude-paths:
-    - vendor
-    - sdk
-    - frontend

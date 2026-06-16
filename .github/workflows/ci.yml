@@ -120,7 +120,7 @@ jobs:
         uses: golangci/golangci-lint-action@v7
         with:
           version: v2.12.2
-          args: --timeout=5m --exclude-generated
+          args: --timeout=5m
 
       - name: Run govulncheck
         env:

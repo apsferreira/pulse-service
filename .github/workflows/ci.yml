@@ -76,7 +76,7 @@ jobs:
           GOTOOLCHAIN: auto
           GOFLAGS: -mod=mod
         run: |
-          PKGS=$(grep -rl "_test.go" --include="*.go" . | grep -v "^./sdk" | xargs -I{} dirname {} | sort -u | tr '\n' ' ')
+          PKGS=$(grep -rl "_test.go" --include="*.go" . | grep -v "^./vendor\|^./sdk" | xargs -I{} dirname {} | sort -u | tr '\n' ' ')
           go test $PKGS -coverprofile=coverage.out -covermode=set
 
       - name: Coverage gate (>= 40%)

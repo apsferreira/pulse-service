@@ -118,6 +118,9 @@ jobs:
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v7
+        env:
+          GOFLAGS: -mod=mod
+          GOPROXY: "https://goproxy.io,direct"
         with:
           version: v2.12.2
           args: --timeout=5m

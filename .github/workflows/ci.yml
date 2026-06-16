@@ -135,7 +135,7 @@ jobs:
 
       - name: Run TruffleHog
         run: |
-          docker run --rm -v ${{ github.workspace }}:/workspace aquasec/trufflehog:latest filesystem --no-verification /workspace
+          docker run --rm -v ${{ github.workspace }}:/workspace trufflesecurity/trufflehog:latest filesystem --no-verification /workspace
 
   # ── Build backend ───────────────────────────────────────────────────────────
   build-and-push:

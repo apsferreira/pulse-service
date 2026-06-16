@@ -2,12 +2,14 @@ version: "2"
 
 run:
   timeout: 5m
-  exclude-dirs:
-    - vendor
-    - sdk
-    - frontend
 
 linters:
   default: none
   enable:
     - govet
+
+issues:
+  exclude-paths:
+    - vendor
+    - sdk
+    - frontend

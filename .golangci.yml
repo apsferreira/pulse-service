@@ -7,12 +7,8 @@ linters:
   default: none
   enable:
     - govet
-
-formatters:
-  default: none
-
-issues:
-  exclude-dirs:
-    - vendor
-    - sdk
-    - frontend
+  exclusions:
+    generated: lax
+    paths:
+      - docs/swagger/
+      - frontend/node_modules/

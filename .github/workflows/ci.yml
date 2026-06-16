@@ -57,6 +57,7 @@ jobs:
       - name: Download dependencies
         env:
           GOFLAGS: -mod=mod
+          GOPROXY: "https://goproxy.io,direct"
         run: go mod download
 
       - name: Apply migrations
@@ -104,6 +105,7 @@ jobs:
       - name: Download dependencies
         env:
           GOFLAGS: -mod=mod
+          GOPROXY: "https://goproxy.io,direct"
         run: go mod download
 
       - name: Run gosec

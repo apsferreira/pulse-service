@@ -112,6 +112,7 @@ jobs:
       - name: Run gosec
         env:
           GOFLAGS: -mod=mod
+          GOPROXY: "https://goproxy.io,direct"
         run: |
           go install github.com/securego/gosec/v2/cmd/gosec@latest
           gosec -exclude=G404,G118 -exclude-generated -severity medium -confidence medium ./...
@@ -127,6 +128,7 @@ jobs:
       - name: Run govulncheck
         env:
           GOFLAGS: -mod=mod
+          GOPROXY: "https://goproxy.io,direct"
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
           govulncheck ./...

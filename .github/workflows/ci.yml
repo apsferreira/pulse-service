@@ -110,7 +110,7 @@ jobs:
           gosec -exclude=G404,G118 -exclude-generated -severity medium -confidence medium ./...
 
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v7
+        uses: golangci/golangci-lint-action@v9
         with:
           version: v2.12.2
           args: --timeout=5m

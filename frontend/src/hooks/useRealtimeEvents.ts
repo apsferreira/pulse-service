@@ -2,7 +2,7 @@ import { useEffect, useRef, useCallback } from 'react'
 import { readEnv } from '../env'
 
 const API_BASE_URL = readEnv('VITE_API_URL')
-const SERVICE_TOKEN=readEn...)
+const SERVICE_TOKEN = readEnv('VITE_SERVICE_TOKEN')
 
 export interface RealtimeEvent {
   type: string

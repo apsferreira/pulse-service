@@ -5,7 +5,7 @@
 //	client := pulse.New("https://seu-pulse.exemplo.com", "service-token")
 //	enabled := client.IsEnabled(ctx, "minha-flag", true)
 //	variant := client.GetVariant(ctx, "pricing-test", "control", pulse.WithUser("user-123"))
-//	client.Track("page.viewed", pulse.Props{"page": "/home"})
+//	client.Track(ctx, "page.viewed", "meu-produto", userID, pulse.Props{"page": "/home"})
 package pulse
 
 import (
@@ -159,10 +159,23 @@ func (c *Client) GetVariant(ctx context.Context, flagKey, defaultValue string, o
 
 // Track envia um evento de tracking para o Pulse (fire-and-forget).
 // Erros são silenciados — não bloqueia o caller.
-func (c *Client) Track(eventName string, props Props) {
+//
+// product é obrigatório: identifica qual produto do ecossistema IIT originou
+// o evento. O pulse-service usa esse campo para segmentar eventos por
+// produto — se vier vazio, o EventService normaliza para "product=default",
+// misturando a telemetria de origens diferentes. Antes de 2026-09-11 esta
+// função não enviava product nem user_id de forma alguma (só event_name e
+// properties), o que levou 13 serviços do ecossistema a escreverem cliente
+// HTTP próprio em vez de importar este SDK — ver ADR correspondente.
+//
+// userID pode ser vazio quando o evento não está associado a um usuário
+// autenticado (ex.: evento anônimo, ainda não identificado).
+func (c *Client) Track(ctx context.Context, eventName, product, userID string, props Props) {
 	go func() {
 		payload := map[string]interface{}{
 			"event_name": eventName,
+			"product":    product,
+			"user_id":    userID,
 			"properties": props,
 		}
 		body, _ := json.Marshal(payload)
@@ -181,16 +194,20 @@ func (c *Client) Track(eventName string, props Props) {
 	}()
 }
 
-// Identify associa um ID anônimo a um user ID real.
-func (c *Client) Identify(anonymousID, userID string) {
+// Identify associa um ID anônimo a um user ID real, marcado com o produto de
+// origem (ver IdentifyRequest.Product no pulse-service).
+func (c *Client) Identify(product, anonymousID, userID string) {
 	go func() {
-		payload := map[string]string{"anonymous_id": anonymousID, "user_id": userID}
+		payload := map[string]string{"product": product, "anonymous_id": anonymousID, "user_id": userID}
 		body, _ := json.Marshal(payload)
 		req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, c.baseURL+"/api/v1/events/identify", bytes.NewReader(body))
 		if err != nil {
 			return
 		}
 		req.Header.Set("Content-Type", "application/json")
+		if c.token != "" {
+			req.Header.Set("X-Service-Token", c.token)
+		}
 		resp, err := c.httpClient.Do(req)
 		if err == nil {
 			resp.Body.Close()

@@ -59,6 +59,38 @@ func ServiceTokenMiddleware(serviceToken string) fiber.Handler {
 	}
 }
 
+// NewServiceOrJWTAuthenticator retorna uma função que autentica um token
+// usando a MESMA regra do ServiceTokenMiddleware (REST): comparação em tempo
+// constante contra o serviceToken OU JWT HS256 válido com iss/aud/exp.
+//
+// Usado por canais que não conseguem enviar o token via header — ex: o
+// handshake de WebSocket do browser, que não suporta headers customizados.
+// Existe para que o WS reforce o MESMO nível de autorização da API REST
+// equivalente, em vez de aceitar apenas o token mestre de serviço.
+func NewServiceOrJWTAuthenticator(serviceToken string) func(token string) bool {
+	jwtSecret := os.Getenv("PULSE_JWT_SECRET")
+	if jwtSecret == "" {
+		jwtSecret = os.Getenv("JWT_SECRET")
+	}
+
+	expectedIssuers := parseCSV(getEnvDefault("PULSE_JWT_EXPECTED_ISSUER", defaultExpectedIssuers))
+	expectedAudience := getEnvDefault("PULSE_JWT_EXPECTED_AUDIENCE", defaultExpectedAudience)
+
+	return func(token string) bool {
+		if token == "" {
+			return false
+		}
+		// BKL-334: comparação em tempo constante
+		if serviceToken != "" && subtle.ConstantTimeCompare([]byte(token), []byte(serviceToken)) == 1 {
+			return true
+		}
+		if jwtSecret != "" && validateJWT(token, jwtSecret, expectedIssuers, expectedAudience) {
+			return true
+		}
+		return false
+	}
+}
+
 // validateJWT verifica um JWT HS256 sem dependencias externas.
 // Issue #62: além de assinatura e expiração, valida iss (issuer) e aud (audience)
 // para impedir que tokens emitidos para outros serviços IIT autentiquem aqui.

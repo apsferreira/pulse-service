@@ -58,6 +58,8 @@ spec:
               value: "production"
             - name: AUTH_SERVICE_URL
               value: "https://auth.institutoitinerante.com.br"
+            - name: PULSE_DASHBOARD_ORIGINS
+              value: "https://pulse.institutoitinerante.com.br"
           resources:
             requests:
               cpu: "100m"

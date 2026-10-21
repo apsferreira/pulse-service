@@ -132,7 +132,7 @@ func main() {
 	healthScoreHandler := handler.NewHealthScoreHandler(healthScoreSvc, cfg.ServiceToken)
 
 	// BKL-150: WebSocket handler
-	wsHandler := handler.NewWSHandler(wsHub, cfg.ServiceToken)
+	wsHandler := handler.NewWSHandler(wsHub, cfg.ServiceToken, cfg.DashboardOrigins)
 
 	// Create Fiber app
 	app := fiber.New(fiber.Config{

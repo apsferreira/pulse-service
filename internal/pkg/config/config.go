@@ -17,6 +17,14 @@ type Config struct {
 	// Default "*" mantido pois o SDK Pulse é embeddable em qualquer domínio de cliente.
 	// Adicionar Vary: Origin é obrigatório quando o valor não for literal "*".
 	AllowedOrigins string
+	// DashboardOrigins lista as origens permitidas no handshake WebSocket do
+	// dashboard admin (/api/v1/ws). Diferente de AllowedOrigins — que é "*" de
+	// propósito porque o SDK Pulse precisa ser embeddable em qualquer domínio
+	// de cliente — o WS carrega o token de autenticação do dashboard e deve
+	// ser restrito ao(s) domínio(s) do próprio dashboard.
+	// CSV via PULSE_DASHBOARD_ORIGINS. Vazio = sem restrição (equivalente ao
+	// comportamento anterior à correção) — configure em produção.
+	DashboardOrigins string
 	// BillingURL é a URL exibida no HTTP 429 quando a quota mensal é atingida.
 	// Vazio = omite o campo (adequado para self-hosted sem portal de billing).
 	BillingURL string
@@ -52,6 +60,7 @@ func Load() *Config {
 		Port:                       getEnv("PORT", "3050"),
 		LogLevel:                   getEnv("LOG_LEVEL", "info"),
 		AllowedOrigins:             getEnv("PULSE_ALLOWED_ORIGINS", "*"),
+		DashboardOrigins:           getEnv("PULSE_DASHBOARD_ORIGINS", ""),
 		BillingURL:                 getEnv("PULSE_BILLING_URL", ""),
 		AuthMode:                   getEnv("PULSE_AUTH_MODE", "external"),
 		JWTSecret:                  getEnv("PULSE_JWT_SECRET", ""),

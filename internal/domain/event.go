@@ -11,7 +11,7 @@ type Event struct {
 	Properties  map[string]interface{} `json:"properties" db:"properties"`
 	IPAddress   *string                `json:"ip_address,omitempty" db:"ip_address"`
 	UserAgent   *string                `json:"user_agent,omitempty" db:"user_agent"`
-	Environment string                 `json:"environment" db:"environment"`  // BKL-750: production|staging|development
+	Environment string                 `json:"environment" db:"environment"`         // BKL-750: production|staging|development
 	ProjectID   *string                `json:"project_id,omitempty" db:"project_id"` // BKL-1038: isolamento multi-tenant
 	CreatedAt   time.Time              `json:"created_at" db:"created_at"`
 }
@@ -23,7 +23,7 @@ type IngestEventRequest struct {
 	SessionID   *string                `json:"session_id,omitempty"`
 	Properties  map[string]interface{} `json:"properties,omitempty"`
 	Environment string                 `json:"environment,omitempty"` // BKL-750: production|staging|development; default: production
-	ProjectID   *string                `json:"project_id,omitempty"` // BKL-1038
+	ProjectID   *string                `json:"project_id,omitempty"`  // BKL-1038
 }
 
 type EventSummaryItem struct {
@@ -44,6 +44,12 @@ type TrackEventRequest struct {
 	UserID      *string                `json:"user_id,omitempty"`
 	AnonymousID *string                `json:"anonymous_id,omitempty"`
 	Properties  map[string]interface{} `json:"properties,omitempty"`
+	// ProjectID é o UUID estável do projeto/tenant dono do evento (BKL-1038).
+	// Opcional por retrocompatibilidade — clientes que não enviam ProjectID
+	// continuam funcionando como antes (event.ProjectID fica nil). Sem ele, o
+	// evento não pode ser consultado via POST /api/v1/projects/:id/query (filtra
+	// por project_id = $1::uuid) nem isolado no canal de broadcast (BKL-1038).
+	ProjectID *string `json:"project_id,omitempty"`
 }
 
 // IdentifyRequest vincula um anonymous_id a um user_id real.
@@ -107,9 +113,9 @@ type RetentionResponse struct {
 
 // CohortBucket represents retention for a cohort in a given period offset.
 type CohortBucket struct {
-	Period        int     `json:"period"`
-	ActiveUsers   int     `json:"active_users"`
-	RetentionPct  float64 `json:"retention_pct"`
+	Period       int     `json:"period"`
+	ActiveUsers  int     `json:"active_users"`
+	RetentionPct float64 `json:"retention_pct"`
 }
 
 // CohortItem represents a signup cohort and its retention over time.
@@ -121,9 +127,9 @@ type CohortItem struct {
 
 // CohortsResponse is the response for GET /api/v1/metrics/cohorts.
 type CohortsResponse struct {
-	Product    string       `json:"product"`
-	Granularity string     `json:"granularity"`
-	Cohorts    []CohortItem `json:"cohorts"`
+	Product     string       `json:"product"`
+	Granularity string       `json:"granularity"`
+	Cohorts     []CohortItem `json:"cohorts"`
 }
 
 // ActiveUsersCountItem represents a single period count.

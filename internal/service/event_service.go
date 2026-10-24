@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/institutoitinerante/pulse-service/internal/domain"
 	"github.com/institutoitinerante/pulse-service/internal/pkg/privacy"
 	"github.com/institutoitinerante/pulse-service/internal/pkg/products"
@@ -46,7 +48,7 @@ func (s *EventService) Ingest(ctx context.Context, req domain.IngestEventRequest
 		UserID:      req.UserID,
 		SessionID:   req.SessionID,
 		Properties:  props,
-		Environment: env,      // BKL-750
+		Environment: env,           // BKL-750
 		ProjectID:   req.ProjectID, // BKL-1038
 	}
 	if anon := privacy.AnonymizeIP(ipAddress); anon != "" {
@@ -90,6 +92,16 @@ func (s *EventService) Track(ctx context.Context, req domain.TrackEventRequest, 
 		return nil, fmt.Errorf("event_name is required")
 	}
 
+	// ProjectID (BKL-1038) é opcional, mas quando enviado precisa ser um UUID
+	// válido — é usado tanto para isolar o canal de broadcast quanto como
+	// project_id::uuid em POST /api/v1/projects/:id/query. Um valor malformado
+	// aceito aqui só quebraria silenciosamente na hora da consulta.
+	if req.ProjectID != nil && *req.ProjectID != "" {
+		if _, err := uuid.Parse(*req.ProjectID); err != nil {
+			return nil, fmt.Errorf("project_id inválido: deve ser um UUID")
+		}
+	}
+
 	props := req.Properties
 	if props == nil {
 		props = make(map[string]interface{})
@@ -113,6 +125,7 @@ func (s *EventService) Track(ctx context.Context, req domain.TrackEventRequest, 
 		EventType:  req.EventName,
 		UserID:     userID,
 		Properties: props,
+		ProjectID:  req.ProjectID,
 	}
 	if anon := privacy.AnonymizeIP(ipAddress); anon != "" {
 		event.IPAddress = &anon

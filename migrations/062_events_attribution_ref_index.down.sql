@@ -1,0 +1,1 @@
+DROP INDEX CONCURRENTLY IF EXISTS idx_events_properties_attribution_ref;

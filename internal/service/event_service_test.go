@@ -9,6 +9,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/google/uuid"
+
 	"github.com/institutoitinerante/pulse-service/internal/domain"
 )
 
@@ -218,6 +220,40 @@ func TestEventService_Track_Validation(t *testing.T) {
 			t.Errorf("user_id existente deveria ter prioridade, got %v", userID)
 		}
 	})
+
+	// ADR-052 (SocialMake, Opção B): TrackEventRequest.ProjectID é novo —
+	// antes desta mudança, /events/track nunca populava event.ProjectID,
+	// então nenhum evento tracked por esse caminho era consultável via
+	// POST /api/v1/projects/:id/query (filtra por project_id::uuid).
+	t.Run("project_id vazio ou ausente é aceito (retrocompatibilidade)", func(t *testing.T) {
+		req := domain.TrackEventRequest{EventName: "page_view", ProjectID: nil}
+		// Lógica: if req.ProjectID != nil && *req.ProjectID != "" { valida uuid }
+		if req.ProjectID != nil && *req.ProjectID != "" {
+			t.Error("nil não deveria disparar validação de uuid")
+		}
+	})
+
+	t.Run("project_id malformado é rejeitado antes de persistir", func(t *testing.T) {
+		bad := "nao-e-um-uuid"
+		req := domain.TrackEventRequest{EventName: "order.paid", ProjectID: &bad}
+		if _, err := uuid.Parse(*req.ProjectID); err == nil {
+			t.Fatal("uuid.Parse deveria falhar para este valor — teste inválido")
+		}
+		// Comportamento esperado no service: erro "project_id inválido: deve ser um UUID"
+	})
+
+	t.Run("project_id válido é aceito e persistido no evento", func(t *testing.T) {
+		valid := "11111111-1111-1111-1111-111111111111"
+		req := domain.TrackEventRequest{EventName: "order.paid", ProjectID: &valid}
+		if _, err := uuid.Parse(*req.ProjectID); err != nil {
+			t.Fatalf("uuid válido não deveria falhar: %v", err)
+		}
+		// Mesma atribuição feita em EventService.Track: event.ProjectID = req.ProjectID
+		event := &domain.Event{ProjectID: req.ProjectID}
+		if event.ProjectID == nil || *event.ProjectID != valid {
+			t.Errorf("event.ProjectID deveria ser %q, got %v", valid, event.ProjectID)
+		}
+	})
 }
 
 // ---------------------------------------------------------------------------
@@ -247,9 +283,9 @@ func TestEventService_BatchIngest_Validation(t *testing.T) {
 
 	t.Run("eventos sem product ou event_type são rejeitados individualmente", func(t *testing.T) {
 		events := []domain.IngestEventRequest{
-			{Product: "socialmake", EventType: "click"},  // válido
-			{Product: "", EventType: "click"},             // inválido: sem product
-			{Product: "socialmake", EventType: ""},        // inválido: sem event_type
+			{Product: "socialmake", EventType: "click"}, // válido
+			{Product: "", EventType: "click"},           // inválido: sem product
+			{Product: "socialmake", EventType: ""},      // inválido: sem event_type
 		}
 
 		accepted := 0

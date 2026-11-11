@@ -183,6 +183,19 @@ func main() {
 	// Swagger UI — sem autenticação (documentação pública da API)
 	app.Get("/swagger/*", fiberSwagger.WrapHandler)
 
+	// BKL-150 / fix(security) WS-ordering: registrar as rotas do WebSocket ANTES de qualquer
+	// handler que faça app.Group("/api/v1", middleware.ServiceTokenMiddleware(...)) sem subpath
+	// próprio (cost_handler, event_schema_handler, flag_approval_handler, flag_metric_handler,
+	// insight_handler, north_star_handler, project_insight_handler). Esses handlers registram um
+	// middleware "/api/v1" genérico (app.Group com handlers = app.Use no Fiber) que casa com
+	// QUALQUER rota sob esse prefixo — incluindo /api/v1/ws — e exige header (X-Service-Token ou
+	// Authorization: Bearer), que o browser não pode enviar no handshake WS (token viaja só via
+	// query string). Registrado depois deles, o /api/v1/ws nunca chegava na autenticação nova
+	// (NewServiceOrJWTAuthenticator) — toda conexão, mesmo com token válido, caía no 401 genérico
+	// da REST. Registrando aqui (rota específica, correspondida antes do Use genérico no stack do
+	// Fiber) o handshake chega corretamente no handler do WS.
+	wsHandler.RegisterRoutes(app)
+
 	// Register feature flag routes
 	flagHandler.RegisterRoutes(app)
 
@@ -316,9 +329,6 @@ func main() {
 	// BKL-420: Session Replay — ingest + playback endpoints
 	replayHandler := handler.NewReplayHandler(pool, cfg.ServiceToken)
 	replayHandler.RegisterRoutes(app)
-
-	// BKL-150: Register WebSocket routes
-	wsHandler.RegisterRoutes(app)
 
 	// BKL-344: Servir arquivos estáticos do widget CSAT embeddable.
 	// Qualquer site pode embedar com: <script src=".../static/csat/widget.js" data-survey-id="..."></script>

@@ -89,7 +89,7 @@ jobs:
   lint:
     name: Lint
     runs-on: iit-pulse
-    timeout-minutes: 10
+    timeout-minutes: 25
 
     steps:
       - name: Checkout
@@ -130,7 +130,7 @@ jobs:
     runs-on: iit-pulse
     needs: [test, lint]
     if: github.ref == 'refs/heads/main'
-    timeout-minutes: 10
+    timeout-minutes: 15
     permissions:
       contents: read
       packages: write
@@ -182,7 +182,7 @@ jobs:
     runs-on: iit-pulse
     needs: [test, lint]
     if: github.ref == 'refs/heads/main'
-    timeout-minutes: 10
+    timeout-minutes: 15
     permissions:
       contents: read
       packages: write

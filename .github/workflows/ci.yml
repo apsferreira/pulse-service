@@ -93,7 +93,10 @@ jobs:
   lint:
     name: Lint
     runs-on: iit-pulse
-    timeout-minutes: 25
+    # GOPROXY=direct baixa toda a árvore de dependências do gosec/govulncheck
+    # a frio (sem proxy cache, cache:false no setup-go) — em runs reais isso já
+    # passou de 25min e foi cancelado pelo timeout antes de completar.
+    timeout-minutes: 45
 
     steps:
       - name: Checkout

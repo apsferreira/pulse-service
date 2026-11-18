@@ -11,7 +11,11 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: apsferreira/pulse-service
   GOFLAGS: -mod=mod
-  GOPROXY: "https://goproxy.io,https://proxy.golang.org,off"
+  # goproxy.io retorna 400 (não 404/410) pra alguns módulos — isso interrompe
+  # a cadeia de fallback do Go sem tentar o próximo proxy. proxy.golang.org é
+  # inalcançável via IPv6 no runner self-hosted. Solução: GOPROXY=direct (busca
+  # direto nos hosts VCS) + GONOSUMDB=* (evita sum.golang.org, mesmo problema de IPv6).
+  GOPROXY: "direct"
   GONOSUMDB: "*"
 
 jobs:

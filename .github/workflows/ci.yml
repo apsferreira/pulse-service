@@ -62,7 +62,15 @@ jobs:
           cache: false
 
       - name: Download dependencies
-        run: go mod download
+        # GOPROXY=direct expõe a build a blips transitórios de hosts
+        # individuais (ex: 502 do gopkg.in) — retry absorve isso.
+        run: |
+          for i in 1 2 3; do
+            go mod download && exit 0
+            echo "go mod download falhou (tentativa $i/3), retry em 10s..."
+            sleep 10
+          done
+          exit 1
 
       - name: Apply migrations
         run: |
@@ -109,11 +117,24 @@ jobs:
           cache: false
 
       - name: Download dependencies
-        run: go mod download
+        # GOPROXY=direct expõe a build a blips transitórios de hosts
+        # individuais (ex: 502 do gopkg.in) — retry absorve isso.
+        run: |
+          for i in 1 2 3; do
+            go mod download && exit 0
+            echo "go mod download falhou (tentativa $i/3), retry em 10s..."
+            sleep 10
+          done
+          exit 1
 
       - name: Run gosec
         run: |
-          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          for i in 1 2 3; do
+            go install github.com/securego/gosec/v2/cmd/gosec@latest && break
+            echo "go install gosec falhou (tentativa $i/3), retry em 10s..."
+            sleep 10
+            [ "$i" = 3 ] && exit 1
+          done
           gosec -exclude=G404,G118 -exclude-generated -severity medium -confidence medium ./...
 
       - name: Run golangci-lint
@@ -124,7 +145,12 @@ jobs:
 
       - name: Run govulncheck
         run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
+          for i in 1 2 3; do
+            go install golang.org/x/vuln/cmd/govulncheck@latest && break
+            echo "go install govulncheck falhou (tentativa $i/3), retry em 10s..."
+            sleep 10
+            [ "$i" = 3 ] && exit 1
+          done
           govulncheck ./...
 
       - name: Run TruffleHog

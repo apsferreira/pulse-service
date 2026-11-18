@@ -24,7 +24,7 @@ spec:
     spec:
       containers:
         - name: pulse-service
-          image: ghcr.io/apsferreira/pulse-service:sha-b014074
+          image: ghcr.io/apsferreira/pulse-service:sha-1c16485
           imagePullPolicy: Always
           ports:
             - containerPort: 3050

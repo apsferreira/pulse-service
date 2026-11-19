@@ -173,6 +173,12 @@ function XIcon() {
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-gray-950 text-white">
+      {/* ── Aviso de descontinuação ───────────────────────── */}
+      <div className="bg-amber-500 text-black text-sm font-medium text-center px-4 py-3">
+        O Pulse foi descontinuado como produto comercial do Instituto Itinerante de Tecnologia em novembro de 2026
+        e não aceita mais novos cadastros. Esta página permanece no ar apenas como referência histórica.
+      </div>
+
       {/* ── Nav ─────────────────────────────────────────── */}
       <nav className="border-b border-white/10 px-6 py-4 flex items-center justify-between max-w-7xl mx-auto">
         <div className="flex items-center gap-2">

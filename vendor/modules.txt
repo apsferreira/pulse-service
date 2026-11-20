@@ -1,10 +1,6 @@
 # github.com/KyleBanks/depth v1.2.1
 ## explicit
 github.com/KyleBanks/depth
-# github.com/andybalholm/brotli v1.3.0
-## explicit; go 1.22
-github.com/andybalholm/brotli
-github.com/andybalholm/brotli/matchfinder
 # github.com/ansrivas/fiberprometheus/v2 v2.17.0
 ## explicit; go 1.24.0
 github.com/ansrivas/fiberprometheus/v2
@@ -133,6 +129,11 @@ github.com/mattn/go-isatty
 # github.com/mattn/go-runewidth v0.0.16
 ## explicit; go 1.9
 github.com/mattn/go-runewidth
+# github.com/molecule-man/go-brrr v1.3.1
+## explicit; go 1.22.0
+github.com/molecule-man/go-brrr
+github.com/molecule-man/go-brrr/internal/core
+github.com/molecule-man/go-brrr/internal/encoder
 # github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 ## explicit
 github.com/munnerz/goautoneg
@@ -192,8 +193,8 @@ github.com/swaggo/swag
 # github.com/valyala/bytebufferpool v1.0.0
 ## explicit
 github.com/valyala/bytebufferpool
-# github.com/valyala/fasthttp v1.69.0
-## explicit; go 1.24.0
+# github.com/valyala/fasthttp v1.79.0
+## explicit; go 1.26.0
 github.com/valyala/fasthttp
 github.com/valyala/fasthttp/fasthttpadaptor
 github.com/valyala/fasthttp/fasthttputil
@@ -312,7 +313,7 @@ golang.org/x/net/webdav/internal/xml
 ## explicit; go 1.26.0
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.49.0
+# golang.org/x/sys v0.50.0
 ## explicit; go 1.26.0
 golang.org/x/sys/cpu
 golang.org/x/sys/unix
